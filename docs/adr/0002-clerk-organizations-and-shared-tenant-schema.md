@@ -1,0 +1,3 @@
+# Use Clerk organizations with a shared tenant schema
+
+Clerk is the authority for identity, Organization memberships, and Role assignments, while the application owns its authorization policies and Organization business data. Organizations share a PostgreSQL schema with mandatory `organization_id` scoping derived from the verified Active Organization rather than request payloads; centralized scoping and cross-organization tests provide isolation without the operational cost of database-per-tenant designs or PostgreSQL RLS in the initial foundation. Every operation checks identity, Active Organization, active Membership, Organization state, Plan Capability, Role Permission, and resource invariants in that order; frontend checks exist only for user experience.

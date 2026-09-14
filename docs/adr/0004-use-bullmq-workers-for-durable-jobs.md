@@ -1,0 +1,3 @@
+# Use BullMQ workers for durable jobs
+
+Durable background work runs in a separate NestJS worker application backed by BullMQ and Redis rather than in web request handlers or a PostgreSQL job queue. This adds a dedicated service but provides workload isolation and a documented NestJS integration; because delivery and operational retries can repeat work, every handler must be idempotent and use bounded retries, backoff, and a dead-letter convention. Redis unavailability degrades queued work without taking read-only API paths offline, while billing, security, and recovery jobs remain eligible even when an Organization is read-only.

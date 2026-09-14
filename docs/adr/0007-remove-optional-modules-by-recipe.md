@@ -1,0 +1,3 @@
+# Remove optional modules by recipe
+
+Optional capabilities are self-contained modules that a project removes from its clone by following a documented recipe, rather than runtime branches controlled by environment variables or product feature flags. The public MIT-licensed GitHub template publishes semantic releases, changelogs, and migration guides but does not automatically update cloned products. This keeps each resulting product understandable and customizable at the cost of not providing a permanently upgradeable universal starter; PostHog flags remain reserved for releasing product behavior.

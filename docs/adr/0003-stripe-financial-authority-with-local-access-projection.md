@@ -1,0 +1,3 @@
+# Keep Stripe authoritative for finance and project access locally
+
+Stripe is the authority for financial state, while the application maintains an idempotent local projection of Subscription state and owns the Plan-to-Capability catalog used for access decisions. This separates payment processing from product authorization, supports low-latency checks, and keeps product capabilities customizable while accepting the need to reconcile delayed, duplicated, or out-of-order webhook events. Upgrades take effect immediately with proration, downgrades and cancellations take effect at period end, and a past-due Subscription moves its Organization to read-only access after a seven-day Grace Period.

@@ -1,0 +1,3 @@
+# Use Neon for PostgreSQL
+
+Neon provides PostgreSQL for every environment, with pooled connections for the NestJS API and worker and a direct connection for the single Prisma migration job. Migrations run once per environment under a concurrency lock using `prisma migrate deploy`, follow expand/contract across releases, and never attempt automatic schema rollback with an application rollback. Development may use the free plan, while the production guide targets Launch with a protected branch, a configurable nearby region, a seven-day restore window, daily snapshots, and an encrypted off-provider logical backup; this accepts vendor-specific branching and recovery operations in exchange for managed pooling and fast isolated database branches.
