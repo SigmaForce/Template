@@ -28,8 +28,8 @@ function StoryEnvironment({
   }, [motion, textScale]);
 
   return (
-    <ThemeProvider forcedTheme={theme === "system" ? undefined : theme}>
-      {children}
+    <ThemeProvider forcedTheme={theme}>
+      <div className="min-h-screen bg-canvas text-foreground">{children}</div>
     </ThemeProvider>
   );
 }

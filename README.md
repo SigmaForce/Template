@@ -77,6 +77,7 @@ by configured value.
 ```sh
 corepack pnpm typecheck
 corepack pnpm test
+corepack pnpm --filter @saas/ui test:storybook
 corepack pnpm dev:infra
 corepack pnpm test:smoke
 corepack pnpm build
@@ -93,4 +94,6 @@ theme customization and the fixed Base UI layer are documented in
 `packages/ui/README.md`.
 
 Run the component catalog with `corepack pnpm storybook` and verify its static
-build with `corepack pnpm storybook:build`.
+build with `corepack pnpm storybook:build`. Forms, overlays and feedback use a
+typed CVA facade over fixed Base UI primitives; their unit and browser story
+tests run as part of `corepack pnpm test`.

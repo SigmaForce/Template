@@ -53,6 +53,7 @@
   --semantic-focus: var(--palette-blue-500);
   --semantic-positive: var(--palette-green-700);
   --semantic-negative: var(--palette-red-700);
+  --semantic-negative-contrast: var(--palette-white);
   --semantic-overlay: var(--palette-overlay-light);
   --semantic-shadow: var(--palette-shadow-light);
 }
@@ -74,6 +75,7 @@
     --semantic-focus: var(--palette-blue-300);
     --semantic-positive: var(--palette-green-300);
     --semantic-negative: var(--palette-red-300);
+    --semantic-negative-contrast: var(--palette-coal-950);
     --semantic-overlay: var(--palette-overlay-dark);
     --semantic-shadow: var(--palette-shadow-dark);
   }
@@ -95,6 +97,7 @@
   --semantic-focus: var(--palette-blue-300);
   --semantic-positive: var(--palette-green-300);
   --semantic-negative: var(--palette-red-300);
+  --semantic-negative-contrast: var(--palette-coal-950);
   --semantic-overlay: var(--palette-overlay-dark);
   --semantic-shadow: var(--palette-shadow-dark);
 }
@@ -114,8 +117,10 @@
   --color-focus: var(--semantic-focus);
   --color-positive: var(--semantic-positive);
   --color-negative: var(--semantic-negative);
+  --color-negative-contrast: var(--semantic-negative-contrast);
   --color-overlay: var(--semantic-overlay);
   --radius-control: 0.75rem;
+  --radius-choice: 0.25rem;
   --radius-mark: 0.7rem;
   --radius-panel: 1.25rem;
   --shadow-mark: 0 0.45rem 1.2rem color-mix(in srgb, var(--semantic-accent) 24%, transparent);
@@ -126,6 +131,8 @@
   *,
   *::before,
   *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
   }
@@ -134,6 +141,8 @@
 [data-motion="reduced"] *,
 [data-motion="reduced"] *::before,
 [data-motion="reduced"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
   scroll-behavior: auto !important;
   transition-duration: 0.01ms !important;
 }
