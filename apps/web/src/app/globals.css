@@ -1,0 +1,118 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light dark;
+  --background: light-dark(#f5f7fb, #0b1020);
+  --foreground: light-dark(#15203b, #f5f7ff);
+  --muted: light-dark(#54617a, #a8b2c7);
+  --surface: light-dark(rgb(255 255 255 / 82%), rgb(19 27 49 / 86%));
+  --border: light-dark(#dce2ee, #2e3a59);
+  --success: #22c55e;
+  --danger: #f87171;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+.page-shell {
+  align-items: center;
+  background:
+    radial-gradient(circle at 20% 15%, rgb(74 144 226 / 18%), transparent 35%),
+    radial-gradient(circle at 80% 85%, rgb(34 197 94 / 14%), transparent 35%);
+  display: flex;
+  min-height: 100vh;
+  padding: clamp(1.5rem, 6vw, 6rem);
+}
+
+.hero {
+  margin-inline: auto;
+  max-width: 68rem;
+  width: 100%;
+}
+
+.eyebrow {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  margin: 0 0 1rem;
+  text-transform: uppercase;
+}
+
+h1 {
+  font-size: clamp(2.7rem, 8vw, 6.5rem);
+  letter-spacing: -0.06em;
+  line-height: 0.95;
+  margin: 0;
+  max-width: 12ch;
+}
+
+.lede {
+  color: var(--muted);
+  font-size: clamp(1rem, 2vw, 1.25rem);
+  line-height: 1.65;
+  margin: 2rem 0 0;
+  max-width: 42rem;
+}
+
+.status-card {
+  align-items: flex-start;
+  backdrop-filter: blur(16px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  box-shadow: 0 1.5rem 5rem rgb(15 23 42 / 12%);
+  display: flex;
+  gap: 1rem;
+  margin-top: 3rem;
+  max-width: 42rem;
+  padding: 1.25rem;
+}
+
+.status-dot {
+  background: var(--danger);
+  border-radius: 999px;
+  box-shadow: 0 0 0 0.35rem color-mix(in srgb, var(--danger) 18%, transparent);
+  flex: 0 0 auto;
+  height: 0.75rem;
+  margin: 0.45rem 0.15rem 0;
+  width: 0.75rem;
+}
+
+.status-card[data-available="true"] .status-dot {
+  background: var(--success);
+  box-shadow: 0 0 0 0.35rem color-mix(in srgb, var(--success) 18%, transparent);
+}
+
+.status-card h2 {
+  font-size: 1.05rem;
+  margin: 0;
+}
+
+.status-card p {
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 0.4rem 0 0;
+}
+
+.service-name {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  display: inline-block;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.75rem;
+  margin-top: 0.75rem;
+  padding: 0.2rem 0.55rem;
+}

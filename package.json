@@ -1,0 +1,28 @@
+{
+  "name": "next-nest-saas-starter",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "node scripts/dev.mjs",
+    "dev:apps": "turbo run dev",
+    "dev:infra": "docker compose up -d",
+    "dev:infra:down": "docker compose down",
+    "env:check": "node scripts/check-environment.mjs",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "test:smoke": "node scripts/smoke.mjs",
+    "test:startup": "node --test tests/startup/*.test.mjs",
+    "typecheck": "turbo run typecheck"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "pnpm": "11.9.0",
+    "turbo": "2.10.13"
+  }
+}
