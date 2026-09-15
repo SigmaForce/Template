@@ -9,20 +9,24 @@
   },
   "scripts": {
     "build": "turbo run build",
+    "contract:check": "pnpm --filter @saas/api build && node scripts/generate-contract.mjs --check",
+    "contract:generate": "pnpm --filter @saas/api build && node scripts/generate-contract.mjs",
     "dev": "node scripts/dev.mjs",
     "dev:apps": "turbo run dev",
     "dev:infra": "docker compose up -d",
     "dev:infra:down": "docker compose down",
     "env:check": "node scripts/check-environment.mjs",
     "lint": "turbo run lint",
-    "test": "turbo run test",
+    "test": "turbo run test && pnpm contract:check",
     "test:smoke": "node scripts/smoke.mjs",
     "test:startup": "node --test tests/startup/*.test.mjs",
     "typecheck": "turbo run typecheck"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",
+    "openapi-typescript": "7.13.0",
     "pnpm": "11.9.0",
-    "turbo": "2.10.13"
+    "turbo": "2.10.13",
+    "typescript": "5.9.3"
   }
 }

@@ -107,7 +107,7 @@ try {
   ];
 
   await Promise.all([
-    waitForService(services[0], `http://127.0.0.1:${apiPort}/health`),
+    waitForService(services[0], `http://127.0.0.1:${apiPort}/v1/health`),
     waitForService(services[1], "http://127.0.0.1:3000"),
     waitForService(services[2], `http://127.0.0.1:${workerPort}/health`),
   ]);

@@ -1,14 +1,19 @@
 import { expect, test } from "@playwright/test";
 
-test("visitor sees that the public application can reach the API", async ({
+test("visitor sees data loaded through the generated API client", async ({
   page,
 }) => {
   await page.goto("/");
 
   await expect(
-    page.getByRole("heading", { name: "API is available" }),
+    page.getByRole("heading", { name: "API contract is available" }),
   ).toBeVisible();
-  await expect(page.getByTestId("api-service")).toHaveText("api");
+  await expect(page.getByTestId("contract-example-name")).toHaveText(
+    "Foundation contract",
+  );
+  await expect(page.getByTestId("contract-example-price")).toHaveText(
+    "BRL 49.00",
+  );
 });
 
 test("operator can observe the independent worker process", async ({

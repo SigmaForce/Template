@@ -1,0 +1,310 @@
+{
+  "components": {
+    "schemas": {
+      "ContractExampleDto": {
+        "properties": {
+          "businessDate": {
+            "example": "2026-01-15",
+            "format": "date",
+            "type": "string"
+          },
+          "createdAt": {
+            "example": "2026-01-15T14:30:00.000Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "description": "Opaque public UUIDv7 identifier.",
+            "example": "018f0c4a-7b5d-7cc4-b3e1-5a6f8d9c1001",
+            "format": "uuid",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "type": "string"
+          },
+          "localBusinessTime": {
+            "$ref": "#/components/schemas/LocalBusinessTimeDto"
+          },
+          "name": {
+            "example": "Foundation contract",
+            "type": "string"
+          },
+          "price": {
+            "$ref": "#/components/schemas/MoneyDto"
+          },
+          "retiredAt": {
+            "description": "Explicit null means the resource has not been retired.",
+            "example": null,
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "summary": {
+            "description": "An absent property means no summary was supplied.",
+            "example": "Generated from the public OpenAPI document.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "createdAt",
+          "businessDate",
+          "localBusinessTime",
+          "price",
+          "retiredAt"
+        ],
+        "type": "object"
+      },
+      "ContractExamplePageDto": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ContractExampleDto"
+            },
+            "type": "array"
+          },
+          "pageInfo": {
+            "$ref": "#/components/schemas/PageInfoDto"
+          }
+        },
+        "required": [
+          "items",
+          "pageInfo"
+        ],
+        "type": "object"
+      },
+      "LocalBusinessTimeDto": {
+        "properties": {
+          "localTime": {
+            "example": "09:30:00",
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d$",
+            "type": "string"
+          },
+          "timeZone": {
+            "example": "America/Cuiaba",
+            "type": "string"
+          }
+        },
+        "required": [
+          "localTime",
+          "timeZone"
+        ],
+        "type": "object"
+      },
+      "MoneyDto": {
+        "properties": {
+          "amountMinor": {
+            "description": "Integer minor units encoded as a decimal string.",
+            "example": "4900",
+            "pattern": "^-?[0-9]+$",
+            "type": "string"
+          },
+          "currency": {
+            "example": "BRL",
+            "pattern": "^[A-Z]{3}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amountMinor",
+          "currency"
+        ],
+        "type": "object"
+      },
+      "PageInfoDto": {
+        "properties": {
+          "hasNextPage": {
+            "example": true,
+            "type": "boolean"
+          },
+          "nextCursor": {
+            "description": "Opaque cursor for the next page, or null at the end.",
+            "example": "eyJ2IjoxLCJzY29wZSI6ImNvbnRyYWN0LWV4YW1wbGVzIn0",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "hasNextPage",
+          "nextCursor"
+        ],
+        "type": "object"
+      },
+      "ProblemDetailsDto": {
+        "properties": {
+          "correlationId": {
+            "example": "f81d4fae-7dec-11d0-a765-00a0c91e6bf6",
+            "type": "string"
+          },
+          "detail": {
+            "example": "One or more request values are invalid.",
+            "type": "string"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/ProblemValidationErrorDto"
+            },
+            "type": "array"
+          },
+          "instance": {
+            "example": "urn:uuid:f81d4fae-7dec-11d0-a765-00a0c91e6bf6",
+            "type": "string"
+          },
+          "status": {
+            "example": 400,
+            "type": "number"
+          },
+          "title": {
+            "example": "Request validation failed",
+            "type": "string"
+          },
+          "type": {
+            "example": "urn:problem:next-nest-saas-starter:validation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "detail",
+          "instance",
+          "correlationId"
+        ],
+        "type": "object"
+      },
+      "ProblemValidationErrorDto": {
+        "properties": {
+          "detail": {
+            "example": "limit must not be greater than 100",
+            "type": "string"
+          },
+          "pointer": {
+            "example": "#/query/limit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail",
+          "pointer"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "contact": {},
+    "description": "Stable HTTP contract for the SaaS foundation.",
+    "title": "Next Nest SaaS Starter API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.0",
+  "paths": {
+    "/v1/contract-examples": {
+      "get": {
+        "operationId": "listContractExamples",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque cursor returned by the previous page.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "currency",
+            "required": false,
+            "schema": {
+              "enum": [
+                "BRL",
+                "USD"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractExamplePageDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "The pagination request is invalid."
+          }
+        },
+        "summary": "",
+        "tags": [
+          "Contract examples"
+        ]
+      }
+    },
+    "/v1/health": {
+      "get": {
+        "operationId": "getHealth",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "service": {
+                      "enum": [
+                        "api"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        "ok"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "service",
+                    "status"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "",
+        "tags": [
+          "Health"
+        ]
+      }
+    }
+  },
+  "servers": [],
+  "tags": []
+}

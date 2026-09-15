@@ -1,10 +1,16 @@
-type ApiHealth = {
-  service: "api";
-  status: "ok";
-};
+import { createApiClient, type components } from "@saas/api-client";
+
+type Money = components["schemas"]["MoneyDto"];
 
 type ApiAvailability =
-  { available: true; health: ApiHealth } | { available: false };
+  | {
+      available: true;
+      example: {
+        name: string;
+        price: Money;
+      };
+    }
+  | { available: false };
 
 async function getApiAvailability(): Promise<ApiAvailability> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -14,25 +20,35 @@ async function getApiAvailability(): Promise<ApiAvailability> {
   }
 
   try {
-    const response = await fetch(`${apiUrl}/health`, {
+    const client = createApiClient(apiUrl);
+    const { data } = await client.GET("/v1/contract-examples", {
       cache: "no-store",
+      params: { query: { currency: "BRL", limit: 1 } },
       signal: AbortSignal.timeout(3_000),
     });
 
-    if (!response.ok) {
+    const example = data?.items[0];
+
+    if (!example) {
       return { available: false };
     }
 
-    const health = (await response.json()) as ApiHealth;
-
-    if (health.service !== "api" || health.status !== "ok") {
-      return { available: false };
-    }
-
-    return { available: true, health };
+    return { available: true, example };
   } catch {
     return { available: false };
   }
+}
+
+function formatMoney({ amountMinor, currency }: Money) {
+  const negative = amountMinor.startsWith("-");
+  const digits = (negative ? amountMinor.slice(1) : amountMinor).padStart(
+    3,
+    "0",
+  );
+  const whole = digits.slice(0, -2);
+  const fraction = digits.slice(-2);
+
+  return `${currency} ${negative ? "-" : ""}${whole}.${fraction}`;
 }
 
 export default async function Home() {
@@ -55,16 +71,25 @@ export default async function Home() {
         >
           <span className="status-dot" aria-hidden="true" />
           <div>
-            <h2>{api.available ? "API is available" : "API is unavailable"}</h2>
+            <h2>
+              {api.available
+                ? "API contract is available"
+                : "API contract is unavailable"}
+            </h2>
             <p>
               {api.available
-                ? "The public application reached the backend successfully."
+                ? "The generated TypeScript client reached the versioned backend contract."
                 : "Start the API or check NEXT_PUBLIC_API_URL, then try again."}
             </p>
             {api.available ? (
-              <span className="service-name" data-testid="api-service">
-                {api.health.service}
-              </span>
+              <div className="contract-example">
+                <span data-testid="contract-example-name">
+                  {api.example.name}
+                </span>
+                <span data-testid="contract-example-price">
+                  {formatMoney(api.example.price)}
+                </span>
+              </div>
             ) : null}
           </div>
         </div>
