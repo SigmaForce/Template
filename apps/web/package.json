@@ -12,6 +12,7 @@
   "dependencies": {
     "@saas/api-client": "workspace:*",
     "@saas/tooling-config": "workspace:*",
+    "@saas/ui": "workspace:*",
     "next": "16.3.5",
     "react": "19.2.8",
     "react-dom": "19.2.8"

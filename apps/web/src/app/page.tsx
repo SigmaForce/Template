@@ -1,5 +1,6 @@
 import { createApiClient, type components } from "@saas/api-client";
 import { CORRELATION_ID_HEADER } from "@saas/tooling-config/http";
+import { brand } from "@saas/ui";
 import { headers } from "next/headers";
 import { getWebEnvironment } from "../environment";
 import { logWebOperation } from "../operational-log";
@@ -79,45 +80,128 @@ export default async function Home() {
   const api = await getApiAvailability();
 
   return (
-    <main className="page-shell">
-      <section className="hero" aria-labelledby="page-title">
-        <p className="eyebrow">Next + Nest SaaS Starter</p>
-        <h1 id="page-title">A dependable starting point for B2B SaaS.</h1>
-        <p className="lede">
-          Web, API, worker, PostgreSQL, and Redis are composed as independent
-          services in one focused monorepo.
-        </p>
-
-        <div
-          className="status-card"
-          data-available={api.available}
-          role="status"
-        >
-          <span className="status-dot" aria-hidden="true" />
-          <div>
-            <h2>
-              {api.available
-                ? "API contract is available"
-                : "API contract is unavailable"}
-            </h2>
-            <p>
-              {api.available
-                ? "The generated TypeScript client reached the versioned backend contract."
-                : "Start the API or check NEXT_PUBLIC_API_URL, then try again."}
-            </p>
-            {api.available ? (
-              <div className="contract-example">
-                <span data-testid="contract-example-name">
-                  {api.example.name}
-                </span>
-                <span data-testid="contract-example-price">
-                  {formatMoney(api.example.price)}
-                </span>
-              </div>
-            ) : null}
-          </div>
+    <div className="dashboard-page" id="overview">
+      <header className="dashboard-intro">
+        <div>
+          <p className="eyebrow">Monday · September 15</p>
+          <h1 id="page-title">Good morning, Alex.</h1>
+          <p className="lede">
+            Here is what deserves your attention across {brand.organizationName}{" "}
+            today.
+          </p>
         </div>
-      </section>
-    </main>
+        <a className="primary-action" href="#activity">
+          Review activity
+          <span aria-hidden="true">→</span>
+        </a>
+      </header>
+
+      <div className="dashboard-grid">
+        <div className="dashboard-main-column">
+          <section className="spotlight-card" aria-labelledby="focus-title">
+            <div>
+              <p className="eyebrow">This week</p>
+              <h2 id="focus-title">Momentum is building.</h2>
+              <p>
+                Eighteen priorities moved forward and your team closed two
+                long-running decisions.
+              </p>
+            </div>
+            <div className="momentum-score" aria-label="84 percent weekly momentum">
+              <strong>84%</strong>
+              <span>momentum</span>
+            </div>
+          </section>
+
+          <section className="activity-card" id="activity" aria-labelledby="activity-title">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Latest signals</p>
+                <h2 id="activity-title">Team activity</h2>
+              </div>
+              <a href="#activity">View all</a>
+            </div>
+            <ol className="activity-list">
+              <li>
+                <span className="activity-mark" aria-hidden="true">LM</span>
+                <div>
+                  <strong>Launch milestone approved</strong>
+                  <p>Leadership · 12 minutes ago</p>
+                </div>
+                <span className="activity-tag">Decision</span>
+              </li>
+              <li>
+                <span className="activity-mark" aria-hidden="true">PS</span>
+                <div>
+                  <strong>Product scorecard shared</strong>
+                  <p>Product · 48 minutes ago</p>
+                </div>
+                <span className="activity-tag">Update</span>
+              </li>
+              <li>
+                <span className="activity-mark" aria-hidden="true">CS</span>
+                <div>
+                  <strong>Customer review completed</strong>
+                  <p>Success · 2 hours ago</p>
+                </div>
+                <span className="activity-tag">Insight</span>
+              </li>
+            </ol>
+          </section>
+        </div>
+
+        <aside
+          className="dashboard-side-column"
+          aria-label="Organization summary"
+        >
+          <section
+            className="status-card"
+            data-available={api.available}
+            role="status"
+          >
+            <div className="status-heading">
+              <span className="status-dot" aria-hidden="true" />
+              <p>System status</p>
+            </div>
+            <div>
+              <h2>
+                {api.available
+                  ? "API contract is available"
+                  : "API contract is unavailable"}
+              </h2>
+              <p>
+                {api.available
+                  ? "The generated client reached the versioned backend contract."
+                  : "Start the API or check NEXT_PUBLIC_API_URL, then try again."}
+              </p>
+              {api.available ? (
+                <div className="contract-example">
+                  <span data-testid="contract-example-name">
+                    {api.example.name}
+                  </span>
+                  <span data-testid="contract-example-price">
+                    {formatMoney(api.example.price)}
+                  </span>
+                </div>
+              ) : null}
+            </div>
+          </section>
+
+          <section className="compact-card" id="billing" aria-labelledby="billing-title">
+            <p className="eyebrow">Billing</p>
+            <h2 id="billing-title">Launch plan</h2>
+            <p>Next renewal on October 15 · 8 active seats</p>
+            <a href="#billing">Manage plan <span aria-hidden="true">↗</span></a>
+          </section>
+
+          <section className="compact-card" id="settings" aria-labelledby="settings-title">
+            <p className="eyebrow">Organization</p>
+            <h2 id="settings-title">Make it yours</h2>
+            <p>Brand, semantic tokens and navigation are ready to customize.</p>
+            <a href="#settings">Open settings <span aria-hidden="true">↗</span></a>
+          </section>
+        </aside>
+      </div>
+    </div>
   );
 }

@@ -83,3 +83,14 @@ corepack pnpm build
 ```
 
 Architecture and domain decisions live in `CONTEXT.md` and `docs/adr/`.
+
+## Design system
+
+The owned component layer lives in `packages/ui`. Change the example brand once
+in `packages/ui/src/brand.ts`; its name, mark, tagline and metadata propagate
+through the application shell. Primitive and semantic token responsibilities,
+theme customization and the fixed Base UI layer are documented in
+`packages/ui/README.md`.
+
+Run the component catalog with `corepack pnpm storybook` and verify its static
+build with `corepack pnpm storybook:build`.

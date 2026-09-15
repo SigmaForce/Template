@@ -17,12 +17,15 @@
     "dev:infra:down": "docker compose down",
     "env:check": "node scripts/check-environment.mjs",
     "lint": "turbo run lint",
+    "storybook": "pnpm --filter @saas/ui storybook",
+    "storybook:build": "pnpm --filter @saas/ui build-storybook",
     "test": "turbo run test && pnpm contract:check",
     "test:smoke": "node scripts/smoke.mjs",
     "test:startup": "node --test tests/startup/*.test.mjs",
     "typecheck": "turbo run typecheck"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@playwright/test": "1.63.0",
     "openapi-typescript": "7.13.0",
     "pnpm": "11.9.0",

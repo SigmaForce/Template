@@ -14,6 +14,7 @@ try {
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
+  transpilePackages: ["@saas/ui"],
 };
 
 export default nextConfig;

@@ -1,0 +1,139 @@
+@import "tailwindcss";
+@source "./";
+
+:root {
+  --palette-ink-950: #14120f;
+  --palette-ink-800: #302c27;
+  --palette-ink-600: #625b52;
+  --palette-ink-400: #6f675e;
+  --palette-sand-50: #fbfaf7;
+  --palette-sand-100: #f4f0e8;
+  --palette-sand-200: #e8e0d3;
+  --palette-white: #ffffff;
+  --palette-coral-700: #a53621;
+  --palette-coral-600: #c7462e;
+  --palette-coral-500: #e85d3f;
+  --palette-coral-100: #ffe0d7;
+  --palette-blue-500: #2563eb;
+  --palette-green-700: #147a45;
+  --palette-red-700: #c43d3d;
+  --palette-coal-950: #171512;
+  --palette-coal-900: #211e1a;
+  --palette-coal-800: #2c2823;
+  --palette-coal-700: #403a32;
+  --palette-coal-300: #aaa094;
+  --palette-coal-200: #c2b8aa;
+  --palette-chalk: #fbf8f2;
+  --palette-coral-300: #ffad98;
+  --palette-coral-400: #ff7a5c;
+  --palette-coral-950: #49241c;
+  --palette-blue-300: #8bb4ff;
+  --palette-green-300: #54d98b;
+  --palette-red-300: #ff8585;
+  --palette-shadow-light: rgb(48 44 39 / 12%);
+  --palette-shadow-dark: rgb(0 0 0 / 32%);
+  --palette-overlay-light: rgb(20 18 15 / 54%);
+  --palette-overlay-dark: rgb(0 0 0 / 72%);
+}
+
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --semantic-canvas: var(--palette-sand-50);
+  --semantic-surface: var(--palette-white);
+  --semantic-surface-strong: var(--palette-sand-100);
+  --semantic-border: var(--palette-sand-200);
+  --semantic-foreground: var(--palette-ink-950);
+  --semantic-muted: var(--palette-ink-600);
+  --semantic-subtle: var(--palette-ink-400);
+  --semantic-accent: var(--palette-coral-600);
+  --semantic-accent-strong: var(--palette-coral-700);
+  --semantic-accent-soft: var(--palette-coral-100);
+  --semantic-accent-contrast: var(--palette-white);
+  --semantic-focus: var(--palette-blue-500);
+  --semantic-positive: var(--palette-green-700);
+  --semantic-negative: var(--palette-red-700);
+  --semantic-overlay: var(--palette-overlay-light);
+  --semantic-shadow: var(--palette-shadow-light);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --semantic-canvas: var(--palette-coal-950);
+    --semantic-surface: var(--palette-coal-900);
+    --semantic-surface-strong: var(--palette-coal-800);
+    --semantic-border: var(--palette-coal-700);
+    --semantic-foreground: var(--palette-chalk);
+    --semantic-muted: var(--palette-coal-200);
+    --semantic-subtle: var(--palette-coal-300);
+    --semantic-accent: var(--palette-coral-400);
+    --semantic-accent-strong: var(--palette-coral-300);
+    --semantic-accent-soft: var(--palette-coral-950);
+    --semantic-accent-contrast: var(--palette-coal-950);
+    --semantic-focus: var(--palette-blue-300);
+    --semantic-positive: var(--palette-green-300);
+    --semantic-negative: var(--palette-red-300);
+    --semantic-overlay: var(--palette-overlay-dark);
+    --semantic-shadow: var(--palette-shadow-dark);
+  }
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --semantic-canvas: var(--palette-coal-950);
+  --semantic-surface: var(--palette-coal-900);
+  --semantic-surface-strong: var(--palette-coal-800);
+  --semantic-border: var(--palette-coal-700);
+  --semantic-foreground: var(--palette-chalk);
+  --semantic-muted: var(--palette-coal-200);
+  --semantic-subtle: var(--palette-coal-300);
+  --semantic-accent: var(--palette-coral-400);
+  --semantic-accent-strong: var(--palette-coral-300);
+  --semantic-accent-soft: var(--palette-coral-950);
+  --semantic-accent-contrast: var(--palette-coal-950);
+  --semantic-focus: var(--palette-blue-300);
+  --semantic-positive: var(--palette-green-300);
+  --semantic-negative: var(--palette-red-300);
+  --semantic-overlay: var(--palette-overlay-dark);
+  --semantic-shadow: var(--palette-shadow-dark);
+}
+
+@theme inline {
+  --color-canvas: var(--semantic-canvas);
+  --color-surface: var(--semantic-surface);
+  --color-surface-strong: var(--semantic-surface-strong);
+  --color-border: var(--semantic-border);
+  --color-subtle: var(--semantic-subtle);
+  --color-foreground: var(--semantic-foreground);
+  --color-muted: var(--semantic-muted);
+  --color-accent: var(--semantic-accent);
+  --color-accent-strong: var(--semantic-accent-strong);
+  --color-accent-soft: var(--semantic-accent-soft);
+  --color-accent-contrast: var(--semantic-accent-contrast);
+  --color-focus: var(--semantic-focus);
+  --color-positive: var(--semantic-positive);
+  --color-negative: var(--semantic-negative);
+  --color-overlay: var(--semantic-overlay);
+  --radius-control: 0.75rem;
+  --radius-mark: 0.7rem;
+  --radius-panel: 1.25rem;
+  --shadow-mark: 0 0.45rem 1.2rem color-mix(in srgb, var(--semantic-accent) 24%, transparent);
+  --shadow-panel: 0 1.5rem 4rem var(--semantic-shadow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+[data-motion="reduced"] *,
+[data-motion="reduced"] *::before,
+[data-motion="reduced"] *::after {
+  scroll-behavior: auto !important;
+  transition-duration: 0.01ms !important;
+}
