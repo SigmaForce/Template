@@ -12,14 +12,14 @@ export class AppController {
       required: ['service', 'status'],
       properties: {
         service: { type: 'string', enum: ['api'] },
-        status: { type: 'string', enum: ['ok'] },
+        status: { type: 'string', enum: ['healthy'] },
       },
     },
   })
   getHealth() {
     return {
       service: 'api',
-      status: 'ok',
+      status: 'healthy',
     } as const;
   }
 }

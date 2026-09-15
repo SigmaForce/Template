@@ -72,6 +72,33 @@
         ],
         "type": "object"
       },
+      "DependencyReadinessDto": {
+        "properties": {
+          "critical": {
+            "type": "boolean"
+          },
+          "name": {
+            "example": "database",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "up",
+              "down",
+              "configured",
+              "disabled",
+              "misconfigured"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "critical",
+          "status"
+        ],
+        "type": "object"
+      },
       "LocalBusinessTimeDto": {
         "properties": {
           "localTime": {
@@ -188,6 +215,36 @@
           "pointer"
         ],
         "type": "object"
+      },
+      "ReadinessDto": {
+        "properties": {
+          "dependencies": {
+            "items": {
+              "$ref": "#/components/schemas/DependencyReadinessDto"
+            },
+            "type": "array"
+          },
+          "service": {
+            "enum": [
+              "api"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ready",
+              "degraded",
+              "unready"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "service",
+          "status",
+          "dependencies"
+        ],
+        "type": "object"
       }
     }
   },
@@ -282,7 +339,7 @@
                     },
                     "status": {
                       "enum": [
-                        "ok"
+                        "healthy"
                       ],
                       "type": "string"
                     }
@@ -292,6 +349,38 @@
                     "status"
                   ],
                   "type": "object"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "",
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/v1/ready": {
+      "get": {
+        "operationId": "getReadiness",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessDto"
                 }
               }
             },

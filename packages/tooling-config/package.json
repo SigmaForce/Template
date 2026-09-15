@@ -1,0 +1,41 @@
+{
+  "name": "@saas/tooling-config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "lint": "oxlint src/ test/",
+    "test": "node --test",
+    "typecheck": "tsc --noEmit"
+  },
+  "exports": {
+    "./http": {
+      "types": "./src/http.d.mts",
+      "default": "./src/http.mjs"
+    },
+    "./logging": {
+      "types": "./src/logging.d.mts",
+      "default": "./src/logging.mjs"
+    },
+    "./redaction": {
+      "types": "./src/redaction.d.mts",
+      "default": "./src/redaction.mjs"
+    },
+    "./readiness": {
+      "types": "./src/readiness.d.mts",
+      "default": "./src/readiness.mjs"
+    }
+  },
+  "dependencies": {
+    "pg": "8.23.0",
+    "redis": "6.2.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^24.0.0",
+    "@types/pg": "8.23.1",
+    "oxlint": "^1.58.0",
+    "typescript": "5.9.3"
+  }
+}

@@ -7,13 +7,14 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { randomUUID } from 'node:crypto';
+import { getResponseCorrelationId } from '@saas/tooling-config/http';
 import { PublicProblemException } from './problem-details.js';
 
 @Catch()
 export class ProblemDetailsFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
     const response = host.switchToHttp().getResponse<Response>();
-    const correlationId = randomUUID();
+    const correlationId = getResponseCorrelationId(response);
     const publicProblem =
       exception instanceof PublicProblemException
         ? exception.problem
@@ -24,7 +25,7 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       .type('application/problem+json')
       .json({
         ...publicProblem,
-        instance: `urn:uuid:${correlationId}`,
+        instance: `urn:uuid:${randomUUID()}`,
         correlationId,
       });
   }

@@ -6,7 +6,7 @@ export class AppController {
   getHealth() {
     return {
       service: 'worker',
-      status: 'ok',
+      status: 'healthy',
     } as const;
   }
 }

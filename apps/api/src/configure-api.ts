@@ -9,6 +9,15 @@ import {
   type ProblemValidationErrorDto,
 } from './http/problem-details.js';
 import { exposeOpenApi } from './openapi.js';
+import {
+  ReadinessService,
+  type ReadinessCheck,
+} from '@saas/tooling-config/readiness';
+import {
+  correlationIdMiddleware,
+  createRequestLoggingMiddleware,
+} from '@saas/tooling-config/http';
+import type { JsonLogger } from '@saas/tooling-config/logging';
 
 function flattenValidationErrors(
   errors: ValidationError[],
@@ -26,8 +35,22 @@ function flattenValidationErrors(
   });
 }
 
-export function configureApi(app: INestApplication) {
+export interface ConfigureApiOptions {
+  readinessChecks?: ReadinessCheck[];
+  logger?: JsonLogger;
+}
+
+export function configureApi(
+  app: INestApplication,
+  { readinessChecks = [], logger }: ConfigureApiOptions = {},
+) {
   app.setGlobalPrefix('v1');
+  app.use(correlationIdMiddleware);
+  if (logger) {
+    app.useLogger(logger);
+    app.use(createRequestLoggingMiddleware(logger));
+  }
+  app.get(ReadinessService).configure(readinessChecks);
   app.useGlobalPipes(
     new ValidationPipe({
       exceptionFactory: (errors) =>

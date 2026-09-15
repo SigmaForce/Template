@@ -32,6 +32,8 @@ test("startup reports every invalid environment value", () => {
     [
       "API_PORT=not-a-port",
       "WORKER_PORT=70000",
+      "APP_ENV=previewish",
+      "LOG_LEVEL=verbose",
       "NEXT_PUBLIC_API_URL=postgresql://localhost:4000",
       "DATABASE_URL=https://localhost:5432/saas",
       "REDIS_URL=ftp://localhost:6379",
@@ -52,6 +54,11 @@ test("startup reports every invalid environment value", () => {
   assert.match(result.stderr, /NEXT_PUBLIC_API_URL must use http: or https:/);
   assert.match(result.stderr, /DATABASE_URL must use postgresql: or postgres:/);
   assert.match(result.stderr, /REDIS_URL must use redis: or rediss:/);
+  assert.match(
+    result.stderr,
+    /APP_ENV must be one of development, test, staging, production/,
+  );
+  assert.match(result.stderr, /LOG_LEVEL must be one of debug, info, warn, error/);
 });
 
 test("startup accepts the documented local environment", () => {
@@ -59,4 +66,35 @@ test("startup accepts the documented local environment", () => {
 
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /Environment is valid/);
+  assert.match(result.stdout, /PostHog: disabled/);
+  assert.match(result.stdout, /Sentry: disabled/);
+});
+
+test("startup reports invalid optional telemetry as degraded without exposing values", () => {
+  const directory = mkdtempSync(path.join(tmpdir(), "saas-environment-"));
+  const environmentFile = path.join(directory, ".env");
+
+  writeFileSync(
+    environmentFile,
+    [
+      "API_PORT=4000",
+      "WORKER_PORT=4001",
+      "NEXT_PUBLIC_API_URL=http://localhost:4000",
+      "DATABASE_URL=postgresql://saas:saas@localhost:5432/saas",
+      "REDIS_URL=redis://localhost:6379",
+      "POSTHOG_KEY=phc_private-looking-value",
+      "POSTHOG_HOST=not-a-url",
+      "SENTRY_DSN=https://known-person@example.invalid/not-a-dsn",
+    ].join("\n"),
+  );
+
+  const result = runCheck(environmentFile);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /PostHog: misconfigured/);
+  assert.match(result.stdout, /Sentry: misconfigured/);
+  assert.doesNotMatch(
+    `${result.stdout}${result.stderr}`,
+    /private-looking-value|known-person/,
+  );
 });

@@ -1,4 +1,8 @@
 import { createApiClient, type components } from "@saas/api-client";
+import { CORRELATION_ID_HEADER } from "@saas/tooling-config/http";
+import { headers } from "next/headers";
+import { getWebEnvironment } from "../environment";
+import { logWebOperation } from "../operational-log";
 
 type Money = components["schemas"]["MoneyDto"];
 
@@ -13,16 +17,15 @@ type ApiAvailability =
   | { available: false };
 
 async function getApiAvailability(): Promise<ApiAvailability> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-
-  if (!apiUrl) {
-    return { available: false };
-  }
+  const environment = getWebEnvironment();
+  const requestHeaders = await headers();
+  const correlationId = requestHeaders.get(CORRELATION_ID_HEADER) ?? "unknown";
 
   try {
-    const client = createApiClient(apiUrl);
+    const client = createApiClient(environment.apiUrl.toString());
     const { data } = await client.GET("/v1/contract-examples", {
       cache: "no-store",
+      headers: { [CORRELATION_ID_HEADER]: correlationId },
       params: { query: { currency: "BRL", limit: 1 } },
       signal: AbortSignal.timeout(3_000),
     });
@@ -30,11 +33,32 @@ async function getApiAvailability(): Promise<ApiAvailability> {
     const example = data?.items[0];
 
     if (!example) {
+      logWebOperation(environment, {
+        event: "api.contract-example.completed",
+        correlationId,
+        path: "/v1/contract-examples",
+        statusCode: 502,
+        outcome: "error",
+      });
       return { available: false };
     }
 
+    logWebOperation(environment, {
+      event: "api.contract-example.completed",
+      correlationId,
+      path: "/v1/contract-examples",
+      statusCode: 200,
+      outcome: "success",
+    });
     return { available: true, example };
   } catch {
+    logWebOperation(environment, {
+      event: "api.contract-example.completed",
+      correlationId,
+      path: "/v1/contract-examples",
+      statusCode: 502,
+      outcome: "error",
+    });
     return { available: false };
   }
 }

@@ -3,25 +3,200 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from './../src/app.module.js';
 import { configureApi } from './../src/configure-api.js';
+import type { ReadinessCheck } from '@saas/tooling-config/readiness';
+import { JsonLogger } from '@saas/tooling-config/logging';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication;
 
-  beforeEach(async () => {
+  async function createApp(
+    readinessChecks: ReadinessCheck[] = [],
+    logger?: JsonLogger,
+  ) {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
 
-    app = moduleFixture.createNestApplication();
-    configureApi(app);
-    await app.init();
+    const testApp = moduleFixture.createNestApplication();
+    configureApi(testApp, { readinessChecks, logger });
+    await testApp.init();
+
+    return testApp;
+  }
+
+  beforeEach(async () => {
+    app = await createApp();
   });
 
   it('exposes health inside the stable v1 boundary', () => {
     return request(app.getHttpServer())
       .get('/v1/health')
       .expect(200)
-      .expect({ service: 'api', status: 'ok' });
+      .expect({ service: 'api', status: 'healthy' });
+  });
+
+  it('assigns and safely preserves correlation identifiers', async () => {
+    const assigned = await request(app.getHttpServer())
+      .get('/v1/health')
+      .expect(200);
+
+    expect(assigned.headers['x-correlation-id']).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
+
+    const preserved = await request(app.getHttpServer())
+      .get('/v1/contract-examples?limit=101')
+      .set('x-correlation-id', 'web-01JQK3J8W8G8ZM6MJR7GQ2R9NN')
+      .expect(400);
+
+    expect(preserved.headers['x-correlation-id']).toBe(
+      'web-01JQK3J8W8G8ZM6MJR7GQ2R9NN',
+    );
+    expect(preserved.body.correlationId).toBe(
+      'web-01JQK3J8W8G8ZM6MJR7GQ2R9NN',
+    );
+
+    const replaced = await request(app.getHttpServer())
+      .get('/v1/health')
+      .set('x-correlation-id', 'unsafe value')
+      .expect(200);
+
+    expect(replaced.headers['x-correlation-id']).not.toContain('unsafe');
+  });
+
+  it('reports optional dependency failures as degraded while remaining ready', async () => {
+    await app.close();
+    app = await createApp([
+      {
+        name: 'database',
+        critical: true,
+        probe: async () => undefined,
+      },
+      {
+        name: 'redis',
+        critical: false,
+        probe: async () => {
+          throw new Error('redis://username:password@internal.example');
+        },
+      },
+      { name: 'posthog', critical: false },
+      { name: 'sentry', critical: false },
+    ]);
+
+    const response = await request(app.getHttpServer())
+      .get('/v1/ready')
+      .expect(200);
+
+    expect(response.body).toEqual({
+      service: 'api',
+      status: 'degraded',
+      dependencies: [
+        { name: 'database', critical: true, status: 'up' },
+        { name: 'redis', critical: false, status: 'down' },
+        { name: 'posthog', critical: false, status: 'disabled' },
+        { name: 'sentry', critical: false, status: 'disabled' },
+      ],
+    });
+    expect(JSON.stringify(response.body)).not.toMatch(
+      /username|password|internal\.example/i,
+    );
+  });
+
+  it('refuses readiness when a critical dependency is unavailable', async () => {
+    await app.close();
+    app = await createApp([
+      {
+        name: 'database',
+        critical: true,
+        probe: async () => {
+          throw new Error('database unavailable');
+        },
+      },
+      {
+        name: 'redis',
+        critical: false,
+        probe: async () => undefined,
+      },
+    ]);
+
+    const response = await request(app.getHttpServer())
+      .get('/v1/ready')
+      .expect(503);
+
+    expect(response.body).toMatchObject({
+      service: 'api',
+      status: 'unready',
+      dependencies: expect.arrayContaining([
+        { name: 'database', critical: true, status: 'down' },
+      ]),
+    });
+
+    await request(app.getHttpServer())
+      .get('/v1/health')
+      .expect(200)
+      .expect({ service: 'api', status: 'healthy' });
+  });
+
+  it('writes correlated JSON request logs without secrets or known PII', async () => {
+    const lines: string[] = [];
+    const logger = new JsonLogger({
+      service: 'api',
+      environment: 'test',
+      level: 'debug',
+      write: (line) => lines.push(line),
+    });
+
+    await app.close();
+    app = await createApp([], logger);
+
+    await request(app.getHttpServer())
+      .get('/v1/contract-examples?token=query-secret')
+      .set('x-correlation-id', 'web-log-correlation')
+      .set('authorization', 'Bearer header-secret')
+      .set('cookie', 'session=cookie-secret')
+      .expect(400);
+
+    logger.warn(
+      {
+        event: 'redaction.example',
+        email: 'person@example.com',
+        nested: {
+          apiKey: 'api-key-secret',
+          signature: 'signature-secret',
+          payload: 'sensitive-payload',
+        },
+      },
+      'RedactionContract',
+    );
+
+    const records = lines.map((line) => JSON.parse(line));
+    expect(records).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          level: 'info',
+          service: 'api',
+          environment: 'test',
+          event: 'request.completed',
+          correlationId: 'web-log-correlation',
+          method: 'GET',
+          path: '/v1/contract-examples',
+          statusCode: 400,
+          outcome: 'client_error',
+          durationMs: expect.any(Number),
+        }),
+      ]),
+    );
+    expect(records.at(-1)?.message).toMatchObject({
+      email: '[REDACTED]',
+      nested: {
+        apiKey: '[REDACTED]',
+        signature: '[REDACTED]',
+        payload: '[REDACTED]',
+      },
+    });
+    expect(lines.join('\n')).not.toMatch(
+      /query-secret|header-secret|cookie-secret|person@example\.com|api-key-secret|signature-secret|sensitive-payload/,
+    );
   });
 
   it('publishes stable operation identifiers in its OpenAPI document', async () => {
@@ -33,6 +208,9 @@ describe('AppController (e2e)', () => {
       'listContractExamples',
     );
     expect(response.body.paths['/v1/health'].get.operationId).toBe('getHealth');
+    expect(response.body.paths['/v1/ready'].get.operationId).toBe(
+      'getReadiness',
+    );
     expect(
       response.body.paths['/v1/contract-examples'].get.parameters.find(
         (parameter: { name: string }) => parameter.name === 'limit',

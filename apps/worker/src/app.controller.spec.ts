@@ -16,7 +16,7 @@ describe('AppController', () => {
     it('reports that the worker is available', () => {
       expect(appController.getHealth()).toEqual({
         service: 'worker',
-        status: 'ok',
+        status: 'healthy',
       });
     });
   });

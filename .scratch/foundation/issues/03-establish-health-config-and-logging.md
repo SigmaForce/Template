@@ -6,9 +6,9 @@
 
 **Status:** ready-for-agent
 
-- [ ] Health e readiness distinguem dependências críticas de integrações opcionais ou degradadas.
-- [ ] Configuração é validada de forma tipada e falha antes de aceitar tráfego quando uma dependência crítica está inválida.
-- [ ] Cada requisição recebe ou preserva um correlation ID retornado de forma segura ao consumidor.
-- [ ] Logs são estruturados em JSON e permitem relacionar serviço, ambiente, requisição e resultado.
-- [ ] Authorization, cookies, tokens, assinaturas, payloads sensíveis e PII conhecida são redigidos.
-- [ ] PostHog e Sentry desconfigurados não enviam dados e não impedem startup ou requests.
+- [x] Health e readiness distinguem dependências críticas de integrações opcionais ou degradadas.
+- [x] Configuração é validada de forma tipada e falha antes de aceitar tráfego quando uma dependência crítica está inválida.
+- [x] Cada requisição recebe ou preserva um correlation ID retornado de forma segura ao consumidor.
+- [x] Logs são estruturados em JSON e permitem relacionar serviço, ambiente, requisição e resultado.
+- [x] Authorization, cookies, tokens, assinaturas, payloads sensíveis e PII conhecida são redigidos.
+- [x] PostHog e Sentry desconfigurados não enviam dados e não impedem startup ou requests.

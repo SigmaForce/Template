@@ -36,11 +36,48 @@ Never edit `openapi.json` or `src/generated/schema.ts` directly. Change the Nest
 
 If configuration is absent or invalid, startup stops and reports each value that needs attention.
 
+## Operations
+
+Liveness only confirms that a process can answer requests. Readiness also
+checks the dependencies required for that process to serve useful traffic:
+
+| Process | Liveness | Readiness | Critical dependencies | Optional integrations |
+| --- | --- | --- | --- | --- |
+| Web | `/api/health` | `/api/ready` | API | PostHog, Sentry |
+| API | `/v1/health` | `/v1/ready` | PostgreSQL | Redis, PostHog, Sentry |
+| Worker | `/health` | `/ready` | PostgreSQL, Redis | PostHog, Sentry |
+
+Readiness returns `ready`, `degraded`, or `unready`. An unavailable critical
+dependency returns HTTP 503; an unavailable or misconfigured optional
+integration returns `degraded` with HTTP 200. Optional integrations left blank
+are `disabled`, initialize no telemetry client, and do not affect startup or
+requests. PostgreSQL and Redis probes authenticate and execute `SELECT 1` and
+`PING`, respectively, so an open port alone is not considered ready.
+
+Every request receives an `x-correlation-id`. A caller-provided identifier is
+preserved only when it contains safe ASCII characters and is at most 128
+characters; otherwise a UUID is generated. Next.js propagates the identifier to
+NestJS and every process returns it in the response.
+
+Application logs are one JSON object per line and include the service,
+environment, request identity, result, and duration where applicable. Request
+queries, headers, and bodies are not logged. Authorization, cookies, tokens,
+signatures, secret-bearing keys, payloads, email addresses, phone numbers, and
+other known PII fields are redacted by the shared operational logger.
+
+`APP_ENV` accepts `development`, `test`, `staging`, or `production`; `LOG_LEVEL`
+accepts `debug`, `info`, `warn`, or `error`. The typed parsers in
+`scripts/environment-core.mjs` validate each independently deployed process
+before it starts accepting traffic. `corepack pnpm env:check` validates the
+complete local environment and reports optional telemetry only by state, never
+by configured value.
+
 ## Verification
 
 ```sh
 corepack pnpm typecheck
 corepack pnpm test
+corepack pnpm dev:infra
 corepack pnpm test:smoke
 corepack pnpm build
 ```
