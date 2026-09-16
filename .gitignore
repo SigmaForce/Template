@@ -6,6 +6,7 @@ node_modules/
 .next/
 dist/
 coverage/
+apps/api/src/generated/prisma/
 playwright-report/
 storybook-static/
 test-results/

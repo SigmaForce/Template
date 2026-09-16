@@ -7,16 +7,33 @@ import {
   createPostgresProbe,
   createRedisProbe,
 } from '@saas/tooling-config/readiness';
+import { ClerkOrganizationDirectory } from './organizations/clerk-organization.directory.js';
+import { PrismaOrganizationRepository } from './organizations/prisma-organization.repository.js';
 
 async function bootstrap() {
   const config = parseApiEnvironment(process.env);
+  if (!config.authentication.secretKey) {
+    throw new Error(
+      'CLERK_SECRET_KEY is required for Organization management operations.',
+    );
+  }
   const logger = new JsonLogger({
     service: 'api',
     environment: config.environment,
     level: config.logLevel,
   });
   const app = await NestFactory.create(
-    AppModule.register(config.authentication),
+    AppModule.register({
+      authentication: config.authentication,
+      organizations: {
+        directory: new ClerkOrganizationDirectory(
+          config.authentication.secretKey,
+        ),
+        repository: new PrismaOrganizationRepository(
+          config.databaseUrl.toString(),
+        ),
+      },
+    }),
     { logger },
   );
 

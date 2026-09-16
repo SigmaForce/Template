@@ -6,9 +6,9 @@
 
 **Status:** ready-for-agent
 
-- [ ] User sem Organization ou Invitation recebe um onboarding claro e acessível.
-- [ ] Criar a Organization persiste seu identificador, nome, slug e padrões regionais válidos.
-- [ ] A criação também estabelece exatamente uma Membership Owner para o User criador.
-- [ ] A Organization criada torna-se a Active Organization e abre sua rota por slug.
-- [ ] Slug inválido ou já utilizado retorna validação consistente sem deixar estado parcial.
-- [ ] Repetir acidentalmente a submissão não cria Organizations ou Memberships duplicadas.
+- [x] User sem Organization ou Invitation recebe um onboarding claro e acessível.
+- [x] Criar a Organization persiste seu identificador, nome, slug e padrões regionais válidos.
+- [x] A criação também estabelece exatamente uma Membership Owner para o User criador.
+- [x] A Organization criada torna-se a Active Organization e abre sua rota por slug.
+- [x] Slug inválido ou já utilizado retorna validação consistente sem deixar estado parcial.
+- [x] Repetir acidentalmente a submissão não cria Organizations ou Memberships duplicadas.

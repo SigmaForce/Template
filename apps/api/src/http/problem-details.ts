@@ -62,4 +62,46 @@ export class PublicProblemException extends HttpException {
       detail: 'A valid session token is required.',
     });
   }
+
+  static organizationSlugConflict() {
+    return new PublicProblemException({
+      type: 'urn:problem:next-nest-saas-starter:organization-slug-conflict',
+      title: 'Organization slug is unavailable',
+      status: 409,
+      detail: 'Choose a different Organization slug.',
+      errors: [
+        {
+          pointer: '#/body/slug',
+          detail: 'Choose a different Organization slug.',
+        },
+      ],
+    });
+  }
+
+  static idempotencyConflict() {
+    return new PublicProblemException({
+      type: 'urn:problem:next-nest-saas-starter:idempotency-conflict',
+      title: 'Idempotency key conflict',
+      status: 409,
+      detail: 'This Idempotency-Key was already used with different input.',
+    });
+  }
+
+  static organizationOnboardingInProgress() {
+    return new PublicProblemException({
+      type: 'urn:problem:next-nest-saas-starter:onboarding-in-progress',
+      title: 'Organization onboarding is in progress',
+      status: 409,
+      detail: 'Retry the same request after the current operation completes.',
+    });
+  }
+
+  static organizationAlreadyExists() {
+    return new PublicProblemException({
+      type: 'urn:problem:next-nest-saas-starter:organization-already-exists',
+      title: 'Organization already exists',
+      status: 409,
+      detail: 'This User has already completed Organization onboarding.',
+    });
+  }
 }

@@ -43,8 +43,14 @@ the Clerk placeholders with the instance's publishable and secret keys. Keep
 `CLERK_SECRET_KEY` server-only. `CLERK_AUTHORIZED_PARTIES` is a comma-separated
 allowlist of exact web origins whose session tokens the API accepts; configure
 the deployed web origin separately for each environment. `CLERK_JWT_KEY` may
-replace the secret key when networkless verification with Clerk's PEM public
-key is preferred.
+supplement the required secret key when networkless verification with Clerk's
+PEM public key is preferred; the API still needs `CLERK_SECRET_KEY` to manage
+Organizations.
+
+In the Clerk Dashboard, enable Organizations and add the custom Organization
+Role `org:owner`. The first-Organization flow creates the Organization in
+Clerk, changes the creator's Clerk Membership to that Owner Role, and persists
+the Organization plus its one active Owner Membership atomically in PostgreSQL.
 
 The `/sign-in` and `/sign-up` routes use the configured development instance.
 Every application page under the protected shell performs a server-side session
@@ -55,8 +61,29 @@ NestJS derives the User only from the verified token and exposes it at
 For the authenticated Playwright journey, create a synthetic Clerk User whose
 email contains `+clerk_test`, then set `E2E_CLERK_USER_EMAIL` in `.env`. The
 official Clerk testing helper signs that User in through the development
-instance, verifies the protected shell and API identity, and signs out. Do not
-commit the test User or Clerk credentials.
+instance, creates its first Organization when necessary, verifies the protected
+shell and API identity, and signs out. Optionally set
+`E2E_CLERK_ORGANIZATION_SLUG` to choose its deterministic slug. Do not commit
+the test User or Clerk credentials.
+
+## Database
+
+Prisma owns the PostgreSQL schema under `apps/api/prisma`. `DATABASE_URL` is
+the pooled Neon connection used by the running API. `DIRECT_DATABASE_URL` is
+the direct Neon connection reserved for migrations; configure both as Railway
+secrets and never expose either to the browser.
+
+Generate the client and apply committed migrations with:
+
+```sh
+corepack pnpm --filter @saas/api db:generate
+corepack pnpm --filter @saas/api db:migrate:deploy
+```
+
+For local schema work, start PostgreSQL with `corepack pnpm dev:infra` and run
+`corepack pnpm --filter @saas/api db:migrate:dev`. Production and shared
+environments should only run `db:migrate:deploy` as a release step, using
+`DIRECT_DATABASE_URL`.
 
 ## Operations
 

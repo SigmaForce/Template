@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { signInClerkTestUser } from "./clerk-fixtures";
+import { ensureFirstOrganization, signInClerkTestUser } from "./clerk-fixtures";
 
 test("visitor is redirected before protected content is rendered", async ({
   page,
@@ -12,10 +12,11 @@ test("visitor is redirected before protected content is rendered", async ({
   ).toHaveCount(0);
 });
 
-test("User signs in, reaches verified identity, and signs out", async ({
+test("User signs in, creates the first Organization, and signs out", async ({
   page,
 }) => {
   await signInClerkTestUser(page);
+  await ensureFirstOrganization(page);
 
   await expect(
     page.getByRole("heading", { name: "Verified User" }),

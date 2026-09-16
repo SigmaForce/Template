@@ -5,50 +5,14 @@ import { AppModule } from './../src/app.module.js';
 import { configureApi } from './../src/configure-api.js';
 import type { ReadinessCheck } from '@saas/tooling-config/readiness';
 import { JsonLogger } from '@saas/tooling-config/logging';
-import { generateKeyPairSync, sign } from 'node:crypto';
-
-const {
-  privateKey: authenticationPrivateKey,
-  publicKey: authenticationPublicKey,
-} = generateKeyPairSync('rsa', {
-  modulusLength: 2048,
-  privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
-  publicKeyEncoding: { type: 'spki', format: 'pem' },
-});
-
-function createSessionToken({
-  authorizedParty = 'http://localhost:3000',
-  expiresAt = Math.floor(Date.now() / 1000) + 60,
-  userId = 'user_verified',
-}: {
-  authorizedParty?: string;
-  expiresAt?: number;
-  userId?: string;
-} = {}) {
-  const now = Math.floor(Date.now() / 1000);
-  const header = Buffer.from(
-    JSON.stringify({ alg: 'RS256', typ: 'JWT' }),
-  ).toString('base64url');
-  const payload = Buffer.from(
-    JSON.stringify({
-      azp: authorizedParty,
-      exp: expiresAt,
-      iat: now,
-      iss: 'https://test.clerk.accounts.dev',
-      nbf: now - 1,
-      sid: 'sess_test',
-      sub: userId,
-    }),
-  ).toString('base64url');
-  const unsignedToken = `${header}.${payload}`;
-  const signature = sign(
-    'RSA-SHA256',
-    Buffer.from(unsignedToken),
-    authenticationPrivateKey,
-  ).toString('base64url');
-
-  return `${unsignedToken}.${signature}`;
-}
+import {
+  MemoryOrganizationDirectory,
+  MemoryOrganizationRepository,
+} from './../src/organizations/memory-organizations.js';
+import {
+  authenticationPublicKey,
+  createSessionToken,
+} from './session-token.js';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication;
@@ -60,8 +24,14 @@ describe('AppController (e2e)', () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
         AppModule.register({
-          authorizedParties: ['http://localhost:3000'],
-          jwtKey: authenticationPublicKey,
+          authentication: {
+            authorizedParties: ['http://localhost:3000'],
+            jwtKey: authenticationPublicKey,
+          },
+          organizations: {
+            directory: new MemoryOrganizationDirectory(),
+            repository: new MemoryOrganizationRepository(),
+          },
         }),
       ],
     }).compile();
@@ -112,6 +82,230 @@ describe('AppController (e2e)', () => {
       .expect(200);
 
     expect(response.body).toEqual({ id: 'user_verified' });
+  });
+
+  it('creates the first Organization with exactly one Owner Membership', async () => {
+    const authorization = `Bearer ${createSessionToken()}`;
+    const creation = await request(app.getHttpServer())
+      .post('/v1/organizations')
+      .set('authorization', authorization)
+      .set('idempotency-key', 'onboarding-first-organization')
+      .send({
+        name: 'Northstar Labs',
+        slug: 'northstar-labs',
+        locale: 'pt-BR',
+        timeZone: 'America/Cuiaba',
+      })
+      .expect(201);
+
+    expect(creation.body).toEqual({
+      organization: {
+        id: 'org_northstar_labs',
+        name: 'Northstar Labs',
+        slug: 'northstar-labs',
+        locale: 'pt-BR',
+        timeZone: 'America/Cuiaba',
+      },
+      membership: { role: 'owner' },
+    });
+
+    const onboarding = await request(app.getHttpServer())
+      .get('/v1/organizations/onboarding')
+      .set('authorization', authorization)
+      .expect(200);
+
+    expect(onboarding.body).toEqual({
+      status: 'complete',
+      ...creation.body,
+    });
+  });
+
+  it('rejects an invalid Organization slug without leaving partial state', async () => {
+    const authorization = `Bearer ${createSessionToken()}`;
+    const response = await request(app.getHttpServer())
+      .post('/v1/organizations')
+      .set('authorization', authorization)
+      .set('idempotency-key', 'onboarding-invalid-slug')
+      .send({
+        name: 'Northstar Labs',
+        slug: 'Northstar Labs!',
+        locale: 'pt-BR',
+        timeZone: 'America/Cuiaba',
+      })
+      .expect('content-type', /application\/problem\+json/)
+      .expect(400);
+
+    expect(response.body).toMatchObject({
+      type: 'urn:problem:next-nest-saas-starter:validation',
+      errors: expect.arrayContaining([
+        {
+          pointer: '#/body/slug',
+          detail: expect.any(String),
+        },
+      ]),
+    });
+
+    await request(app.getHttpServer())
+      .get('/v1/organizations/onboarding')
+      .set('authorization', authorization)
+      .expect(200)
+      .expect({ status: 'required' });
+  });
+
+  it('rejects a reserved Organization slug', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/v1/organizations')
+      .set('authorization', `Bearer ${createSessionToken()}`)
+      .set('idempotency-key', 'onboarding-reserved-slug')
+      .send({
+        name: 'Reserved Organization',
+        slug: 'api',
+        locale: 'en-US',
+        timeZone: 'UTC',
+      })
+      .expect('content-type', /application\/problem\+json/)
+      .expect(400);
+
+    expect(response.body.errors).toContainEqual({
+      pointer: '#/body/slug',
+      detail: 'slug is reserved',
+    });
+  });
+
+  it('requires a safe idempotency key for Organization creation', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/v1/organizations')
+      .set('authorization', `Bearer ${createSessionToken()}`)
+      .send({
+        name: 'Northstar Labs',
+        slug: 'northstar-labs',
+        locale: 'pt-BR',
+        timeZone: 'America/Cuiaba',
+      })
+      .expect('content-type', /application\/problem\+json/)
+      .expect(400);
+
+    expect(response.body).toMatchObject({
+      type: 'urn:problem:next-nest-saas-starter:validation',
+      errors: [
+        {
+          pointer: '#/headers/idempotency-key',
+          detail:
+            'Idempotency-Key must contain 8 to 128 safe ASCII characters.',
+        },
+      ],
+    });
+  });
+
+  it('rejects an Organization slug that is already in use without partial state', async () => {
+    const input = {
+      name: 'Northstar Labs',
+      slug: 'shared-slug',
+      locale: 'pt-BR',
+      timeZone: 'America/Cuiaba',
+    };
+    const firstUser = `Bearer ${createSessionToken({ userId: 'user_first' })}`;
+    const secondUser = `Bearer ${createSessionToken({ userId: 'user_second' })}`;
+
+    await request(app.getHttpServer())
+      .post('/v1/organizations')
+      .set('authorization', firstUser)
+      .set('idempotency-key', 'first-user-organization')
+      .send(input)
+      .expect(201);
+
+    const conflict = await request(app.getHttpServer())
+      .post('/v1/organizations')
+      .set('authorization', secondUser)
+      .set('idempotency-key', 'second-user-organization')
+      .send(input)
+      .expect('content-type', /application\/problem\+json/)
+      .expect(409);
+
+    expect(conflict.body).toMatchObject({
+      type: 'urn:problem:next-nest-saas-starter:organization-slug-conflict',
+      title: 'Organization slug is unavailable',
+      status: 409,
+      errors: [
+        {
+          pointer: '#/body/slug',
+          detail: 'Choose a different Organization slug.',
+        },
+      ],
+    });
+
+    await request(app.getHttpServer())
+      .get('/v1/organizations/onboarding')
+      .set('authorization', secondUser)
+      .expect(200)
+      .expect({ status: 'required' });
+  });
+
+  it('replays an accidental repeated onboarding submission without duplicates', async () => {
+    const authorization = `Bearer ${createSessionToken()}`;
+    const input = {
+      name: 'Idempotent Labs',
+      slug: 'idempotent-labs',
+      locale: 'en-US',
+      timeZone: 'UTC',
+    };
+
+    const first = await request(app.getHttpServer())
+      .post('/v1/organizations')
+      .set('authorization', authorization)
+      .set('idempotency-key', 'same-onboarding-submission')
+      .send(input)
+      .expect(201);
+
+    const repeated = await request(app.getHttpServer())
+      .post('/v1/organizations')
+      .set('authorization', authorization)
+      .set('idempotency-key', 'same-onboarding-submission')
+      .send(input)
+      .expect(201);
+
+    expect(repeated.body).toEqual(first.body);
+    await request(app.getHttpServer())
+      .get('/v1/organizations/onboarding')
+      .set('authorization', authorization)
+      .expect(200)
+      .expect({ status: 'complete', ...first.body });
+  });
+
+  it('rejects reuse of an idempotency key with different input', async () => {
+    const authorization = `Bearer ${createSessionToken()}`;
+    const idempotencyKey = 'same-key-different-input';
+    const original = {
+      name: 'Original Labs',
+      slug: 'original-labs',
+      locale: 'en-US',
+      timeZone: 'UTC',
+    };
+
+    const creation = await request(app.getHttpServer())
+      .post('/v1/organizations')
+      .set('authorization', authorization)
+      .set('idempotency-key', idempotencyKey)
+      .send(original)
+      .expect(201);
+
+    const conflict = await request(app.getHttpServer())
+      .post('/v1/organizations')
+      .set('authorization', authorization)
+      .set('idempotency-key', idempotencyKey)
+      .send({ ...original, name: 'Changed Labs' })
+      .expect('content-type', /application\/problem\+json/)
+      .expect(409);
+
+    expect(conflict.body).toMatchObject({
+      type: 'urn:problem:next-nest-saas-starter:idempotency-conflict',
+      title: 'Idempotency key conflict',
+    });
+    await request(app.getHttpServer())
+      .get('/v1/organizations/onboarding')
+      .set('authorization', authorization)
+      .expect(200)
+      .expect({ status: 'complete', ...creation.body });
   });
 
   it.each([

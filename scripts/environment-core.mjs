@@ -202,8 +202,8 @@ function parseAuthentication(environment, errors) {
   const authorizedPartiesValue = environment.CLERK_AUTHORIZED_PARTIES?.trim();
   const authorizedParties = [];
 
-  if (!secretKey && !jwtKey) {
-    errors.push("CLERK_SECRET_KEY or CLERK_JWT_KEY is required");
+  if (!secretKey) {
+    errors.push("CLERK_SECRET_KEY is required for Organization management");
   }
 
   if (

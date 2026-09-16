@@ -74,7 +74,10 @@ test("startup reports every invalid environment value", () => {
     result.stderr,
     /LOG_LEVEL must be one of debug, info, warn, error/,
   );
-  assert.match(result.stderr, /CLERK_SECRET_KEY or CLERK_JWT_KEY is required/);
+  assert.match(
+    result.stderr,
+    /CLERK_SECRET_KEY is required for Organization management/,
+  );
   assert.match(result.stderr, /CLERK_AUTHORIZED_PARTIES is required/);
   assert.match(result.stderr, /NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is required/);
 });
@@ -137,7 +140,10 @@ test("startup requires Clerk keys and an authorized frontend origin", () => {
   const result = runCheck(environmentFile);
 
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /CLERK_SECRET_KEY or CLERK_JWT_KEY is required/);
+  assert.match(
+    result.stderr,
+    /CLERK_SECRET_KEY is required for Organization management/,
+  );
   assert.match(result.stderr, /CLERK_AUTHORIZED_PARTIES is required/);
   assert.match(result.stderr, /NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is required/);
 });
@@ -155,6 +161,7 @@ test("startup rejects a malformed Clerk JWT public key", () => {
       "DATABASE_URL=postgresql://saas:saas@localhost:5432/saas",
       "REDIS_URL=redis://localhost:6379",
       "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_dGVzdC5jbGVyay5hY2NvdW50cy5kZXYk",
+      "CLERK_SECRET_KEY=sk_test_c3ludGhldGljLW5vdC1hLXJlYWwta2V5",
       "CLERK_JWT_KEY=replace-with-clerk-jwt-public-key",
       "CLERK_AUTHORIZED_PARTIES=http://localhost:3000",
     ].join("\n"),
@@ -176,7 +183,24 @@ test("API environment accepts a structurally valid RSA public key", () => {
   });
 
   assert.doesNotThrow(() =>
-    parseApiEnvironment(apiEnvironment({ CLERK_JWT_KEY: publicKey })),
+    parseApiEnvironment(
+      apiEnvironment({
+        CLERK_SECRET_KEY: "sk_test_c3ludGhldGljLW5vdC1hLXJlYWwta2V5",
+        CLERK_JWT_KEY: publicKey,
+      }),
+    ),
+  );
+});
+
+test("API environment requires a Clerk secret even with a JWT public key", () => {
+  const { publicKey } = generateKeyPairSync("rsa", {
+    modulusLength: 2048,
+    publicKeyEncoding: { type: "spki", format: "pem" },
+  });
+
+  assert.throws(
+    () => parseApiEnvironment(apiEnvironment({ CLERK_JWT_KEY: publicKey })),
+    /CLERK_SECRET_KEY is required for Organization management/,
   );
 });
 
@@ -190,7 +214,13 @@ test("API environment rejects malformed DER inside valid PEM armor", () => {
   ].join("\n");
 
   assert.throws(
-    () => parseApiEnvironment(apiEnvironment({ CLERK_JWT_KEY: malformedPem })),
+    () =>
+      parseApiEnvironment(
+        apiEnvironment({
+          CLERK_SECRET_KEY: "sk_test_c3ludGhldGljLW5vdC1hLXJlYWwta2V5",
+          CLERK_JWT_KEY: malformedPem,
+        }),
+      ),
     /CLERK_JWT_KEY must be a valid RSA PEM public key/,
   );
 });

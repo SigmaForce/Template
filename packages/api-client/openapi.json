@@ -84,6 +84,46 @@
         ],
         "type": "object"
       },
+      "CreateOrganizationDto": {
+        "properties": {
+          "locale": {
+            "enum": [
+              "en-US",
+              "pt-BR"
+            ],
+            "example": "pt-BR",
+            "type": "string"
+          },
+          "name": {
+            "example": "Northstar Labs",
+            "maxLength": 100,
+            "minLength": 2,
+            "type": "string"
+          },
+          "slug": {
+            "example": "northstar-labs",
+            "maxLength": 48,
+            "minLength": 3,
+            "type": "string"
+          },
+          "timeZone": {
+            "enum": [
+              "America/Cuiaba",
+              "America/Sao_Paulo",
+              "UTC"
+            ],
+            "example": "America/Cuiaba",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "slug",
+          "locale",
+          "timeZone"
+        ],
+        "type": "object"
+      },
       "DependencyReadinessDto": {
         "properties": {
           "critical": {
@@ -146,6 +186,89 @@
         "required": [
           "amountMinor",
           "currency"
+        ],
+        "type": "object"
+      },
+      "OrganizationDto": {
+        "properties": {
+          "id": {
+            "example": "org_2abc",
+            "type": "string"
+          },
+          "locale": {
+            "example": "pt-BR",
+            "type": "string"
+          },
+          "name": {
+            "example": "Northstar Labs",
+            "type": "string"
+          },
+          "slug": {
+            "example": "northstar-labs",
+            "type": "string"
+          },
+          "timeZone": {
+            "example": "America/Cuiaba",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "locale",
+          "timeZone"
+        ],
+        "type": "object"
+      },
+      "OrganizationOnboardingResultDto": {
+        "properties": {
+          "membership": {
+            "$ref": "#/components/schemas/OwnerMembershipDto"
+          },
+          "organization": {
+            "$ref": "#/components/schemas/OrganizationDto"
+          }
+        },
+        "required": [
+          "organization",
+          "membership"
+        ],
+        "type": "object"
+      },
+      "OrganizationOnboardingStateDto": {
+        "properties": {
+          "membership": {
+            "$ref": "#/components/schemas/OwnerMembershipDto"
+          },
+          "organization": {
+            "$ref": "#/components/schemas/OrganizationDto"
+          },
+          "status": {
+            "enum": [
+              "required",
+              "complete"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "type": "object"
+      },
+      "OwnerMembershipDto": {
+        "properties": {
+          "role": {
+            "enum": [
+              "owner"
+            ],
+            "example": "owner",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role"
         ],
         "type": "object"
       },
@@ -414,6 +537,89 @@
         "summary": "",
         "tags": [
           "Health"
+        ]
+      }
+    },
+    "/v1/organizations": {
+      "post": {
+        "operationId": "createFirstOrganization",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrganizationDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationOnboardingResultDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "clerk-session": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "organizations"
+        ]
+      }
+    },
+    "/v1/organizations/onboarding": {
+      "get": {
+        "operationId": "getOrganizationOnboarding",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationOnboardingStateDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "clerk-session": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "organizations"
         ]
       }
     },

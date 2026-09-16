@@ -5,13 +5,25 @@ import { ReadinessController } from './health/readiness.controller.js';
 import { ReadinessService } from '@saas/tooling-config/readiness';
 import { AuthenticationModule } from './authentication/authentication.module.js';
 import type { AuthenticationOptions } from './authentication/authentication.js';
+import {
+  OrganizationsModule,
+  type OrganizationModuleOptions,
+} from './organizations/organizations.module.js';
+
+export interface AppModuleOptions {
+  authentication: AuthenticationOptions;
+  organizations: OrganizationModuleOptions;
+}
 
 @Module({})
 export class AppModule {
-  static register(authentication: AuthenticationOptions): DynamicModule {
+  static register(options: AppModuleOptions): DynamicModule {
     return {
       module: AppModule,
-      imports: [AuthenticationModule.register(authentication)],
+      imports: [
+        AuthenticationModule.register(options.authentication),
+        OrganizationsModule.register(options.organizations),
+      ],
       controllers: [
         AppController,
         ContractExamplesController,

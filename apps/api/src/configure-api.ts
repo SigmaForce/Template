@@ -21,7 +21,7 @@ import type { JsonLogger } from '@saas/tooling-config/logging';
 
 function flattenValidationErrors(
   errors: ValidationError[],
-  parent = '#/query',
+  parent = validationRoot(errors),
 ): ProblemValidationErrorDto[] {
   return errors.flatMap((error) => {
     const pointer = `${parent}/${error.property}`;
@@ -33,6 +33,12 @@ function flattenValidationErrors(
 
     return [...ownErrors, ...childErrors];
   });
+}
+
+function validationRoot(errors: ValidationError[]) {
+  const target = errors[0]?.target as
+    { constructor?: { validationRoot?: string } } | undefined;
+  return target?.constructor?.validationRoot ?? '#/query';
 }
 
 export interface ConfigureApiOptions {

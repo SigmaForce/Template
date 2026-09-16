@@ -51,6 +51,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/organizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createFirstOrganization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/organizations/onboarding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getOrganizationOnboarding"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/ready": {
         parameters: {
             query?: never;
@@ -112,6 +144,22 @@ export interface components {
             items: components["schemas"]["ContractExampleDto"][];
             pageInfo: components["schemas"]["PageInfoDto"];
         };
+        CreateOrganizationDto: {
+            /**
+             * @example pt-BR
+             * @enum {string}
+             */
+            locale: "en-US" | "pt-BR";
+            /** @example Northstar Labs */
+            name: string;
+            /** @example northstar-labs */
+            slug: string;
+            /**
+             * @example America/Cuiaba
+             * @enum {string}
+             */
+            timeZone: "America/Cuiaba" | "America/Sao_Paulo" | "UTC";
+        };
         DependencyReadinessDto: {
             critical: boolean;
             /** @example database */
@@ -133,6 +181,35 @@ export interface components {
             amountMinor: string;
             /** @example BRL */
             currency: string;
+        };
+        OrganizationDto: {
+            /** @example org_2abc */
+            id: string;
+            /** @example pt-BR */
+            locale: string;
+            /** @example Northstar Labs */
+            name: string;
+            /** @example northstar-labs */
+            slug: string;
+            /** @example America/Cuiaba */
+            timeZone: string;
+        };
+        OrganizationOnboardingResultDto: {
+            membership: components["schemas"]["OwnerMembershipDto"];
+            organization: components["schemas"]["OrganizationDto"];
+        };
+        OrganizationOnboardingStateDto: {
+            membership?: components["schemas"]["OwnerMembershipDto"];
+            organization?: components["schemas"]["OrganizationDto"];
+            /** @enum {string} */
+            status: "required" | "complete";
+        };
+        OwnerMembershipDto: {
+            /**
+             * @example owner
+             * @enum {string}
+             */
+            role: "owner";
         };
         PageInfoDto: {
             /** @example true */
@@ -261,6 +338,58 @@ export interface operations {
                         /** @enum {string} */
                         status: "healthy";
                     };
+                };
+            };
+        };
+    };
+    createFirstOrganization: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateOrganizationDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationOnboardingResultDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
+    getOrganizationOnboarding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationOnboardingStateDto"];
                 };
             };
         };
