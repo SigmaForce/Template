@@ -9,9 +9,9 @@ import {
 } from './organization.js';
 import type {
   MembershipAccess,
+  MembershipIdentity,
   MembershipAccessStatus,
 } from '../authorization/authorization.js';
-import type { OrganizationRole } from '../authorization/permission.js';
 
 interface MemoryMembership extends MembershipAccess {
   organizationId: string;
@@ -21,7 +21,6 @@ interface MemoryMembership extends MembershipAccess {
 export interface MemoryOrganizationRepositorySeed {
   memberships?: Array<{
     organizationId: string;
-    role: OrganizationRole;
     status: MembershipAccessStatus;
     userId: string;
   }>;
@@ -96,7 +95,6 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
       {
         organizationId: record.organization.id,
         userId: record.userId,
-        role: 'owner',
         status: 'active',
       },
     );
@@ -118,15 +116,20 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
     }
   }
 
-  async findMembership(input: { organizationId: string; userId: string }) {
+  async findMembership(input: MembershipIdentity) {
     return this.memberships.get(this.membershipKey(input));
   }
 
   async findOrganization(organizationId: string) {
     const organization = this.organizations.get(organizationId);
-    return organization
-      ? { id: organization.id, state: organization.state }
-      : undefined;
+    return organization ? { state: organization.state } : undefined;
+  }
+
+  async getSettings(organizationId: string) {
+    const organization = this.organizations.get(organizationId);
+    if (!organization) throw new Error('Organization is unavailable.');
+    const { state: _state, ...profile } = organization;
+    return profile;
   }
 
   async updateSettings(input: {
@@ -146,7 +149,7 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
     return profile;
   }
 
-  private membershipKey(input: { organizationId: string; userId: string }) {
+  private membershipKey(input: MembershipIdentity) {
     return `${input.organizationId}\u0000${input.userId}`;
   }
 }

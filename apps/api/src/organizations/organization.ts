@@ -43,6 +43,8 @@ export abstract class OrganizationRepository extends AuthorizationRepository {
     userId: string,
   ): Promise<OrganizationOnboardingResult | undefined>;
 
+  abstract getSettings(organizationId: string): Promise<OrganizationProfile>;
+
   abstract releaseOnboarding(input: {
     idempotencyKey: string;
     userId: string;

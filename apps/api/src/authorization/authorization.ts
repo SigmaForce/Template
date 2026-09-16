@@ -1,4 +1,4 @@
-import type { OrganizationRole, PermissionId } from './permission.js';
+import type { PermissionId } from './permission.js';
 
 export const Capability = {
   organizationSettings: 'organization-settings',
@@ -10,20 +10,22 @@ export type OrganizationAccessState =
 export type MembershipAccessStatus = 'active' | 'suspended';
 
 export interface MembershipAccess {
-  role: OrganizationRole;
   status: MembershipAccessStatus;
 }
 
 export interface OrganizationAccess {
-  id: string;
   state: OrganizationAccessState;
 }
 
+export interface MembershipIdentity {
+  organizationId: string;
+  userId: string;
+}
+
 export abstract class AuthorizationRepository {
-  abstract findMembership(input: {
-    organizationId: string;
-    userId: string;
-  }): Promise<MembershipAccess | undefined>;
+  abstract findMembership(
+    input: MembershipIdentity,
+  ): Promise<MembershipAccess | undefined>;
 
   abstract findOrganization(
     organizationId: string,
@@ -55,7 +57,4 @@ export interface AuthorizeOrganizationOperation {
 
 export interface AuthorizedOrganizationScope {
   organizationId: string;
-  permission: PermissionId;
-  role: OrganizationRole;
-  userId: string;
 }

@@ -2,10 +2,17 @@ import type { components } from "@saas/api-client";
 import { brand } from "@saas/ui";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { logWebOperation } from "../../../../operational-log";
 import { createServerApiContext } from "../../../../server-api-context";
 
 type Money = components["schemas"]["MoneyDto"];
+type PermissionId = components["schemas"]["ActiveOrganizationDto"]["permissions"][number];
+
+const permission = {
+  billingManage: "billing:manage",
+  organizationSettingsUpdate: "organization:settings:update",
+} as const satisfies Record<string, PermissionId>;
 
 type ApiAvailability =
   | {
@@ -26,6 +33,55 @@ type ActiveOrganizationContext =
       organization: components["schemas"]["ActiveOrganizationDto"];
     }
   | { available: false };
+
+type OrganizationSettings =
+  | {
+      available: true;
+      value: components["schemas"]["OrganizationDto"];
+    }
+  | { available: false };
+
+async function updateOrganizationSettingsAction(
+  organizationId: string,
+  slug: string,
+  formData: FormData,
+) {
+  "use server";
+
+  const locale = formData.get("locale");
+  const timeZone = formData.get("timeZone");
+  if (
+    (locale !== "en-US" && locale !== "pt-BR") ||
+    (timeZone !== "America/Cuiaba" &&
+      timeZone !== "America/Sao_Paulo" &&
+      timeZone !== "UTC")
+  ) {
+    throw new Error("Invalid Organization settings.");
+  }
+
+  const session = await auth();
+  if (session.orgId !== organizationId) {
+    throw new Error("Active Organization changed. Reload and try again.");
+  }
+  const token = await session.getToken();
+  if (!token) throw new Error("Authentication is required.");
+
+  const { client, correlatedHeaders } = await createServerApiContext();
+  const { error } = await client.PATCH(
+    "/v1/organizations/{organizationId}/settings",
+    {
+      headers: {
+        ...correlatedHeaders,
+        authorization: `Bearer ${token}`,
+      },
+      params: { path: { organizationId } },
+      body: { locale, timeZone },
+    },
+  );
+  if (error) throw new Error("Organization settings could not be updated.");
+
+  revalidatePath(`/organizations/${slug}`);
+}
 
 async function getAuthenticatedIdentity(
   token: string,
@@ -65,6 +121,33 @@ async function getActiveOrganization(
 
     return data
       ? { available: true, organization: data }
+      : { available: false };
+  } catch {
+    return { available: false };
+  }
+}
+
+async function getOrganizationSettings(
+  token: string,
+  organizationId: string,
+): Promise<OrganizationSettings> {
+  try {
+    const { client, correlatedHeaders } = await createServerApiContext();
+    const { data } = await client.GET(
+      "/v1/organizations/{organizationId}/settings",
+      {
+        cache: "no-store",
+        headers: {
+          ...correlatedHeaders,
+          authorization: `Bearer ${token}`,
+        },
+        params: { path: { organizationId } },
+        signal: AbortSignal.timeout(3_000),
+      },
+    );
+
+    return data
+      ? { available: true, value: data }
       : { available: false };
   } catch {
     return { available: false };
@@ -154,10 +237,16 @@ export default async function Home({
   const activePermissions = activeOrganization.available
     ? activeOrganization.organization.permissions
     : [];
-  const canManageBilling = activePermissions.includes("billing:manage");
+  const canManageBilling = activePermissions.includes(permission.billingManage);
   const canUpdateOrganizationSettings = activePermissions.includes(
-    "organization:settings:update",
+    permission.organizationSettingsUpdate,
   );
+  const organizationSettings = activeOrganization.available
+    ? await getOrganizationSettings(
+        token,
+        activeOrganization.organization.id,
+      )
+    : { available: false as const };
 
   return (
     <div className="dashboard-page" id="overview">
@@ -345,11 +434,43 @@ export default async function Home({
           >
             <p className="eyebrow">Organization</p>
             <h2 id="settings-title">Make it yours</h2>
-            <p>Brand, semantic tokens and navigation are ready to customize.</p>
-            {canUpdateOrganizationSettings ? (
-              <a href="#settings">
-                Open settings <span aria-hidden="true">↗</span>
-              </a>
+            <p>Choose the regional defaults used by this Organization.</p>
+            {canUpdateOrganizationSettings && organizationSettings.available ? (
+              <form
+                action={updateOrganizationSettingsAction.bind(
+                  null,
+                  organizationSettings.value.id,
+                  slug,
+                )}
+                className="organization-settings-form"
+              >
+                <label>
+                  Locale
+                  <select
+                    defaultValue={organizationSettings.value.locale}
+                    name="locale"
+                  >
+                    <option value="pt-BR">Português (Brasil)</option>
+                    <option value="en-US">English (United States)</option>
+                  </select>
+                </label>
+                <label>
+                  Time zone
+                  <select
+                    defaultValue={organizationSettings.value.timeZone}
+                    name="timeZone"
+                  >
+                    <option value="America/Cuiaba">America/Cuiaba</option>
+                    <option value="America/Sao_Paulo">
+                      America/Sao_Paulo
+                    </option>
+                    <option value="UTC">UTC</option>
+                  </select>
+                </label>
+                <button className="primary-action" type="submit">
+                  Save settings
+                </button>
+              </form>
             ) : (
               <p data-testid="settings-permission-required">
                 You can view these settings, but cannot change them.

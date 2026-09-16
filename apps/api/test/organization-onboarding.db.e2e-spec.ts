@@ -113,6 +113,42 @@ describe.skipIf(!databaseUrl)('Organization onboarding with PostgreSQL', () => {
         });
       });
 
+    await request(app.getHttpServer())
+      .patch(`/v1/organizations/${organization.id}/settings`)
+      .set(
+        'authorization',
+        `Bearer ${createSessionToken({
+          userId,
+          organization,
+          organizationRole: 'member',
+        })}`,
+      )
+      .send({ locale: 'pt-BR', timeZone: 'America/Cuiaba' })
+      .expect(403);
+
+    const otherCreation = await request(app.getHttpServer())
+      .post('/v1/organizations')
+      .set(
+        'authorization',
+        `Bearer ${createSessionToken({ userId: 'user_other_postgres' })}`,
+      )
+      .set('idempotency-key', 'postgres-other-organization')
+      .send({
+        name: 'Other PostgreSQL Organization',
+        slug: 'other-postgres-organization',
+        locale: 'pt-BR',
+        timeZone: 'America/Cuiaba',
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .patch(
+        `/v1/organizations/${otherCreation.body.organization.id as string}/settings`,
+      )
+      .set('authorization', authorization)
+      .send({ locale: 'pt-BR', timeZone: 'America/Cuiaba' })
+      .expect(403);
+
     await pool.query(
       "UPDATE memberships SET status = 'SUSPENDED' WHERE organization_id = $1 AND user_id = $2",
       [organization.id, userId],

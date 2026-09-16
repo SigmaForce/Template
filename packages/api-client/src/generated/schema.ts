@@ -106,7 +106,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: operations["getOrganizationSettings"];
         put?: never;
         post?: never;
         delete?: never;
@@ -472,6 +472,36 @@ export interface operations {
             };
         };
     };
+    getOrganizationSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationDto"];
+                };
+            };
+            /** @description The operation is outside the granted Organization policy. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
     updateOrganizationSettings: {
         parameters: {
             query?: never;
@@ -495,12 +525,13 @@ export interface operations {
                     "application/json": components["schemas"]["OrganizationDto"];
                 };
             };
+            /** @description The operation is outside the granted Organization policy. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProblemDetailsDto"];
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
                 };
             };
         };

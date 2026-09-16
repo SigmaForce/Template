@@ -27,7 +27,7 @@ export class ClerkTokenVerifier extends SessionTokenVerifier {
         : payload.org_id
           ? {
               id: payload.org_id,
-              role: payload.org_role?.replace(/^org:/, ''),
+              role: payload.org_role,
               slug: payload.org_slug,
             }
           : undefined;

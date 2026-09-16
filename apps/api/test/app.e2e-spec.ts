@@ -103,14 +103,7 @@ describe('AppController (e2e)', () => {
     expect(response.body).toEqual({
       id: 'org_verified',
       slug: 'verified-org',
-      permissions: [
-        'organization:settings:read',
-        'organization:settings:update',
-        'organization:memberships:manage',
-        'billing:manage',
-        'organization:ownership:manage',
-        'organization:delete',
-      ],
+      permissions: [],
     });
   });
 
@@ -200,7 +193,6 @@ describe('AppController (e2e)', () => {
         {
           organizationId: organization.id,
           userId,
-          role,
           status: 'active',
         },
       ]);
@@ -218,6 +210,12 @@ describe('AppController (e2e)', () => {
         locale: 'en-US',
         timeZone: 'UTC',
       });
+
+      await request(app.getHttpServer())
+        .get(`/v1/organizations/${organization.id}/settings`)
+        .set('authorization', tokenFor(userId, role))
+        .expect(200)
+        .expect(response.body);
     });
 
     it('denies a Member consistently and keeps Owner-only permissions out of its projection', async () => {
@@ -225,7 +223,6 @@ describe('AppController (e2e)', () => {
         {
           organizationId: organization.id,
           userId: 'user_member',
-          role: 'member',
           status: 'active',
         },
       ]);
@@ -257,10 +254,15 @@ describe('AppController (e2e)', () => {
         {
           organizationId: organization.id,
           userId: 'user_suspended',
-          role: 'owner',
           status: 'suspended',
         },
       ]);
+
+      const projection = await request(app.getHttpServer())
+        .get('/v1/organizations/active')
+        .set('authorization', tokenFor('user_suspended', 'owner'))
+        .expect(200);
+      expect(projection.body.permissions).toEqual([]);
 
       const response = await request(app.getHttpServer())
         .patch(`/v1/organizations/${organization.id}/settings`)
@@ -279,7 +281,6 @@ describe('AppController (e2e)', () => {
         {
           organizationId: organization.id,
           userId: 'user_owner',
-          role: 'owner',
           status: 'active',
         },
       ]);
@@ -297,15 +298,25 @@ describe('AppController (e2e)', () => {
     });
 
     it('keeps billing, ownership and deletion exclusive to Owner', async () => {
+      await useAuthorizationFixture([
+        {
+          organizationId: organization.id,
+          userId: 'user_admin',
+          status: 'active',
+        },
+        {
+          organizationId: organization.id,
+          userId: 'user_owner',
+          status: 'active',
+        },
+      ]);
       const admin = await request(app.getHttpServer())
         .get('/v1/organizations/active')
-        .set(
-          'authorization',
-          tokenFor('user_admin', 'admin', {
-            id: 'org_admin',
-            slug: 'admin-org',
-          }),
-        )
+        .set('authorization', tokenFor('user_admin', 'admin'))
+        .expect(200);
+      const owner = await request(app.getHttpServer())
+        .get('/v1/organizations/active')
+        .set('authorization', tokenFor('user_owner', 'owner'))
         .expect(200);
 
       expect(admin.body.permissions).toEqual([
@@ -314,6 +325,13 @@ describe('AppController (e2e)', () => {
         'organization:memberships:manage',
       ]);
       expect(admin.body.permissions).not.toEqual(
+        expect.arrayContaining([
+          'billing:manage',
+          'organization:ownership:manage',
+          'organization:delete',
+        ]),
+      );
+      expect(owner.body.permissions).toEqual(
         expect.arrayContaining([
           'billing:manage',
           'organization:ownership:manage',

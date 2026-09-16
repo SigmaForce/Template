@@ -11,12 +11,14 @@ import {
   ApiBearerAuth,
   ApiConflictResponse,
   ApiCreatedResponse,
-  ApiForbiddenResponse,
+  ApiExtraModels,
   ApiHeader,
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiResponse,
   ApiTags,
+  getSchemaPath,
 } from '@nestjs/swagger';
 import {
   CurrentUser,
@@ -37,6 +39,7 @@ import {
 import { UpdateOrganizationSettingsDto } from './update-organization-settings.dto.js';
 
 @ApiTags('organizations')
+@ApiExtraModels(ProblemDetailsDto)
 @ApiBearerAuth('clerk-session')
 @Controller('organizations')
 export class OrganizationsController {
@@ -54,13 +57,41 @@ export class OrganizationsController {
   @ApiOperation({ operationId: 'updateOrganizationSettings' })
   @ApiParam({ name: 'organizationId', example: 'org_2abc' })
   @ApiOkResponse({ type: OrganizationDto })
-  @ApiForbiddenResponse({ type: ProblemDetailsDto })
+  @ApiResponse({
+    status: 403,
+    description: 'The operation is outside the granted Organization policy.',
+    content: {
+      'application/problem+json': {
+        schema: { $ref: getSchemaPath(ProblemDetailsDto) },
+      },
+    },
+  })
   updateSettings(
     @CurrentUser() user: AuthenticatedUser,
     @Param('organizationId') organizationId: string,
     @Body() input: UpdateOrganizationSettingsDto,
   ) {
     return this.organizations.updateSettings(user, organizationId, input);
+  }
+
+  @Get(':organizationId/settings')
+  @ApiOperation({ operationId: 'getOrganizationSettings' })
+  @ApiParam({ name: 'organizationId', example: 'org_2abc' })
+  @ApiOkResponse({ type: OrganizationDto })
+  @ApiResponse({
+    status: 403,
+    description: 'The operation is outside the granted Organization policy.',
+    content: {
+      'application/problem+json': {
+        schema: { $ref: getSchemaPath(ProblemDetailsDto) },
+      },
+    },
+  })
+  getSettings(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('organizationId') organizationId: string,
+  ) {
+    return this.organizations.getSettings(user, organizationId);
   }
 
   @Post()

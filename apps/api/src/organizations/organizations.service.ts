@@ -11,7 +11,7 @@ import {
 } from './organization.js';
 import { AuthorizationService } from '../authorization/authorization.service.js';
 import { Capability } from '../authorization/authorization.js';
-import { Permission, permissionsForRole } from '../authorization/permission.js';
+import { Permission } from '../authorization/permission.js';
 import type { UpdateOrganizationSettingsDto } from './update-organization-settings.dto.js';
 
 @Injectable()
@@ -102,14 +102,15 @@ export class OrganizationsService {
       : { status: 'required' as const };
   }
 
-  getActiveOrganization(user: AuthenticatedUser) {
+  async getActiveOrganization(user: AuthenticatedUser) {
     if (!user.activeOrganization) {
       throw PublicProblemException.activeOrganizationRequired();
     }
     return {
       id: user.activeOrganization.id,
       slug: user.activeOrganization.slug,
-      permissions: permissionsForRole(user.activeOrganization.role),
+      permissions:
+        await this.authorization.permissionsForActiveOrganization(user),
     };
   }
 
@@ -131,5 +132,17 @@ export class OrganizationsService {
       locale: input.locale,
       timeZone: input.timeZone,
     });
+  }
+
+  async getSettings(user: AuthenticatedUser, organizationId: string) {
+    const scope = await this.authorization.authorize({
+      user,
+      targetOrganizationId: organizationId,
+      capability: Capability.organizationSettings,
+      permission: Permission.organizationSettingsRead,
+      mode: 'read',
+    });
+
+    return this.repository.getSettings(scope.organizationId);
   }
 }

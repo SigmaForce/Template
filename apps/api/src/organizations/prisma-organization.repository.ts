@@ -151,12 +151,11 @@ export class PrismaOrganizationRepository
           userId: input.userId,
         },
       },
-      select: { role: true, status: true },
+      select: { status: true },
     });
     if (!membership) return undefined;
 
     return {
-      role: membership.role.toLowerCase() as 'admin' | 'member' | 'owner',
       status:
         membership.status === MembershipStatus.ACTIVE
           ? ('active' as const)
@@ -176,7 +175,20 @@ export class PrismaOrganizationRepository
       [OrganizationState.READ_ONLY]: 'read-only',
       [OrganizationState.PENDING_DELETION]: 'pending-deletion',
     } as const;
-    return { id: organization.id, state: states[organization.state] };
+    return { state: states[organization.state] };
+  }
+
+  async getSettings(organizationId: string) {
+    return this.client.organization.findUniqueOrThrow({
+      where: { id: organizationId },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        locale: true,
+        timeZone: true,
+      },
+    });
   }
 
   async updateSettings(input: {

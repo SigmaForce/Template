@@ -719,6 +719,51 @@
       }
     },
     "/v1/organizations/{organizationId}/settings": {
+      "get": {
+        "operationId": "getOrganizationSettings",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organizationId",
+            "required": true,
+            "schema": {
+              "example": "org_2abc",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "The operation is outside the granted Organization policy."
+          }
+        },
+        "security": [
+          {
+            "clerk-session": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "organizations"
+        ]
+      },
       "patch": {
         "operationId": "updateOrganizationSettings",
         "parameters": [
@@ -755,13 +800,13 @@
           },
           "403": {
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetailsDto"
                 }
               }
             },
-            "description": ""
+            "description": "The operation is outside the granted Organization policy."
           }
         },
         "security": [

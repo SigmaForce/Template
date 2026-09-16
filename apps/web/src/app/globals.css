@@ -89,9 +89,39 @@ h1 {
 
 .primary-action:focus-visible,
 .activity-card a:focus-visible,
-.compact-card a:focus-visible {
+.compact-card a:focus-visible,
+.organization-settings-form select:focus-visible {
   outline: 2px solid var(--semantic-focus);
   outline-offset: 3px;
+}
+
+.organization-settings-form {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1rem;
+}
+
+.organization-settings-form label {
+  color: var(--semantic-muted);
+  display: grid;
+  font-size: 0.8rem;
+  font-weight: 700;
+  gap: 0.35rem;
+}
+
+.organization-settings-form select {
+  background: var(--semantic-canvas);
+  border: 1px solid var(--semantic-border);
+  border-radius: 0.65rem;
+  color: var(--semantic-foreground);
+  min-height: 2.5rem;
+  padding: 0.45rem 0.65rem;
+}
+
+.organization-settings-form .primary-action {
+  border: 0;
+  cursor: pointer;
+  justify-content: center;
 }
 
 .dashboard-grid {
