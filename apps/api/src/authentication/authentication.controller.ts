@@ -35,6 +35,6 @@ export class AuthenticationController {
     },
   })
   getAuthenticatedUser(@CurrentUser() user: AuthenticatedUser) {
-    return user;
+    return { id: user.id };
   }
 }

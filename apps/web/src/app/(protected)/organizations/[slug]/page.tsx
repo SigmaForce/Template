@@ -20,12 +20,16 @@ type ApiAvailability =
 type AuthenticatedIdentity =
   { available: true; id: string } | { available: false };
 
-async function getAuthenticatedIdentity(): Promise<AuthenticatedIdentity> {
-  const { getToken } = await auth();
-  const token = await getToken();
+type ActiveOrganizationContext =
+  | {
+      available: true;
+      organization: components["schemas"]["ActiveOrganizationDto"];
+    }
+  | { available: false };
 
-  if (!token) return { available: false };
-
+async function getAuthenticatedIdentity(
+  token: string,
+): Promise<AuthenticatedIdentity> {
   try {
     const { client, correlatedHeaders } = await createServerApiContext();
     const { data } = await client.GET("/v1/auth/me", {
@@ -40,6 +44,28 @@ async function getAuthenticatedIdentity(): Promise<AuthenticatedIdentity> {
     if (!data) return { available: false };
 
     return { available: true, id: data.id };
+  } catch {
+    return { available: false };
+  }
+}
+
+async function getActiveOrganization(
+  token: string,
+): Promise<ActiveOrganizationContext> {
+  try {
+    const { client, correlatedHeaders } = await createServerApiContext();
+    const { data } = await client.GET("/v1/organizations/active", {
+      cache: "no-store",
+      headers: {
+        ...correlatedHeaders,
+        authorization: `Bearer ${token}`,
+      },
+      signal: AbortSignal.timeout(3_000),
+    });
+
+    return data
+      ? { available: true, organization: data }
+      : { available: false };
   } catch {
     return { available: false };
   }
@@ -107,13 +133,24 @@ export default async function Home({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const [{ slug }, { orgSlug }] = await Promise.all([params, auth()]);
+  const [{ slug }, session] = await Promise.all([params, auth()]);
+  const { getToken, orgSlug } = session;
   if (orgSlug !== slug) redirect("/");
 
-  const [api, identity] = await Promise.all([
+  const token = await getToken();
+  if (!token) redirect("/");
+
+  const [api, identity, activeOrganization] = await Promise.all([
     getApiAvailability(),
-    getAuthenticatedIdentity(),
+    getAuthenticatedIdentity(token),
+    getActiveOrganization(token),
   ]);
+  if (
+    activeOrganization.available &&
+    activeOrganization.organization.slug !== slug
+  ) {
+    redirect(`/organizations/${activeOrganization.organization.slug}`);
+  }
 
   return (
     <div className="dashboard-page" id="overview">
@@ -222,10 +259,22 @@ export default async function Home({
                   : "The protected API could not verify this session."}
               </p>
               {identity.available ? (
-                <div className="contract-example">
-                  <span>User</span>
-                  <span data-testid="authenticated-user-id">{identity.id}</span>
-                </div>
+                <>
+                  <div className="contract-example">
+                    <span>User</span>
+                    <span data-testid="authenticated-user-id">
+                      {identity.id}
+                    </span>
+                  </div>
+                  {activeOrganization.available ? (
+                    <div className="contract-example">
+                      <span>Active Organization</span>
+                      <span data-testid="active-organization-slug">
+                        {activeOrganization.organization.slug}
+                      </span>
+                    </div>
+                  ) : null}
+                </>
               ) : null}
             </div>
           </section>

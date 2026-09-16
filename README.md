@@ -58,13 +58,27 @@ check. Server Components obtain a Clerk session token and call NestJS directly;
 NestJS derives the User only from the verified token and exposes it at
 `GET /v1/auth/me`.
 
+Organization-owned requests derive the Active Organization only from the
+verified Clerk token. `GET /v1/organizations/active` exposes that request
+context for the starter dashboard; request body, query parameters, route slugs,
+and custom headers are never Organization authority. Authenticated responses
+are `private, no-store`.
+
+The protected AppShell lists the User's Clerk Memberships. Switching the Active
+Organization performs a full navigation to `/organizations/:slug`, clearing
+in-memory Router state, and notifies other tabs so they follow the same Clerk
+session context. Every Organization route independently compares its slug with
+the server-side Clerk session before rendering protected content.
+
 For the authenticated Playwright journey, create a synthetic Clerk User whose
 email contains `+clerk_test`, then set `E2E_CLERK_USER_EMAIL` in `.env`. The
 official Clerk testing helper signs that User in through the development
 instance, creates its first Organization when necessary, verifies the protected
 shell and API identity, and signs out. Optionally set
 `E2E_CLERK_ORGANIZATION_SLUG` to choose its deterministic slug. Do not commit
-the test User or Clerk credentials.
+the test User or Clerk credentials. The switching journey provisions one
+additional synthetic Organization for that User; set
+`E2E_CLERK_SECOND_ORGANIZATION_SLUG` to override its deterministic slug.
 
 ## Database
 

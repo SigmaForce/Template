@@ -1,6 +1,23 @@
 {
   "components": {
     "schemas": {
+      "ActiveOrganizationDto": {
+        "properties": {
+          "id": {
+            "example": "org_2abc",
+            "type": "string"
+          },
+          "slug": {
+            "example": "northstar-labs",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "slug"
+        ],
+        "type": "object"
+      },
       "AuthenticatedUserDto": {
         "properties": {
           "id": {
@@ -569,6 +586,43 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/OrganizationOnboardingResultDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "clerk-session": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "organizations"
+        ]
+      }
+    },
+    "/v1/organizations/active": {
+      "get": {
+        "operationId": "getActiveOrganization",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActiveOrganizationDto"
                 }
               }
             },

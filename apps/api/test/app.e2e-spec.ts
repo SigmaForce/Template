@@ -84,6 +84,65 @@ describe('AppController (e2e)', () => {
     expect(response.body).toEqual({ id: 'user_verified' });
   });
 
+  it('derives the Active Organization only from the verified token', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/v1/organizations/active?organizationId=org_from_query')
+      .set(
+        'authorization',
+        `Bearer ${createSessionToken({
+          organization: { id: 'org_verified', slug: 'verified-org' },
+        })}`,
+      )
+      .set('x-organization-id', 'org_from_header')
+      .send({ organizationId: 'org_from_body' })
+      .expect(200);
+
+    expect(response.headers['cache-control']).toBe('private, no-store');
+    expect(response.body).toEqual({ id: 'org_verified', slug: 'verified-org' });
+  });
+
+  it('rejects an Organization-owned request without an Active Organization', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/v1/organizations/active')
+      .set('authorization', `Bearer ${createSessionToken()}`)
+      .expect('content-type', /application\/problem\+json/)
+      .expect(409);
+
+    expect(response.body).toMatchObject({
+      type: 'urn:problem:next-nest-saas-starter:active-organization-required',
+      title: 'Active Organization required',
+      status: 409,
+      detail: 'Select an Active Organization and retry the request.',
+    });
+  });
+
+  it('keeps concurrent Active Organization contexts request-scoped', async () => {
+    const server = app.getHttpServer();
+    const [alpha, beta] = await Promise.all([
+      request(server)
+        .get('/v1/organizations/active')
+        .set(
+          'authorization',
+          `Bearer ${createSessionToken({
+            organization: { id: 'org_alpha', slug: 'alpha' },
+          })}`,
+        )
+        .expect(200),
+      request(server)
+        .get('/v1/organizations/active')
+        .set(
+          'authorization',
+          `Bearer ${createSessionToken({
+            organization: { id: 'org_beta', slug: 'beta' },
+          })}`,
+        )
+        .expect(200),
+    ]);
+
+    expect(alpha.body).toEqual({ id: 'org_alpha', slug: 'alpha' });
+    expect(beta.body).toEqual({ id: 'org_beta', slug: 'beta' });
+  });
+
   it('creates the first Organization with exactly one Owner Membership', async () => {
     const authorization = `Bearer ${createSessionToken()}`;
     const creation = await request(app.getHttpServer())

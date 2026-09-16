@@ -19,7 +19,22 @@ export class ClerkTokenVerifier extends SessionTokenVerifier {
 
   async verify(token: string): Promise<AuthenticatedUser> {
     const payload = await verifyToken(token, this.options);
+    const organizationClaim =
+      payload.v === 2
+        ? payload.o
+          ? { id: payload.o.id, slug: payload.o.slg }
+          : undefined
+        : payload.org_id
+          ? { id: payload.org_id, slug: payload.org_slug }
+          : undefined;
+    const activeOrganization =
+      organizationClaim?.id && organizationClaim.slug
+        ? { id: organizationClaim.id, slug: organizationClaim.slug }
+        : undefined;
 
-    return { id: payload.sub };
+    return {
+      id: payload.sub,
+      ...(activeOrganization ? { activeOrganization } : {}),
+    };
   }
 }

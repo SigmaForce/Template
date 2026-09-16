@@ -63,6 +63,15 @@ export class PublicProblemException extends HttpException {
     });
   }
 
+  static activeOrganizationRequired() {
+    return new PublicProblemException({
+      type: 'urn:problem:next-nest-saas-starter:active-organization-required',
+      title: 'Active Organization required',
+      status: 409,
+      detail: 'Select an Active Organization and retry the request.',
+    });
+  }
+
   static organizationSlugConflict() {
     return new PublicProblemException({
       type: 'urn:problem:next-nest-saas-starter:organization-slug-conflict',

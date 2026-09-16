@@ -6,9 +6,9 @@
 
 **Status:** ready-for-agent
 
-- [ ] Um User com Memberships em duas Organizations consegue listar e selecionar ambas.
-- [ ] Toda chamada protegida usa a Active Organization derivada do token verificado.
-- [ ] Slug da rota incompatível com a Active Organization é rejeitado ou redirecionado com segurança.
-- [ ] Trocar Organization invalida ou particiona cache, estado remoto e navegação anterior.
-- [ ] Requisições concorrentes em abas distintas não utilizam a Organization errada por causa de contexto singleton.
-- [ ] O seam Playwright demonstra alternância sem vazamento visual ou persistente de dados.
+- [x] Um User com Memberships em duas Organizations consegue listar e selecionar ambas.
+- [x] Toda chamada protegida usa a Active Organization derivada do token verificado.
+- [x] Slug da rota incompatível com a Active Organization é rejeitado ou redirecionado com segurança.
+- [x] Trocar Organization invalida ou particiona cache, estado remoto e navegação anterior.
+- [x] Requisições concorrentes em abas distintas não utilizam a Organization errada por causa de contexto singleton.
+- [x] O seam Playwright demonstra alternância sem vazamento visual ou persistente de dados.

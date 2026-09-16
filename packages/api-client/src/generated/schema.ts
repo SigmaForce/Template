@@ -67,6 +67,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/organizations/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getActiveOrganization"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/organizations/onboarding": {
         parameters: {
             query?: never;
@@ -103,6 +119,12 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ActiveOrganizationDto: {
+            /** @example org_2abc */
+            id: string;
+            /** @example northstar-labs */
+            slug: string;
+        };
         AuthenticatedUserDto: {
             /** @example user_2RfWKJREkjKbHZy0Wqa5qrHeAnb */
             id: string;
@@ -363,6 +385,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OrganizationOnboardingResultDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
+    getActiveOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActiveOrganizationDto"];
                 };
             };
             409: {

@@ -2,6 +2,7 @@ import { UserButton } from "@clerk/nextjs";
 import { auth } from "@clerk/nextjs/server";
 import { AppShell } from "@saas/ui";
 import type { ReactNode } from "react";
+import { ActiveOrganizationSwitcher } from "./active-organization-switcher";
 
 export default async function ProtectedLayout({
   children,
@@ -12,5 +13,12 @@ export default async function ProtectedLayout({
 
   if (!isAuthenticated) return redirectToSignIn();
 
-  return <AppShell account={<UserButton />}>{children}</AppShell>;
+  return (
+    <AppShell
+      account={<UserButton />}
+      organization={<ActiveOrganizationSwitcher />}
+    >
+      {children}
+    </AppShell>
+  );
 }

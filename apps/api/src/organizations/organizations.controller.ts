@@ -9,11 +9,14 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import {
+  CurrentOrganization,
   CurrentUser,
+  type ActiveOrganization,
   type AuthenticatedUser,
 } from '../authentication/authentication.js';
 import { CreateOrganizationDto } from './create-organization.dto.js';
 import {
+  ActiveOrganizationDto,
   OrganizationOnboardingResultDto,
   OrganizationOnboardingStateDto,
 } from './organization.dto.js';
@@ -28,6 +31,16 @@ import {
 @Controller('organizations')
 export class OrganizationsController {
   constructor(private readonly organizations: OrganizationsService) {}
+
+  @Get('active')
+  @ApiOperation({ operationId: 'getActiveOrganization' })
+  @ApiOkResponse({ type: ActiveOrganizationDto })
+  @ApiConflictResponse({ type: ProblemDetailsDto })
+  getActiveOrganization(
+    @CurrentOrganization() organization: ActiveOrganization,
+  ) {
+    return organization;
+  }
 
   @Post()
   @ApiOperation({ operationId: 'createFirstOrganization' })

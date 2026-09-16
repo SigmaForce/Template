@@ -1,9 +1,16 @@
 import { createParamDecorator, SetMetadata } from '@nestjs/common';
 import type { ExecutionContext } from '@nestjs/common';
 import type { Request } from 'express';
+import { PublicProblemException } from '../http/problem-details.js';
 
 export interface AuthenticatedUser {
+  activeOrganization?: ActiveOrganization;
   id: string;
+}
+
+export interface ActiveOrganization {
+  id: string;
+  slug: string;
 }
 
 export interface AuthenticationOptions {
@@ -35,5 +42,18 @@ export const CurrentUser = createParamDecorator(
     }
 
     return user;
+  },
+);
+
+export const CurrentOrganization = createParamDecorator(
+  (_data: unknown, context: ExecutionContext): ActiveOrganization => {
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const organization = request[AUTHENTICATED_USER]?.activeOrganization;
+
+    if (!organization) {
+      throw PublicProblemException.activeOrganizationRequired();
+    }
+
+    return organization;
   },
 );

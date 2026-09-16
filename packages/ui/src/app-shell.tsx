@@ -10,6 +10,7 @@ export interface AppShellProps {
   account?: ReactNode;
   children: ReactNode;
   navigation?: NavigationItem[];
+  organization?: ReactNode;
 }
 
 const defaultNavigation: NavigationItem[] = [
@@ -51,6 +52,7 @@ export function AppShell({
   account,
   children,
   navigation = defaultNavigation,
+  organization,
 }: AppShellProps) {
   return (
     <div className="min-h-dvh bg-canvas text-foreground">
@@ -75,9 +77,9 @@ export function AppShell({
             <MobileNavigation navigation={navigation} />
             <BrandLink />
           </div>
-          <p className="hidden text-sm font-semibold text-muted md:block">
-            {brand.organizationName}
-          </p>
+          <div className="order-3 w-full text-sm font-semibold text-muted md:order-none md:w-auto">
+            {organization ?? brand.organizationName}
+          </div>
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <ThemeSelect />
             {account ?? (

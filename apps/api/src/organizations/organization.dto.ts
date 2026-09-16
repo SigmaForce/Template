@@ -40,3 +40,11 @@ export class OrganizationOnboardingStateDto {
   @ApiPropertyOptional({ type: OwnerMembershipDto })
   membership?: OwnerMembershipDto;
 }
+
+export class ActiveOrganizationDto {
+  @ApiProperty({ example: 'org_2abc' })
+  id!: string;
+
+  @ApiProperty({ example: 'northstar-labs' })
+  slug!: string;
+}

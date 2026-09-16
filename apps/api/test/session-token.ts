@@ -11,10 +11,12 @@ export const authenticationPublicKey = publicKey;
 export function createSessionToken({
   authorizedParty = 'http://localhost:3000',
   expiresAt = Math.floor(Date.now() / 1000) + 60,
+  organization,
   userId = 'user_verified',
 }: {
   authorizedParty?: string;
   expiresAt?: number;
+  organization?: { id: string; slug: string };
   userId?: string;
 } = {}) {
   const now = Math.floor(Date.now() / 1000);
@@ -28,6 +30,16 @@ export function createSessionToken({
       iat: now,
       iss: 'https://test.clerk.accounts.dev',
       nbf: now - 1,
+      ...(organization
+        ? {
+            o: {
+              id: organization.id,
+              rol: 'owner',
+              slg: organization.slug,
+            },
+            v: 2,
+          }
+        : {}),
       sid: 'sess_test',
       sub: userId,
     }),

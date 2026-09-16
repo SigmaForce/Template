@@ -28,6 +28,10 @@ export class AuthenticationGuard implements CanActivate {
     if (isPublic) return true;
 
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    context
+      .switchToHttp()
+      .getResponse()
+      .setHeader('cache-control', 'private, no-store');
     const authorization = request.header('authorization');
     const match = authorization?.match(/^Bearer ([^\s]+)$/i);
 
