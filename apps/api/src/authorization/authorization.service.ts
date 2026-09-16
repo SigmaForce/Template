@@ -54,6 +54,7 @@ export class AuthorizationService {
 
     return {
       organizationId: context.activeOrganization.id,
+      role: context.role,
     };
   }
 
@@ -101,6 +102,9 @@ export class AuthorizationService {
   }
 
   private capabilityForPermission(permission: PermissionId) {
+    if (permission === Permission.organizationMembershipsManage) {
+      return Capability.organizationMemberships;
+    }
     return permission === Permission.organizationSettingsRead ||
       permission === Permission.organizationSettingsUpdate
       ? Capability.organizationSettings

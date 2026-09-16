@@ -1,10 +1,12 @@
 import {
   OrganizationDirectory,
+  InvitationStateConflictError,
   OrganizationRepository,
   OrganizationSlugConflictError,
   type CompleteFirstOrganizationRecord,
   type OrganizationOnboardingClaim,
   type OrganizationOnboardingResult,
+  type OrganizationInvitation,
   type OrganizationRecord,
 } from './organization.js';
 import type {
@@ -39,6 +41,7 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
   >();
   private readonly organizations = new Map<string, OrganizationRecord>();
   private readonly memberships = new Map<string, MemoryMembership>();
+  private readonly invitations = new Map<string, OrganizationInvitation>();
 
   constructor(seed: MemoryOrganizationRepositorySeed = {}) {
     super();
@@ -75,6 +78,114 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
     return request.result
       ? { status: 'replay', result: request.result }
       : { status: 'in-progress' };
+  }
+
+  async createInvitation(invitation: OrganizationInvitation) {
+    this.invitations.set(invitation.id, invitation);
+    return invitation;
+  }
+
+  async findInvitation(input: { id: string; organizationId: string }) {
+    const invitation = this.invitations.get(input.id);
+    return invitation?.organizationId === input.organizationId
+      ? invitation
+      : undefined;
+  }
+
+  async findInvitationByRecipient(input: {
+    emailAddress: string;
+    organizationId: string;
+  }) {
+    return [...this.invitations.values()].find(
+      (invitation) =>
+        invitation.organizationId === input.organizationId &&
+        invitation.emailAddress === input.emailAddress,
+    );
+  }
+
+  async findInvitationByExternalId(externalId: string) {
+    return [...this.invitations.values()].find(
+      (invitation) => invitation.externalId === externalId,
+    );
+  }
+
+  async findAcceptedInvitation(input: { externalId: string; userId: string }) {
+    const invitation = await this.findInvitationByExternalId(input.externalId);
+    const organization = invitation
+      ? this.organizations.get(invitation.organizationId)
+      : undefined;
+    return invitation?.status === 'accepted' &&
+      invitation.acceptedByUserId === input.userId &&
+      organization
+      ? {
+          organization: { id: organization.id, slug: organization.slug },
+          membership: { role: invitation.role },
+        }
+      : undefined;
+  }
+
+  async acceptInvitation(input: {
+    invitationId: string;
+    organizationId: string;
+    role: 'admin' | 'member' | 'owner';
+    userId: string;
+  }) {
+    const invitation = this.invitations.get(input.invitationId);
+    const organization = this.organizations.get(input.organizationId);
+    if (
+      !invitation ||
+      invitation.status !== 'pending' ||
+      invitation.expiresAt.getTime() <= Date.now() ||
+      !organization
+    ) {
+      throw new InvitationStateConflictError();
+    }
+    invitation.status = 'accepted';
+    invitation.acceptedByUserId = input.userId;
+    this.memberships.set(this.membershipKey(input), {
+      organizationId: input.organizationId,
+      userId: input.userId,
+      status: 'active',
+    });
+    return {
+      organization: { id: organization.id, slug: organization.slug },
+      membership: { role: input.role },
+    };
+  }
+
+  async listInvitations(organizationId: string) {
+    return [...this.invitations.values()].filter(
+      (invitation) => invitation.organizationId === organizationId,
+    );
+  }
+
+  async updateInvitation(invitation: OrganizationInvitation) {
+    this.invitations.set(invitation.id, invitation);
+    return invitation;
+  }
+
+  async claimInvitationForResend(input: {
+    claimExternalId: string;
+    expectedExternalId: string;
+    expectedStatus: OrganizationInvitation['status'];
+    invitationId: string;
+    organizationId: string;
+  }) {
+    const invitation = this.invitations.get(input.invitationId);
+    if (
+      !invitation ||
+      invitation.organizationId !== input.organizationId ||
+      invitation.externalId !== input.expectedExternalId ||
+      invitation.status !== input.expectedStatus
+    ) {
+      return false;
+    }
+    this.invitations.set(invitation.id, {
+      ...invitation,
+      externalId: input.claimExternalId,
+      status: 'revoked',
+    });
+    return true;
   }
 
   async completeOnboarding(record: CompleteFirstOrganizationRecord) {
@@ -156,6 +267,23 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
 
 export class MemoryOrganizationDirectory extends OrganizationDirectory {
   private readonly organizationsBySlug = new Map<string, string>();
+  private readonly invitations = new Map<
+    string,
+    {
+      acceptedByUserId?: string;
+      emailAddress: string;
+      expiresAt: Date;
+      organizationId: string;
+      role: 'admin' | 'member' | 'owner';
+      status: 'accepted' | 'pending' | 'revoked';
+    }
+  >();
+
+  constructor(
+    private readonly options: { invitationLifetimeMs?: number } = {},
+  ) {
+    super();
+  }
 
   async create(input: { name: string; slug: string; userId: string }) {
     if (this.organizationsBySlug.has(input.slug)) {
@@ -171,5 +299,77 @@ export class MemoryOrganizationDirectory extends OrganizationDirectory {
     for (const [slug, id] of this.organizationsBySlug) {
       if (id === organizationId) this.organizationsBySlug.delete(slug);
     }
+  }
+
+  async createInvitation(input: {
+    emailAddress: string;
+    organizationId: string;
+    role: 'admin' | 'member' | 'owner';
+  }) {
+    const externalId = `orginv_${crypto.randomUUID()}`;
+    const expiresAt = new Date(
+      Date.now() +
+        (this.options.invitationLifetimeMs ?? 7 * 24 * 60 * 60 * 1000),
+    );
+    this.invitations.set(externalId, {
+      emailAddress: input.emailAddress,
+      expiresAt,
+      organizationId: input.organizationId,
+      role: input.role,
+      status: 'pending',
+    });
+    return {
+      externalId,
+      expiresAt,
+    };
+  }
+
+  async revokeInvitation(input: { externalId: string }) {
+    const invitation = this.invitations.get(input.externalId);
+    if (invitation) invitation.status = 'revoked';
+  }
+
+  acceptInvitation(input: { emailAddress: string; userId: string }) {
+    const entry = [...this.invitations.entries()].find(
+      ([, invitation]) =>
+        invitation.emailAddress === input.emailAddress &&
+        invitation.status === 'pending' &&
+        invitation.expiresAt.getTime() > Date.now(),
+    );
+    if (!entry) throw new Error('Invitation is unavailable.');
+    const [externalId, invitation] = entry;
+    invitation.status = 'accepted';
+    invitation.acceptedByUserId = input.userId;
+    return externalId;
+  }
+
+  invitationIdFor(emailAddress: string) {
+    const entry = [...this.invitations.entries()].find(
+      ([, invitation]) => invitation.emailAddress === emailAddress,
+    );
+    if (!entry) throw new Error('Invitation is unavailable.');
+    return entry[0];
+  }
+
+  activeInvitationCountFor(emailAddress: string) {
+    return [...this.invitations.values()].filter(
+      (invitation) =>
+        invitation.emailAddress === emailAddress &&
+        invitation.status === 'pending' &&
+        invitation.expiresAt.getTime() > Date.now(),
+    ).length;
+  }
+
+  async findAcceptedMembership(input: {
+    externalId: string;
+    organizationId: string;
+    userId: string;
+  }) {
+    const invitation = this.invitations.get(input.externalId);
+    return invitation?.organizationId === input.organizationId &&
+      invitation.status === 'accepted' &&
+      invitation.acceptedByUserId === input.userId
+      ? { role: invitation.role }
+      : undefined;
   }
 }

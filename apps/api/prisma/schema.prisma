@@ -32,6 +32,12 @@ enum OrganizationState {
   PENDING_DELETION
 }
 
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+}
+
 model Organization {
   id        String            @id @db.VarChar(64)
   name      String            @db.VarChar(100)
@@ -43,9 +49,30 @@ model Organization {
   updatedAt DateTime          @updatedAt @map("updated_at")
 
   memberships       Membership[]
+  invitations       Invitation[]
   onboardingRequest OrganizationOnboardingRequest?
 
   @@map("organizations")
+}
+
+model Invitation {
+  id               String           @id @default(uuid()) @db.Uuid
+  organizationId   String           @map("organization_id") @db.VarChar(64)
+  emailAddress     String           @map("email_address") @db.VarChar(320)
+  role             MembershipRole
+  status           InvitationStatus @default(PENDING)
+  externalId       String           @unique @map("external_id") @db.VarChar(64)
+  invitedByUserId  String           @map("invited_by_user_id") @db.VarChar(64)
+  acceptedByUserId String?          @map("accepted_by_user_id") @db.VarChar(64)
+  expiresAt        DateTime         @map("expires_at")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, emailAddress])
+  @@index([status, expiresAt])
+  @@map("invitations")
 }
 
 model Membership {

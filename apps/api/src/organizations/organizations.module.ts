@@ -6,6 +6,7 @@ import {
 import { OrganizationsController } from './organizations.controller.js';
 import { OrganizationsService } from './organizations.service.js';
 import { AuthorizationModule } from '../authorization/authorization.module.js';
+import { InvitationsController } from './invitations.controller.js';
 
 export interface OrganizationModuleOptions {
   directory: OrganizationDirectory;
@@ -20,7 +21,7 @@ export class OrganizationsModule {
       imports: [
         AuthorizationModule.register({ repository: options.repository }),
       ],
-      controllers: [OrganizationsController],
+      controllers: [InvitationsController, OrganizationsController],
       providers: [
         OrganizationsService,
         { provide: OrganizationDirectory, useValue: options.directory },

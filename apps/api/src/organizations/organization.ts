@@ -2,6 +2,7 @@ import {
   AuthorizationRepository,
   type OrganizationAccessState,
 } from '../authorization/authorization.js';
+import type { OrganizationRole } from '../authorization/permission.js';
 
 export interface OrganizationProfile {
   id: string;
@@ -14,6 +15,11 @@ export interface OrganizationProfile {
 export interface OrganizationOnboardingResult {
   membership: { role: 'owner' };
   organization: OrganizationProfile;
+}
+
+export interface AcceptedInvitationResult {
+  membership: { role: OrganizationRole };
+  organization: { id: string; slug: string };
 }
 
 export interface CompleteFirstOrganizationRecord {
@@ -29,6 +35,55 @@ export type OrganizationOnboardingClaim =
   | { status: 'already-complete' | 'conflict' | 'in-progress' };
 
 export abstract class OrganizationRepository extends AuthorizationRepository {
+  abstract createInvitation(
+    invitation: OrganizationInvitation,
+  ): Promise<OrganizationInvitation>;
+
+  abstract findInvitation(input: {
+    id: string;
+    organizationId: string;
+  }): Promise<OrganizationInvitation | undefined>;
+
+  abstract findInvitationByRecipient(input: {
+    emailAddress: string;
+    organizationId: string;
+  }): Promise<OrganizationInvitation | undefined>;
+
+  abstract findInvitationByExternalId(
+    externalId: string,
+  ): Promise<OrganizationInvitation | undefined>;
+
+  abstract findAcceptedInvitation(input: {
+    externalId: string;
+    userId: string;
+  }): Promise<AcceptedInvitationResult | undefined>;
+
+  abstract acceptInvitation(input: {
+    invitationId: string;
+    organizationId: string;
+    role: OrganizationRole;
+    userId: string;
+  }): Promise<{
+    membership: { role: OrganizationRole };
+    organization: { id: string; slug: string };
+  }>;
+
+  abstract listInvitations(
+    organizationId: string,
+  ): Promise<OrganizationInvitation[]>;
+
+  abstract updateInvitation(
+    invitation: OrganizationInvitation,
+  ): Promise<OrganizationInvitation>;
+
+  abstract claimInvitationForResend(input: {
+    claimExternalId: string;
+    expectedExternalId: string;
+    expectedStatus: OrganizationInvitation['status'];
+    invitationId: string;
+    organizationId: string;
+  }): Promise<boolean>;
+
   abstract claimOnboarding(input: {
     idempotencyKey: string;
     requestHash: string;
@@ -61,6 +116,18 @@ export interface OrganizationRecord extends OrganizationProfile {
   state: OrganizationAccessState;
 }
 
+export interface OrganizationInvitation {
+  acceptedByUserId?: string;
+  emailAddress: string;
+  expiresAt: Date;
+  externalId: string;
+  id: string;
+  invitedByUserId: string;
+  organizationId: string;
+  role: OrganizationRole;
+  status: 'accepted' | 'pending' | 'revoked';
+}
+
 export abstract class OrganizationDirectory {
   abstract create(input: {
     name: string;
@@ -69,6 +136,26 @@ export abstract class OrganizationDirectory {
   }): Promise<{ id: string }>;
 
   abstract delete(organizationId: string): Promise<void>;
+
+  abstract createInvitation(input: {
+    emailAddress: string;
+    inviterUserId: string;
+    organizationId: string;
+    role: OrganizationRole;
+  }): Promise<{ expiresAt: Date; externalId: string }>;
+
+  abstract revokeInvitation(input: {
+    externalId: string;
+    organizationId: string;
+    requestingUserId: string;
+  }): Promise<void>;
+
+  abstract findAcceptedMembership(input: {
+    externalId: string;
+    organizationId: string;
+    userId: string;
+  }): Promise<{ role: OrganizationRole } | undefined>;
 }
 
 export class OrganizationSlugConflictError extends Error {}
+export class InvitationStateConflictError extends Error {}

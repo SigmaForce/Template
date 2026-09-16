@@ -1,6 +1,7 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { type OnModuleDestroy } from '@nestjs/common';
 import {
+  InvitationStatus,
   MembershipRole,
   MembershipStatus,
   OnboardingStatus,
@@ -10,10 +11,12 @@ import {
 } from '../generated/prisma/client.js';
 import {
   OrganizationRepository,
+  InvitationStateConflictError,
   OrganizationSlugConflictError,
   type CompleteFirstOrganizationRecord,
   type OrganizationOnboardingClaim,
   type OrganizationOnboardingResult,
+  type OrganizationInvitation,
 } from './organization.js';
 
 export class PrismaOrganizationRepository
@@ -27,6 +30,168 @@ export class PrismaOrganizationRepository
     this.client = new PrismaClient({
       adapter: new PrismaPg({ connectionString }),
     });
+  }
+
+  async createInvitation(invitation: OrganizationInvitation) {
+    try {
+      const created = await this.client.invitation.create({
+        data: {
+          id: invitation.id,
+          organizationId: invitation.organizationId,
+          emailAddress: invitation.emailAddress,
+          role: this.membershipRole(invitation.role),
+          status: InvitationStatus.PENDING,
+          externalId: invitation.externalId,
+          invitedByUserId: invitation.invitedByUserId,
+          expiresAt: invitation.expiresAt,
+        },
+      });
+      return this.toInvitation(created);
+    } catch (error) {
+      if (this.isUniqueConflict(error))
+        throw new InvitationStateConflictError();
+      throw error;
+    }
+  }
+
+  async findInvitation(input: { id: string; organizationId: string }) {
+    const invitation = await this.client.invitation.findFirst({
+      where: input,
+    });
+    return invitation ? this.toInvitation(invitation) : undefined;
+  }
+
+  async findInvitationByRecipient(input: {
+    emailAddress: string;
+    organizationId: string;
+  }) {
+    const invitation = await this.client.invitation.findUnique({
+      where: { organizationId_emailAddress: input },
+    });
+    return invitation ? this.toInvitation(invitation) : undefined;
+  }
+
+  async findInvitationByExternalId(externalId: string) {
+    const invitation = await this.client.invitation.findUnique({
+      where: { externalId },
+    });
+    return invitation ? this.toInvitation(invitation) : undefined;
+  }
+
+  async findAcceptedInvitation(input: { externalId: string; userId: string }) {
+    const invitation = await this.client.invitation.findFirst({
+      where: {
+        externalId: input.externalId,
+        acceptedByUserId: input.userId,
+        status: InvitationStatus.ACCEPTED,
+      },
+      include: { organization: { select: { id: true, slug: true } } },
+    });
+    return invitation
+      ? {
+          organization: invitation.organization,
+          membership: { role: this.organizationRole(invitation.role) },
+        }
+      : undefined;
+  }
+
+  async acceptInvitation(input: {
+    invitationId: string;
+    organizationId: string;
+    role: 'admin' | 'member' | 'owner';
+    userId: string;
+  }) {
+    return this.client.$transaction(async (transaction) => {
+      const accepted = await transaction.invitation.updateMany({
+        where: {
+          id: input.invitationId,
+          organizationId: input.organizationId,
+          status: InvitationStatus.PENDING,
+          expiresAt: { gt: new Date() },
+        },
+        data: {
+          acceptedByUserId: input.userId,
+          status: InvitationStatus.ACCEPTED,
+        },
+      });
+      if (accepted.count !== 1) throw new InvitationStateConflictError();
+
+      await transaction.membership.upsert({
+        where: {
+          organizationId_userId: {
+            organizationId: input.organizationId,
+            userId: input.userId,
+          },
+        },
+        create: {
+          organizationId: input.organizationId,
+          userId: input.userId,
+          role: this.membershipRole(input.role),
+          status: MembershipStatus.ACTIVE,
+        },
+        update: {
+          role: this.membershipRole(input.role),
+          status: MembershipStatus.ACTIVE,
+        },
+      });
+      const organization = await transaction.organization.findUniqueOrThrow({
+        where: { id: input.organizationId },
+        select: { id: true, slug: true },
+      });
+      return { organization, membership: { role: input.role } };
+    });
+  }
+
+  async listInvitations(organizationId: string) {
+    const invitations = await this.client.invitation.findMany({
+      where: { organizationId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return invitations.map((invitation) => this.toInvitation(invitation));
+  }
+
+  async updateInvitation(invitation: OrganizationInvitation) {
+    const updated = await this.client.invitation.update({
+      where: { id: invitation.id },
+      data: {
+        externalId: invitation.externalId,
+        expiresAt: invitation.expiresAt,
+        invitedByUserId: invitation.invitedByUserId,
+        role: this.membershipRole(invitation.role),
+        status: {
+          accepted: InvitationStatus.ACCEPTED,
+          pending: InvitationStatus.PENDING,
+          revoked: InvitationStatus.REVOKED,
+        }[invitation.status],
+      },
+    });
+    return this.toInvitation(updated);
+  }
+
+  async claimInvitationForResend(input: {
+    claimExternalId: string;
+    expectedExternalId: string;
+    expectedStatus: OrganizationInvitation['status'];
+    invitationId: string;
+    organizationId: string;
+  }) {
+    const claimed = await this.client.invitation.updateMany({
+      where: {
+        id: input.invitationId,
+        organizationId: input.organizationId,
+        externalId: input.expectedExternalId,
+        status: {
+          accepted: InvitationStatus.ACCEPTED,
+          pending: InvitationStatus.PENDING,
+          revoked: InvitationStatus.REVOKED,
+        }[input.expectedStatus],
+      },
+      data: {
+        externalId: input.claimExternalId,
+        status: InvitationStatus.REVOKED,
+      },
+    });
+    return claimed.count === 1;
   }
 
   async claimOnboarding(input: {
@@ -244,5 +409,37 @@ export class PrismaOrganizationRepository
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === 'P2002'
     );
+  }
+
+  private membershipRole(role: 'admin' | 'member' | 'owner') {
+    return {
+      admin: MembershipRole.ADMIN,
+      member: MembershipRole.MEMBER,
+      owner: MembershipRole.OWNER,
+    }[role];
+  }
+
+  private organizationRole(role: MembershipRole) {
+    return role.toLowerCase() as 'admin' | 'member' | 'owner';
+  }
+
+  private toInvitation(invitation: {
+    acceptedByUserId: string | null;
+    emailAddress: string;
+    expiresAt: Date;
+    externalId: string;
+    id: string;
+    invitedByUserId: string;
+    organizationId: string;
+    role: MembershipRole;
+    status: InvitationStatus;
+  }): OrganizationInvitation {
+    return {
+      ...invitation,
+      acceptedByUserId: invitation.acceptedByUserId ?? undefined,
+      role: this.organizationRole(invitation.role),
+      status: invitation.status.toLowerCase() as
+        'accepted' | 'pending' | 'revoked',
+    };
   }
 }

@@ -122,4 +122,13 @@ export class PublicProblemException extends HttpException {
       detail: 'This User has already completed Organization onboarding.',
     });
   }
+
+  static invitationUnavailable() {
+    return new PublicProblemException({
+      type: 'urn:problem:next-nest-saas-starter:invitation-unavailable',
+      title: 'Invitation unavailable',
+      status: 409,
+      detail: 'This Invitation cannot be used in its current state.',
+    });
+  }
 }

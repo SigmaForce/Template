@@ -5,12 +5,16 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { logWebOperation } from "../../../../operational-log";
 import { createServerApiContext } from "../../../../server-api-context";
+import { getWebEnvironment } from "../../../../environment";
+import { OrganizationInvitations } from "./organization-invitations";
 
 type Money = components["schemas"]["MoneyDto"];
-type PermissionId = components["schemas"]["ActiveOrganizationDto"]["permissions"][number];
+type PermissionId =
+  components["schemas"]["ActiveOrganizationDto"]["permissions"][number];
 
 const permission = {
   billingManage: "billing:manage",
+  organizationMembershipsManage: "organization:memberships:manage",
   organizationSettingsUpdate: "organization:settings:update",
 } as const satisfies Record<string, PermissionId>;
 
@@ -146,9 +150,7 @@ async function getOrganizationSettings(
       },
     );
 
-    return data
-      ? { available: true, value: data }
-      : { available: false };
+    return data ? { available: true, value: data } : { available: false };
   } catch {
     return { available: false };
   }
@@ -238,14 +240,14 @@ export default async function Home({
     ? activeOrganization.organization.permissions
     : [];
   const canManageBilling = activePermissions.includes(permission.billingManage);
+  const canManageMemberships = activePermissions.includes(
+    permission.organizationMembershipsManage,
+  );
   const canUpdateOrganizationSettings = activePermissions.includes(
     permission.organizationSettingsUpdate,
   );
   const organizationSettings = activeOrganization.available
-    ? await getOrganizationSettings(
-        token,
-        activeOrganization.organization.id,
-      )
+    ? await getOrganizationSettings(token, activeOrganization.organization.id)
     : { available: false as const };
 
   return (
@@ -461,9 +463,7 @@ export default async function Home({
                     name="timeZone"
                   >
                     <option value="America/Cuiaba">America/Cuiaba</option>
-                    <option value="America/Sao_Paulo">
-                      America/Sao_Paulo
-                    </option>
+                    <option value="America/Sao_Paulo">America/Sao_Paulo</option>
                     <option value="UTC">UTC</option>
                   </select>
                 </label>
@@ -477,6 +477,13 @@ export default async function Home({
               </p>
             )}
           </section>
+
+          {canManageMemberships && activeOrganization.available ? (
+            <OrganizationInvitations
+              apiUrl={getWebEnvironment().apiUrl.toString()}
+              organizationId={activeOrganization.organization.id}
+            />
+          ) : null}
         </aside>
       </div>
     </div>

@@ -22,6 +22,7 @@ describe('AppController (e2e)', () => {
     readinessChecks: ReadinessCheck[] = [],
     logger?: JsonLogger,
     repository = new MemoryOrganizationRepository(),
+    directory = new MemoryOrganizationDirectory(),
   ) {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
@@ -31,7 +32,7 @@ describe('AppController (e2e)', () => {
             jwtKey: authenticationPublicKey,
           },
           organizations: {
-            directory: new MemoryOrganizationDirectory(),
+            directory,
             repository,
           },
         }),
@@ -376,6 +377,466 @@ describe('AppController (e2e)', () => {
           'organization:delete',
         ]),
       );
+    });
+  });
+
+  describe('Organization Invitations', () => {
+    const organization = {
+      id: 'org_invitations',
+      name: 'Invitation Labs',
+      slug: 'invitation-labs',
+      locale: 'pt-BR',
+      timeZone: 'America/Cuiaba',
+      state: 'active' as const,
+    };
+
+    it('lets an Owner create a pending Invitation', async () => {
+      await app.close();
+      app = await createApp(
+        [],
+        undefined,
+        new MemoryOrganizationRepository({
+          organizations: [organization],
+          memberships: [
+            {
+              organizationId: organization.id,
+              userId: 'user_owner',
+              status: 'active',
+            },
+          ],
+        }),
+      );
+
+      const response = await request(app.getHttpServer())
+        .post(`/v1/organizations/${organization.id}/invitations`)
+        .set(
+          'authorization',
+          `Bearer ${createSessionToken({
+            userId: 'user_owner',
+            organization,
+            organizationRole: 'owner',
+          })}`,
+        )
+        .send({ emailAddress: ' New.User@Example.com ', role: 'member' })
+        .expect(201);
+
+      expect(response.body).toEqual({
+        id: expect.any(String),
+        organizationId: organization.id,
+        emailAddress: 'new.user@example.com',
+        role: 'member',
+        status: 'pending',
+        expiresAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+      });
+    });
+
+    async function useInvitationActor(
+      role: 'admin' | 'member' | 'owner',
+      userId = `user_${role}`,
+    ) {
+      await app.close();
+      app = await createApp(
+        [],
+        undefined,
+        new MemoryOrganizationRepository({
+          organizations: [organization],
+          memberships: [
+            {
+              organizationId: organization.id,
+              userId,
+              status: 'active',
+            },
+          ],
+        }),
+      );
+      return `Bearer ${createSessionToken({
+        userId,
+        organization,
+        organizationRole: role,
+      })}`;
+    }
+
+    it('applies the invitation Role matrix', async () => {
+      let authorization = await useInvitationActor('admin');
+      await request(app.getHttpServer())
+        .post(`/v1/organizations/${organization.id}/invitations`)
+        .set('authorization', authorization)
+        .send({ emailAddress: 'member@example.com', role: 'member' })
+        .expect(201);
+      await request(app.getHttpServer())
+        .post(`/v1/organizations/${organization.id}/invitations`)
+        .set('authorization', authorization)
+        .send({ emailAddress: 'owner@example.com', role: 'owner' })
+        .expect(403);
+
+      authorization = await useInvitationActor('member');
+      await request(app.getHttpServer())
+        .post(`/v1/organizations/${organization.id}/invitations`)
+        .set('authorization', authorization)
+        .send({ emailAddress: 'other@example.com', role: 'member' })
+        .expect(403);
+    });
+
+    it('does not let an Admin resend an Owner Invitation', async () => {
+      await app.close();
+      app = await createApp(
+        [],
+        undefined,
+        new MemoryOrganizationRepository({
+          organizations: [organization],
+          memberships: ['user_owner', 'user_admin'].map((userId) => ({
+            organizationId: organization.id,
+            userId,
+            status: 'active' as const,
+          })),
+        }),
+      );
+      const authorization = (userId: string, role: 'admin' | 'owner') =>
+        `Bearer ${createSessionToken({
+          userId,
+          organization,
+          organizationRole: role,
+        })}`;
+
+      const invitation = await request(app.getHttpServer())
+        .post(`/v1/organizations/${organization.id}/invitations`)
+        .set('authorization', authorization('user_owner', 'owner'))
+        .send({ emailAddress: 'next-owner@example.com', role: 'owner' })
+        .expect(201);
+      await request(app.getHttpServer())
+        .delete(
+          `/v1/organizations/${organization.id}/invitations/${invitation.body.id as string}`,
+        )
+        .set('authorization', authorization('user_owner', 'owner'))
+        .expect(200);
+      await request(app.getHttpServer())
+        .post(
+          `/v1/organizations/${organization.id}/invitations/${invitation.body.id as string}/resend`,
+        )
+        .set('authorization', authorization('user_admin', 'admin'))
+        .expect(403);
+    });
+
+    it('reuses, revokes and resends one Invitation intention', async () => {
+      const authorization = await useInvitationActor('owner');
+      const create = () =>
+        request(app.getHttpServer())
+          .post(`/v1/organizations/${organization.id}/invitations`)
+          .set('authorization', authorization)
+          .send({ emailAddress: 'repeat@example.com', role: 'member' });
+
+      const first = await create().expect(201);
+      const duplicate = await create().expect(201);
+      expect(duplicate.body.id).toBe(first.body.id);
+
+      const list = await request(app.getHttpServer())
+        .get(`/v1/organizations/${organization.id}/invitations`)
+        .set('authorization', authorization)
+        .expect(200);
+      expect(list.body).toEqual({ items: [first.body] });
+
+      const revoked = await request(app.getHttpServer())
+        .delete(
+          `/v1/organizations/${organization.id}/invitations/${first.body.id as string}`,
+        )
+        .set('authorization', authorization)
+        .expect(200);
+      expect(revoked.body).toMatchObject({
+        id: first.body.id,
+        status: 'revoked',
+      });
+
+      await create().expect(409);
+
+      const resent = await request(app.getHttpServer())
+        .post(
+          `/v1/organizations/${organization.id}/invitations/${first.body.id as string}/resend`,
+        )
+        .set('authorization', authorization)
+        .expect(200);
+      expect(resent.body).toMatchObject({
+        id: first.body.id,
+        status: 'pending',
+      });
+
+      const after = await request(app.getHttpServer())
+        .get(`/v1/organizations/${organization.id}/invitations`)
+        .set('authorization', authorization)
+        .expect(200);
+      expect(after.body.items).toHaveLength(1);
+    });
+
+    it('keeps one active Invitation across concurrent resends', async () => {
+      await app.close();
+      const directory = new MemoryOrganizationDirectory();
+      app = await createApp(
+        [],
+        undefined,
+        new MemoryOrganizationRepository({
+          organizations: [organization],
+          memberships: [
+            {
+              organizationId: organization.id,
+              userId: 'user_owner',
+              status: 'active',
+            },
+          ],
+        }),
+        directory,
+      );
+      const authorization = `Bearer ${createSessionToken({
+        userId: 'user_owner',
+        organization,
+        organizationRole: 'owner',
+      })}`;
+      const created = await request(app.getHttpServer())
+        .post(`/v1/organizations/${organization.id}/invitations`)
+        .set('authorization', authorization)
+        .send({ emailAddress: 'concurrent@example.com', role: 'member' })
+        .expect(201);
+      const resend = () =>
+        request(app.getHttpServer())
+          .post(
+            `/v1/organizations/${organization.id}/invitations/${created.body.id as string}/resend`,
+          )
+          .set('authorization', authorization);
+
+      const responses = await Promise.all([resend(), resend()]);
+      expect(responses.map(({ status }) => status)).toEqual(
+        expect.arrayContaining([200]),
+      );
+      expect(responses.every(({ status }) => [200, 409].includes(status))).toBe(
+        true,
+      );
+      expect(directory.activeInvitationCountFor('concurrent@example.com')).toBe(
+        1,
+      );
+    });
+
+    it('does not resend an Invitation accepted during the request', async () => {
+      class AcceptanceRaceRepository extends MemoryOrganizationRepository {
+        override async claimInvitationForResend(
+          input: Parameters<
+            MemoryOrganizationRepository['claimInvitationForResend']
+          >[0],
+        ) {
+          const invitation = await this.findInvitation({
+            id: input.invitationId,
+            organizationId: input.organizationId,
+          });
+          if (invitation) {
+            await this.acceptInvitation({
+              invitationId: invitation.id,
+              organizationId: invitation.organizationId,
+              role: invitation.role,
+              userId: 'user_invited',
+            });
+          }
+          return super.claimInvitationForResend(input);
+        }
+      }
+
+      await app.close();
+      app = await createApp(
+        [],
+        undefined,
+        new AcceptanceRaceRepository({
+          organizations: [organization],
+          memberships: [
+            {
+              organizationId: organization.id,
+              userId: 'user_owner',
+              status: 'active',
+            },
+          ],
+        }),
+      );
+      const authorization = `Bearer ${createSessionToken({
+        userId: 'user_owner',
+        organization,
+        organizationRole: 'owner',
+      })}`;
+      const created = await request(app.getHttpServer())
+        .post(`/v1/organizations/${organization.id}/invitations`)
+        .set('authorization', authorization)
+        .send({ emailAddress: 'race@example.com', role: 'member' })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .post(
+          `/v1/organizations/${organization.id}/invitations/${created.body.id as string}/resend`,
+        )
+        .set('authorization', authorization)
+        .expect(409);
+    });
+
+    it('accepts a valid Invitation once and creates the expected Membership', async () => {
+      await app.close();
+      const directory = new MemoryOrganizationDirectory();
+      app = await createApp(
+        [],
+        undefined,
+        new MemoryOrganizationRepository({
+          organizations: [organization],
+          memberships: [
+            {
+              organizationId: organization.id,
+              userId: 'user_owner',
+              status: 'active',
+            },
+          ],
+        }),
+        directory,
+      );
+      const ownerAuthorization = `Bearer ${createSessionToken({
+        userId: 'user_owner',
+        organization,
+        organizationRole: 'owner',
+      })}`;
+      await request(app.getHttpServer())
+        .post(`/v1/organizations/${organization.id}/invitations`)
+        .set('authorization', ownerAuthorization)
+        .send({ emailAddress: 'invited@example.com', role: 'member' })
+        .expect(201);
+
+      const externalId = directory.acceptInvitation({
+        emailAddress: 'invited@example.com',
+        userId: 'user_invited',
+      });
+      const invitedAuthorization = `Bearer ${createSessionToken({
+        userId: 'user_invited',
+      })}`;
+      const accepted = await request(app.getHttpServer())
+        .post(`/v1/invitations/${externalId}/accept`)
+        .set('authorization', invitedAuthorization)
+        .expect(200);
+      expect(accepted.body).toEqual({
+        organization: { id: organization.id, slug: organization.slug },
+        membership: { role: 'member' },
+      });
+
+      const activeAuthorization = `Bearer ${createSessionToken({
+        userId: 'user_invited',
+        organization,
+        organizationRole: 'member',
+      })}`;
+      const active = await request(app.getHttpServer())
+        .get('/v1/organizations/active')
+        .set('authorization', activeAuthorization)
+        .expect(200);
+      expect(active.body.permissions).toEqual(['organization:settings:read']);
+
+      await request(app.getHttpServer())
+        .post(`/v1/invitations/${externalId}/accept`)
+        .set('authorization', invitedAuthorization)
+        .expect(409);
+      const recovered = await request(app.getHttpServer())
+        .get(`/v1/invitations/${externalId}/acceptance`)
+        .set('authorization', invitedAuthorization)
+        .expect(200);
+      expect(recovered.body).toEqual(accepted.body);
+      await request(app.getHttpServer())
+        .get(`/v1/invitations/${externalId}/acceptance`)
+        .set(
+          'authorization',
+          `Bearer ${createSessionToken({ userId: 'user_other' })}`,
+        )
+        .expect(409);
+    });
+
+    it('rejects an Invitation for another identity or an invalid state', async () => {
+      await app.close();
+      let directory = new MemoryOrganizationDirectory();
+      app = await createApp(
+        [],
+        undefined,
+        new MemoryOrganizationRepository({
+          organizations: [organization],
+          memberships: [
+            {
+              organizationId: organization.id,
+              userId: 'user_owner',
+              status: 'active',
+            },
+          ],
+        }),
+        directory,
+      );
+      const ownerAuthorization = `Bearer ${createSessionToken({
+        userId: 'user_owner',
+        organization,
+        organizationRole: 'owner',
+      })}`;
+      await request(app.getHttpServer())
+        .post(`/v1/organizations/${organization.id}/invitations`)
+        .set('authorization', ownerAuthorization)
+        .send({ emailAddress: 'intended@example.com', role: 'member' })
+        .expect(201);
+      const intendedId = directory.acceptInvitation({
+        emailAddress: 'intended@example.com',
+        userId: 'user_intended',
+      });
+      await request(app.getHttpServer())
+        .post(`/v1/invitations/${intendedId}/accept`)
+        .set(
+          'authorization',
+          `Bearer ${createSessionToken({ userId: 'user_other' })}`,
+        )
+        .expect(409);
+
+      const revocable = await request(app.getHttpServer())
+        .post(`/v1/organizations/${organization.id}/invitations`)
+        .set('authorization', ownerAuthorization)
+        .send({ emailAddress: 'revoked@example.com', role: 'member' })
+        .expect(201);
+      const revokedExternalId = directory.invitationIdFor(
+        'revoked@example.com',
+      );
+      await request(app.getHttpServer())
+        .delete(
+          `/v1/organizations/${organization.id}/invitations/${revocable.body.id as string}`,
+        )
+        .set('authorization', ownerAuthorization)
+        .expect(200);
+      await request(app.getHttpServer())
+        .post(`/v1/invitations/${revokedExternalId}/accept`)
+        .set(
+          'authorization',
+          `Bearer ${createSessionToken({ userId: 'user_intended' })}`,
+        )
+        .expect(409);
+
+      await app.close();
+      directory = new MemoryOrganizationDirectory({ invitationLifetimeMs: -1 });
+      app = await createApp(
+        [],
+        undefined,
+        new MemoryOrganizationRepository({
+          organizations: [organization],
+          memberships: [
+            {
+              organizationId: organization.id,
+              userId: 'user_owner',
+              status: 'active',
+            },
+          ],
+        }),
+        directory,
+      );
+      await request(app.getHttpServer())
+        .post(`/v1/organizations/${organization.id}/invitations`)
+        .set('authorization', ownerAuthorization)
+        .send({ emailAddress: 'expired@example.com', role: 'member' })
+        .expect(201);
+      const expiredId = directory.invitationIdFor('expired@example.com');
+
+      await request(app.getHttpServer())
+        .post(`/v1/invitations/${expiredId}/accept`)
+        .set(
+          'authorization',
+          `Bearer ${createSessionToken({ userId: 'user_other' })}`,
+        )
+        .expect(409);
     });
   });
 

@@ -52,3 +52,49 @@ export class ActiveOrganizationDto {
   @ApiProperty({ enum: Object.values(Permission), isArray: true })
   permissions!: PermissionId[];
 }
+
+export class OrganizationInvitationDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ example: 'org_2abc' })
+  organizationId!: string;
+
+  @ApiProperty({ example: 'new.user@example.com' })
+  emailAddress!: string;
+
+  @ApiProperty({ enum: ['admin', 'member', 'owner'] })
+  role!: 'admin' | 'member' | 'owner';
+
+  @ApiProperty({ enum: ['accepted', 'expired', 'pending', 'revoked'] })
+  status!: 'accepted' | 'expired' | 'pending' | 'revoked';
+
+  @ApiProperty({ example: '2026-09-23T18:30:00.000Z' })
+  expiresAt!: string;
+}
+
+export class OrganizationInvitationListDto {
+  @ApiProperty({ type: [OrganizationInvitationDto] })
+  items!: OrganizationInvitationDto[];
+}
+
+class AcceptedInvitationOrganizationDto {
+  @ApiProperty({ example: 'org_2abc' })
+  id!: string;
+
+  @ApiProperty({ example: 'northstar-labs' })
+  slug!: string;
+}
+
+class AcceptedInvitationMembershipDto {
+  @ApiProperty({ enum: ['admin', 'member', 'owner'] })
+  role!: 'admin' | 'member' | 'owner';
+}
+
+export class AcceptedInvitationDto {
+  @ApiProperty({ type: AcceptedInvitationOrganizationDto })
+  organization!: AcceptedInvitationOrganizationDto;
+
+  @ApiProperty({ type: AcceptedInvitationMembershipDto })
+  membership!: AcceptedInvitationMembershipDto;
+}

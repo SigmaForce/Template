@@ -1,6 +1,7 @@
 import type { OrganizationRole, PermissionId } from './permission.js';
 
 export const Capability = {
+  organizationMemberships: 'organization-memberships',
   organizationSettings: 'organization-settings',
 } as const;
 
@@ -59,4 +60,5 @@ export interface AuthorizeOrganizationOperation {
 
 export interface AuthorizedOrganizationScope {
   organizationId: string;
+  role: OrganizationRole;
 }

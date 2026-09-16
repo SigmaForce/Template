@@ -1,8 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
+  HttpCode,
   Param,
   Patch,
   Post,
@@ -28,6 +30,8 @@ import { CreateOrganizationDto } from './create-organization.dto.js';
 import {
   ActiveOrganizationDto,
   OrganizationDto,
+  OrganizationInvitationDto,
+  OrganizationInvitationListDto,
   OrganizationOnboardingResultDto,
   OrganizationOnboardingStateDto,
 } from './organization.dto.js';
@@ -37,6 +41,13 @@ import {
   PublicProblemException,
 } from '../http/problem-details.js';
 import { UpdateOrganizationSettingsDto } from './update-organization-settings.dto.js';
+import { CreateInvitationDto } from './create-invitation.dto.js';
+
+const problemContent = {
+  'application/problem+json': {
+    schema: { $ref: getSchemaPath(ProblemDetailsDto) },
+  },
+};
 
 @ApiTags('organizations')
 @ApiExtraModels(ProblemDetailsDto)
@@ -72,6 +83,68 @@ export class OrganizationsController {
     @Body() input: UpdateOrganizationSettingsDto,
   ) {
     return this.organizations.updateSettings(user, organizationId, input);
+  }
+
+  @Post(':organizationId/invitations')
+  @ApiOperation({ operationId: 'createOrganizationInvitation' })
+  @ApiParam({ name: 'organizationId', example: 'org_2abc' })
+  @ApiCreatedResponse({ type: OrganizationInvitationDto })
+  @ApiResponse({ status: 400, content: problemContent })
+  @ApiResponse({ status: 403, content: problemContent })
+  @ApiResponse({ status: 409, content: problemContent })
+  createInvitation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('organizationId') organizationId: string,
+    @Body() input: CreateInvitationDto,
+  ) {
+    return this.organizations.createInvitation(user, organizationId, input);
+  }
+
+  @Get(':organizationId/invitations')
+  @ApiOperation({ operationId: 'listOrganizationInvitations' })
+  @ApiParam({ name: 'organizationId', example: 'org_2abc' })
+  @ApiOkResponse({ type: OrganizationInvitationListDto })
+  @ApiResponse({ status: 403, content: problemContent })
+  listInvitations(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('organizationId') organizationId: string,
+  ) {
+    return this.organizations.listInvitations(user, organizationId);
+  }
+
+  @Delete(':organizationId/invitations/:invitationId')
+  @ApiOperation({ operationId: 'revokeOrganizationInvitation' })
+  @ApiOkResponse({ type: OrganizationInvitationDto })
+  @ApiResponse({ status: 403, content: problemContent })
+  @ApiResponse({ status: 409, content: problemContent })
+  revokeInvitation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('organizationId') organizationId: string,
+    @Param('invitationId') invitationId: string,
+  ) {
+    return this.organizations.revokeInvitation(
+      user,
+      organizationId,
+      invitationId,
+    );
+  }
+
+  @Post(':organizationId/invitations/:invitationId/resend')
+  @HttpCode(200)
+  @ApiOperation({ operationId: 'resendOrganizationInvitation' })
+  @ApiOkResponse({ type: OrganizationInvitationDto })
+  @ApiResponse({ status: 403, content: problemContent })
+  @ApiResponse({ status: 409, content: problemContent })
+  resendInvitation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('organizationId') organizationId: string,
+    @Param('invitationId') invitationId: string,
+  ) {
+    return this.organizations.resendInvitation(
+      user,
+      organizationId,
+      invitationId,
+    );
   }
 
   @Get(':organizationId/settings')
