@@ -18,6 +18,13 @@ export default defineConfig({
         },
       }),
       defineProject({
+        optimizeDeps: {
+          include: [
+            "@base-ui/react/avatar",
+            "@base-ui/react/progress",
+            "@base-ui/react/tabs",
+          ],
+        },
         test: {
           browser: {
             enabled: true,
@@ -35,6 +42,13 @@ export default defineConfig({
         },
       }),
       defineProject({
+        optimizeDeps: {
+          include: [
+            "@base-ui/react/avatar",
+            "@base-ui/react/progress",
+            "@base-ui/react/tabs",
+          ],
+        },
         plugins: [
           storybookTest({
             configDir: path.join(directory, ".storybook"),

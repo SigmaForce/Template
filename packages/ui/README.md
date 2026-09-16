@@ -41,6 +41,26 @@ and its `accessibleLabel` must name the trigger without relying on the popup.
 Mount one `ToastProvider` around the application area that produces feedback;
 use `priority: "high"` only for urgent announcements.
 
+## Present data and product states
+
+The public facade also includes `Card`, `Badge`, `Avatar`, `Breadcrumb`, `Tabs`,
+`Table`, `DataTable`, `CursorPagination`, and the five product-state components:
+`LoadingState`, `EmptyState`, `ErrorState`, `ForbiddenState`, and
+`ReadOnlyState`.
+
+Prefer `DataTable` when a product view needs consistent headings, row actions,
+empty content, and navigation. Its pagination contract accepts opaque
+`previousCursor` and `nextCursor` values and returns the selected cursor to the
+application unchanged. It deliberately does not expose page numbers or totals,
+because those values are not guaranteed by cursor-based APIs. Use the lower-level
+`Table` exports when the product needs a custom semantic table composition.
+
+Give every state a concrete title and description. Keep recovery or navigation
+actions next to the message, and use `ReadOnlyState` when existing data remains
+available but mutation is disabled. Loading is announced through a named,
+indeterminate progress bar; errors use an alert; informational states use named
+regions or status semantics.
+
 ## Develop components
 
 Base UI is fixed at `1.8.0` and provides the unstyled accessible primitive
@@ -58,9 +78,10 @@ corepack pnpm --filter @saas/ui test:visual
 
 The catalog covers system/light/dark themes, narrow and wide navigation, 200%
 text, reduced motion, form states, focus-managed overlays, keyboard interaction,
-feedback, and extreme content. Storybook tests run in Chromium; the accessibility
-addon treats violations as errors. Visual baselines cover light forms plus dark
-overlay and feedback patterns. Review intentional changes before running
+feedback, data displays, product states, and extreme content. Storybook tests run
+in Chromium; the accessibility addon treats violations as errors. Visual baselines
+cover light forms and data displays plus dark overlay, feedback, and product-state
+patterns. Review intentional changes before running
 `corepack pnpm --filter @saas/ui test:visual:update`; baselines are
 platform-specific by design.
 
