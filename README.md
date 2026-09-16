@@ -36,16 +36,38 @@ Never edit `openapi.json` or `src/generated/schema.ts` directly. Change the Nest
 
 If configuration is absent or invalid, startup stops and reports each value that needs attention.
 
+## Authentication
+
+Create a Clerk development instance, copy `.env.example` to `.env`, and replace
+the Clerk placeholders with the instance's publishable and secret keys. Keep
+`CLERK_SECRET_KEY` server-only. `CLERK_AUTHORIZED_PARTIES` is a comma-separated
+allowlist of exact web origins whose session tokens the API accepts; configure
+the deployed web origin separately for each environment. `CLERK_JWT_KEY` may
+replace the secret key when networkless verification with Clerk's PEM public
+key is preferred.
+
+The `/sign-in` and `/sign-up` routes use the configured development instance.
+Every application page under the protected shell performs a server-side session
+check. Server Components obtain a Clerk session token and call NestJS directly;
+NestJS derives the User only from the verified token and exposes it at
+`GET /v1/auth/me`.
+
+For the authenticated Playwright journey, create a synthetic Clerk User whose
+email contains `+clerk_test`, then set `E2E_CLERK_USER_EMAIL` in `.env`. The
+official Clerk testing helper signs that User in through the development
+instance, verifies the protected shell and API identity, and signs out. Do not
+commit the test User or Clerk credentials.
+
 ## Operations
 
 Liveness only confirms that a process can answer requests. Readiness also
 checks the dependencies required for that process to serve useful traffic:
 
-| Process | Liveness | Readiness | Critical dependencies | Optional integrations |
-| --- | --- | --- | --- | --- |
-| Web | `/api/health` | `/api/ready` | API | PostHog, Sentry |
-| API | `/v1/health` | `/v1/ready` | PostgreSQL | Redis, PostHog, Sentry |
-| Worker | `/health` | `/ready` | PostgreSQL, Redis | PostHog, Sentry |
+| Process | Liveness      | Readiness    | Critical dependencies | Optional integrations  |
+| ------- | ------------- | ------------ | --------------------- | ---------------------- |
+| Web     | `/api/health` | `/api/ready` | API                   | PostHog, Sentry        |
+| API     | `/v1/health`  | `/v1/ready`  | PostgreSQL            | Redis, PostHog, Sentry |
+| Worker  | `/health`     | `/ready`     | PostgreSQL, Redis     | PostHog, Sentry        |
 
 Readiness returns `ready`, `degraded`, or `unready`. An unavailable critical
 dependency returns HTTP 503; an unavailable or misconfigured optional

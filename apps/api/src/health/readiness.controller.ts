@@ -1,9 +1,4 @@
-import {
-  Controller,
-  Get,
-  HttpStatus,
-  Res,
-} from '@nestjs/common';
+import { Controller, Get, HttpStatus, Res } from '@nestjs/common';
 import {
   ApiOkResponse,
   ApiOperation,
@@ -13,8 +8,10 @@ import {
 import type { Response } from 'express';
 import { ReadinessDto } from './readiness.dto.js';
 import { ReadinessService } from '@saas/tooling-config/readiness';
+import { Public } from '../authentication/authentication.js';
 
 @ApiTags('Health')
+@Public()
 @Controller('ready')
 export class ReadinessController {
   constructor(private readonly readiness: ReadinessService<'api'>) {}

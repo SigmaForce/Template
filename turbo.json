@@ -1,5 +1,9 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": [
+    "scripts/environment-core.d.mts",
+    "scripts/environment-core.mjs"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

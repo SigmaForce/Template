@@ -7,6 +7,7 @@ import { ThemeSelect } from "./theme-select";
 export type { NavigationItem } from "./navigation-list";
 
 export interface AppShellProps {
+  account?: ReactNode;
   children: ReactNode;
   navigation?: NavigationItem[];
 }
@@ -20,8 +21,15 @@ const defaultNavigation: NavigationItem[] = [
 
 function BrandLink() {
   return (
-    <a className="inline-flex items-center gap-3 rounded-control" href="/" aria-label={`${brand.name} home`}>
-      <span className="grid size-9 place-items-center rounded-mark bg-accent text-sm font-black text-accent-contrast shadow-mark" aria-hidden="true">
+    <a
+      className="inline-flex items-center gap-3 rounded-control"
+      href="/"
+      aria-label={`${brand.name} home`}
+    >
+      <span
+        className="grid size-9 place-items-center rounded-mark bg-accent text-sm font-black text-accent-contrast shadow-mark"
+        aria-hidden="true"
+      >
         {brand.shortName}
       </span>
       <span className="hidden text-lg font-extrabold tracking-tight text-foreground sm:inline">
@@ -40,6 +48,7 @@ function PrimaryNavigation({ navigation }: { navigation: NavigationItem[] }) {
 }
 
 export function AppShell({
+  account,
   children,
   navigation = defaultNavigation,
 }: AppShellProps) {
@@ -71,9 +80,14 @@ export function AppShell({
           </p>
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <ThemeSelect />
-            <div className="grid size-9 place-items-center rounded-full bg-accent-soft text-xs font-black text-accent-strong" aria-label="Signed in as Alex Morgan">
-              AM
-            </div>
+            {account ?? (
+              <div
+                className="grid size-9 place-items-center rounded-full bg-accent-soft text-xs font-black text-accent-strong"
+                aria-label="Signed in as Alex Morgan"
+              >
+                AM
+              </div>
+            )}
           </div>
         </header>
 

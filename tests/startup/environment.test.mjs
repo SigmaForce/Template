@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { generateKeyPairSync } from "node:crypto";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
+import { parseApiEnvironment } from "../../scripts/environment-core.mjs";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
 const command = path.join(root, "scripts", "check-environment.mjs");
@@ -14,6 +16,16 @@ function runCheck(environmentFile) {
     encoding: "utf8",
     env: {},
   });
+}
+
+function apiEnvironment(authentication) {
+  return {
+    API_PORT: "4000",
+    DATABASE_URL: "postgresql://saas:saas@localhost:5432/saas",
+    REDIS_URL: "redis://localhost:6379",
+    CLERK_AUTHORIZED_PARTIES: "http://localhost:3000",
+    ...authentication,
+  };
 }
 
 test("startup reports a missing environment file", () => {
@@ -58,16 +70,129 @@ test("startup reports every invalid environment value", () => {
     result.stderr,
     /APP_ENV must be one of development, test, staging, production/,
   );
-  assert.match(result.stderr, /LOG_LEVEL must be one of debug, info, warn, error/);
+  assert.match(
+    result.stderr,
+    /LOG_LEVEL must be one of debug, info, warn, error/,
+  );
+  assert.match(result.stderr, /CLERK_SECRET_KEY or CLERK_JWT_KEY is required/);
+  assert.match(result.stderr, /CLERK_AUTHORIZED_PARTIES is required/);
+  assert.match(result.stderr, /NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is required/);
 });
 
-test("startup accepts the documented local environment", () => {
+test("startup rejects the documented Clerk placeholders", () => {
   const result = runCheck(path.join(root, ".env.example"));
+
+  assert.equal(result.status, 1);
+  assert.match(
+    result.stderr,
+    /CLERK_SECRET_KEY must be a valid Clerk secret key/,
+  );
+  assert.match(
+    result.stderr,
+    /NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY must be a valid Clerk publishable key/,
+  );
+});
+
+test("startup accepts a configured local environment", () => {
+  const directory = mkdtempSync(path.join(tmpdir(), "saas-environment-"));
+  const environmentFile = path.join(directory, ".env");
+  const configuredEnvironment = readFileSync(
+    path.join(root, ".env.example"),
+    "utf8",
+  )
+    .replace(
+      "replace-with-clerk-publishable-key",
+      "pk_test_dGVzdC5jbGVyay5hY2NvdW50cy5kZXYk",
+    )
+    .replace(
+      "replace-with-clerk-secret-key",
+      "sk_test_c3ludGhldGljLW5vdC1hLXJlYWwta2V5",
+    );
+
+  writeFileSync(environmentFile, configuredEnvironment);
+
+  const result = runCheck(environmentFile);
 
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /Environment is valid/);
   assert.match(result.stdout, /PostHog: disabled/);
   assert.match(result.stdout, /Sentry: disabled/);
+});
+
+test("startup requires Clerk keys and an authorized frontend origin", () => {
+  const directory = mkdtempSync(path.join(tmpdir(), "saas-environment-"));
+  const environmentFile = path.join(directory, ".env");
+
+  writeFileSync(
+    environmentFile,
+    [
+      "API_PORT=4000",
+      "WORKER_PORT=4001",
+      "NEXT_PUBLIC_API_URL=http://localhost:4000",
+      "DATABASE_URL=postgresql://saas:saas@localhost:5432/saas",
+      "REDIS_URL=redis://localhost:6379",
+    ].join("\n"),
+  );
+
+  const result = runCheck(environmentFile);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /CLERK_SECRET_KEY or CLERK_JWT_KEY is required/);
+  assert.match(result.stderr, /CLERK_AUTHORIZED_PARTIES is required/);
+  assert.match(result.stderr, /NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is required/);
+});
+
+test("startup rejects a malformed Clerk JWT public key", () => {
+  const directory = mkdtempSync(path.join(tmpdir(), "saas-environment-"));
+  const environmentFile = path.join(directory, ".env");
+
+  writeFileSync(
+    environmentFile,
+    [
+      "API_PORT=4000",
+      "WORKER_PORT=4001",
+      "NEXT_PUBLIC_API_URL=http://localhost:4000",
+      "DATABASE_URL=postgresql://saas:saas@localhost:5432/saas",
+      "REDIS_URL=redis://localhost:6379",
+      "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_dGVzdC5jbGVyay5hY2NvdW50cy5kZXYk",
+      "CLERK_JWT_KEY=replace-with-clerk-jwt-public-key",
+      "CLERK_AUTHORIZED_PARTIES=http://localhost:3000",
+    ].join("\n"),
+  );
+
+  const result = runCheck(environmentFile);
+
+  assert.equal(result.status, 1);
+  assert.match(
+    result.stderr,
+    /CLERK_JWT_KEY must be a valid RSA PEM public key/,
+  );
+});
+
+test("API environment accepts a structurally valid RSA public key", () => {
+  const { publicKey } = generateKeyPairSync("rsa", {
+    modulusLength: 2048,
+    publicKeyEncoding: { type: "spki", format: "pem" },
+  });
+
+  assert.doesNotThrow(() =>
+    parseApiEnvironment(apiEnvironment({ CLERK_JWT_KEY: publicKey })),
+  );
+});
+
+test("API environment rejects malformed DER inside valid PEM armor", () => {
+  const malformedDer = Buffer.alloc(64);
+  malformedDer[0] = 0x30;
+  const malformedPem = [
+    "-----BEGIN RSA PUBLIC KEY-----",
+    malformedDer.toString("base64"),
+    "-----END RSA PUBLIC KEY-----",
+  ].join("\n");
+
+  assert.throws(
+    () => parseApiEnvironment(apiEnvironment({ CLERK_JWT_KEY: malformedPem })),
+    /CLERK_JWT_KEY must be a valid RSA PEM public key/,
+  );
 });
 
 test("startup reports invalid optional telemetry as degraded without exposing values", () => {
@@ -82,6 +207,9 @@ test("startup reports invalid optional telemetry as degraded without exposing va
       "NEXT_PUBLIC_API_URL=http://localhost:4000",
       "DATABASE_URL=postgresql://saas:saas@localhost:5432/saas",
       "REDIS_URL=redis://localhost:6379",
+      "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_dGVzdC5jbGVyay5hY2NvdW50cy5kZXYk",
+      "CLERK_SECRET_KEY=sk_test_c3ludGhldGljLW5vdC1hLXJlYWwta2V5",
+      "CLERK_AUTHORIZED_PARTIES=http://localhost:3000",
       "POSTHOG_KEY=phc_private-looking-value",
       "POSTHOG_HOST=not-a-url",
       "SENTRY_DSN=https://known-person@example.invalid/not-a-dsn",

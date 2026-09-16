@@ -15,7 +15,10 @@ async function bootstrap() {
     environment: config.environment,
     level: config.logLevel,
   });
-  const app = await NestFactory.create(AppModule, { logger });
+  const app = await NestFactory.create(
+    AppModule.register(config.authentication),
+    { logger },
+  );
 
   configureApi(app, {
     logger,

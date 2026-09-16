@@ -15,6 +15,15 @@ body {
   overflow-wrap: anywhere;
 }
 
+.authentication-page {
+  align-items: center;
+  background: var(--semantic-canvas);
+  display: flex;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 1.25rem;
+}
+
 a {
   color: inherit;
 }

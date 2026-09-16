@@ -1,6 +1,18 @@
 {
   "components": {
     "schemas": {
+      "AuthenticatedUserDto": {
+        "properties": {
+          "id": {
+            "example": "user_2RfWKJREkjKbHZy0Wqa5qrHeAnb",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
       "ContractExampleDto": {
         "properties": {
           "businessDate": {
@@ -246,6 +258,13 @@
         ],
         "type": "object"
       }
+    },
+    "securitySchemes": {
+      "clerk-session": {
+        "bearerFormat": "JWT",
+        "scheme": "bearer",
+        "type": "http"
+      }
     }
   },
   "info": {
@@ -256,6 +275,43 @@
   },
   "openapi": "3.0.0",
   "paths": {
+    "/v1/auth/me": {
+      "get": {
+        "operationId": "getAuthenticatedUser",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthenticatedUserDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "A valid Clerk session token is required."
+          }
+        },
+        "security": [
+          {
+            "clerk-session": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
     "/v1/contract-examples": {
       "get": {
         "operationId": "listContractExamples",

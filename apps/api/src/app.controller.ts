@@ -1,7 +1,9 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Public } from './authentication/authentication.js';
 
 @ApiTags('Health')
+@Public()
 @Controller('health')
 export class AppController {
   @Get()

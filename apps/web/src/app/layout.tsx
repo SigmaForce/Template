@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
-import { AppShell, brand, ThemeProvider } from "@saas/ui";
+import type { ReactNode } from "react";
+import { ClerkProvider } from "@clerk/nextjs";
+import { brand, ThemeProvider } from "@saas/ui";
+import { getWebEnvironment } from "../environment";
 import "@saas/ui/styles.css";
 import "./globals.css";
 
@@ -8,13 +11,17 @@ export const metadata: Metadata = {
   description: brand.description,
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: ReactNode }) {
+  const environment = getWebEnvironment();
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
-        <ThemeProvider>
-          <AppShell>{children}</AppShell>
-        </ThemeProvider>
+        <ClerkProvider
+          publishableKey={environment.authentication.publishableKey}
+        >
+          <ThemeProvider>{children}</ThemeProvider>
+        </ClerkProvider>
       </body>
     </html>
   );

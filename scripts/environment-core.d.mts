@@ -2,8 +2,7 @@ export type EnvironmentName = "development" | "test" | "staging" | "production";
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
 export type OptionalIntegration<T extends object> =
-  | { status: "disabled" | "misconfigured" }
-  | ({ status: "configured" } & T);
+  { status: "disabled" | "misconfigured" } | ({ status: "configured" } & T);
 
 export interface TelemetryConfiguration {
   posthog: OptionalIntegration<{ key: string; host: URL }>;
@@ -21,6 +20,11 @@ interface RuntimeEnvironment {
 
 export interface ApiEnvironment extends RuntimeEnvironment {
   service: "api";
+  authentication: {
+    authorizedParties: string[];
+    jwtKey?: string;
+    secretKey?: string;
+  };
 }
 
 export interface WorkerEnvironment extends RuntimeEnvironment {
@@ -32,6 +36,7 @@ export interface WebEnvironment {
   environment: EnvironmentName;
   logLevel: LogLevel;
   apiUrl: URL;
+  authentication: { publishableKey: string };
   telemetry: TelemetryConfiguration;
 }
 
@@ -42,11 +47,15 @@ export interface FoundationEnvironment {
   telemetry: TelemetryConfiguration;
 }
 
-export function parseApiEnvironment(environment: NodeJS.ProcessEnv): ApiEnvironment;
+export function parseApiEnvironment(
+  environment: NodeJS.ProcessEnv,
+): ApiEnvironment;
 export function parseWorkerEnvironment(
   environment: NodeJS.ProcessEnv,
 ): WorkerEnvironment;
-export function parseWebEnvironment(environment: NodeJS.ProcessEnv): WebEnvironment;
+export function parseWebEnvironment(
+  environment: NodeJS.ProcessEnv,
+): WebEnvironment;
 export function parseFoundationEnvironment(
   environment: NodeJS.ProcessEnv,
 ): FoundationEnvironment;

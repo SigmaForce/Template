@@ -9,6 +9,10 @@ const openApiConfiguration = new DocumentBuilder()
   .setTitle('Next Nest SaaS Starter API')
   .setDescription('Stable HTTP contract for the SaaS foundation.')
   .setVersion('1.0.0')
+  .addBearerAuth(
+    { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+    'clerk-session',
+  )
   .build();
 
 export function createOpenApiDocument(app: INestApplication): OpenAPIObject {

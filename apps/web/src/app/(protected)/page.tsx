@@ -1,9 +1,8 @@
-import { createApiClient, type components } from "@saas/api-client";
-import { CORRELATION_ID_HEADER } from "@saas/tooling-config/http";
+import type { components } from "@saas/api-client";
 import { brand } from "@saas/ui";
-import { headers } from "next/headers";
-import { getWebEnvironment } from "../environment";
-import { logWebOperation } from "../operational-log";
+import { auth } from "@clerk/nextjs/server";
+import { logWebOperation } from "../../operational-log";
+import { createServerApiContext } from "../../server-api-context";
 
 type Money = components["schemas"]["MoneyDto"];
 
@@ -17,16 +16,42 @@ type ApiAvailability =
     }
   | { available: false };
 
-async function getApiAvailability(): Promise<ApiAvailability> {
-  const environment = getWebEnvironment();
-  const requestHeaders = await headers();
-  const correlationId = requestHeaders.get(CORRELATION_ID_HEADER) ?? "unknown";
+type AuthenticatedIdentity =
+  { available: true; id: string } | { available: false };
+
+async function getAuthenticatedIdentity(): Promise<AuthenticatedIdentity> {
+  const { getToken } = await auth();
+  const token = await getToken();
+
+  if (!token) return { available: false };
 
   try {
-    const client = createApiClient(environment.apiUrl.toString());
+    const { client, correlatedHeaders } = await createServerApiContext();
+    const { data } = await client.GET("/v1/auth/me", {
+      cache: "no-store",
+      headers: {
+        ...correlatedHeaders,
+        authorization: `Bearer ${token}`,
+      },
+      signal: AbortSignal.timeout(3_000),
+    });
+
+    if (!data) return { available: false };
+
+    return { available: true, id: data.id };
+  } catch {
+    return { available: false };
+  }
+}
+
+async function getApiAvailability(): Promise<ApiAvailability> {
+  const { client, correlatedHeaders, correlationId, environment } =
+    await createServerApiContext();
+
+  try {
     const { data } = await client.GET("/v1/contract-examples", {
       cache: "no-store",
-      headers: { [CORRELATION_ID_HEADER]: correlationId },
+      headers: correlatedHeaders,
       params: { query: { currency: "BRL", limit: 1 } },
       signal: AbortSignal.timeout(3_000),
     });
@@ -77,7 +102,10 @@ function formatMoney({ amountMinor, currency }: Money) {
 }
 
 export default async function Home() {
-  const api = await getApiAvailability();
+  const [api, identity] = await Promise.all([
+    getApiAvailability(),
+    getAuthenticatedIdentity(),
+  ]);
 
   return (
     <div className="dashboard-page" id="overview">
@@ -107,13 +135,20 @@ export default async function Home() {
                 long-running decisions.
               </p>
             </div>
-            <div className="momentum-score" aria-label="84 percent weekly momentum">
+            <div
+              className="momentum-score"
+              aria-label="84 percent weekly momentum"
+            >
               <strong>84%</strong>
               <span>momentum</span>
             </div>
           </section>
 
-          <section className="activity-card" id="activity" aria-labelledby="activity-title">
+          <section
+            className="activity-card"
+            id="activity"
+            aria-labelledby="activity-title"
+          >
             <div className="section-heading">
               <div>
                 <p className="eyebrow">Latest signals</p>
@@ -123,7 +158,9 @@ export default async function Home() {
             </div>
             <ol className="activity-list">
               <li>
-                <span className="activity-mark" aria-hidden="true">LM</span>
+                <span className="activity-mark" aria-hidden="true">
+                  LM
+                </span>
                 <div>
                   <strong>Launch milestone approved</strong>
                   <p>Leadership · 12 minutes ago</p>
@@ -131,7 +168,9 @@ export default async function Home() {
                 <span className="activity-tag">Decision</span>
               </li>
               <li>
-                <span className="activity-mark" aria-hidden="true">PS</span>
+                <span className="activity-mark" aria-hidden="true">
+                  PS
+                </span>
                 <div>
                   <strong>Product scorecard shared</strong>
                   <p>Product · 48 minutes ago</p>
@@ -139,7 +178,9 @@ export default async function Home() {
                 <span className="activity-tag">Update</span>
               </li>
               <li>
-                <span className="activity-mark" aria-hidden="true">CS</span>
+                <span className="activity-mark" aria-hidden="true">
+                  CS
+                </span>
                 <div>
                   <strong>Customer review completed</strong>
                   <p>Success · 2 hours ago</p>
@@ -154,6 +195,33 @@ export default async function Home() {
           className="dashboard-side-column"
           aria-label="Organization summary"
         >
+          <section
+            className="status-card"
+            data-available={identity.available}
+            role="status"
+          >
+            <div className="status-heading">
+              <span className="status-dot" aria-hidden="true" />
+              <p>Authentication</p>
+            </div>
+            <div>
+              <h2>
+                {identity.available ? "Verified User" : "Identity unavailable"}
+              </h2>
+              <p>
+                {identity.available
+                  ? "The generated client reached the protected API with a verified session token."
+                  : "The protected API could not verify this session."}
+              </p>
+              {identity.available ? (
+                <div className="contract-example">
+                  <span>User</span>
+                  <span data-testid="authenticated-user-id">{identity.id}</span>
+                </div>
+              ) : null}
+            </div>
+          </section>
+
           <section
             className="status-card"
             data-available={api.available}
@@ -187,18 +255,30 @@ export default async function Home() {
             </div>
           </section>
 
-          <section className="compact-card" id="billing" aria-labelledby="billing-title">
+          <section
+            className="compact-card"
+            id="billing"
+            aria-labelledby="billing-title"
+          >
             <p className="eyebrow">Billing</p>
             <h2 id="billing-title">Launch plan</h2>
             <p>Next renewal on October 15 · 8 active seats</p>
-            <a href="#billing">Manage plan <span aria-hidden="true">↗</span></a>
+            <a href="#billing">
+              Manage plan <span aria-hidden="true">↗</span>
+            </a>
           </section>
 
-          <section className="compact-card" id="settings" aria-labelledby="settings-title">
+          <section
+            className="compact-card"
+            id="settings"
+            aria-labelledby="settings-title"
+          >
             <p className="eyebrow">Organization</p>
             <h2 id="settings-title">Make it yours</h2>
             <p>Brand, semantic tokens and navigation are ready to customize.</p>
-            <a href="#settings">Open settings <span aria-hidden="true">↗</span></a>
+            <a href="#settings">
+              Open settings <span aria-hidden="true">↗</span>
+            </a>
           </section>
         </aside>
       </div>

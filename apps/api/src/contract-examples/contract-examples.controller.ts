@@ -16,6 +16,7 @@ import {
   ContractExamplePageDto,
 } from './contract-example.dto.js';
 import { ListContractExamplesQuery } from './list-contract-examples.query.js';
+import { Public } from '../authentication/authentication.js';
 
 const cursorScope = 'public-contract-examples';
 const cursorSort = 'createdAt,id';
@@ -113,6 +114,7 @@ function decodeCursor(cursor: string, currency?: string): CursorPayload {
 
 @ApiTags('Contract examples')
 @ApiExtraModels(ProblemDetailsDto)
+@Public()
 @Controller('contract-examples')
 export class ContractExamplesController {
   @Get()

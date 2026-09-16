@@ -53,4 +53,13 @@ export class PublicProblemException extends HttpException {
       errors,
     });
   }
+
+  static authenticationRequired() {
+    return new PublicProblemException({
+      type: 'urn:problem:next-nest-saas-starter:authentication-required',
+      title: 'Authentication required',
+      status: 401,
+      detail: 'A valid session token is required.',
+    });
+  }
 }

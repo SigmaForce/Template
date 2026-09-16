@@ -5,6 +5,50 @@ import { AppModule } from './../src/app.module.js';
 import { configureApi } from './../src/configure-api.js';
 import type { ReadinessCheck } from '@saas/tooling-config/readiness';
 import { JsonLogger } from '@saas/tooling-config/logging';
+import { generateKeyPairSync, sign } from 'node:crypto';
+
+const {
+  privateKey: authenticationPrivateKey,
+  publicKey: authenticationPublicKey,
+} = generateKeyPairSync('rsa', {
+  modulusLength: 2048,
+  privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+  publicKeyEncoding: { type: 'spki', format: 'pem' },
+});
+
+function createSessionToken({
+  authorizedParty = 'http://localhost:3000',
+  expiresAt = Math.floor(Date.now() / 1000) + 60,
+  userId = 'user_verified',
+}: {
+  authorizedParty?: string;
+  expiresAt?: number;
+  userId?: string;
+} = {}) {
+  const now = Math.floor(Date.now() / 1000);
+  const header = Buffer.from(
+    JSON.stringify({ alg: 'RS256', typ: 'JWT' }),
+  ).toString('base64url');
+  const payload = Buffer.from(
+    JSON.stringify({
+      azp: authorizedParty,
+      exp: expiresAt,
+      iat: now,
+      iss: 'https://test.clerk.accounts.dev',
+      nbf: now - 1,
+      sid: 'sess_test',
+      sub: userId,
+    }),
+  ).toString('base64url');
+  const unsignedToken = `${header}.${payload}`;
+  const signature = sign(
+    'RSA-SHA256',
+    Buffer.from(unsignedToken),
+    authenticationPrivateKey,
+  ).toString('base64url');
+
+  return `${unsignedToken}.${signature}`;
+}
 
 describe('AppController (e2e)', () => {
   let app: INestApplication;
@@ -14,7 +58,12 @@ describe('AppController (e2e)', () => {
     logger?: JsonLogger,
   ) {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [
+        AppModule.register({
+          authorizedParties: ['http://localhost:3000'],
+          jwtKey: authenticationPublicKey,
+        }),
+      ],
     }).compile();
 
     const testApp = moduleFixture.createNestApplication();
@@ -35,6 +84,74 @@ describe('AppController (e2e)', () => {
       .expect({ service: 'api', status: 'healthy' });
   });
 
+  it('rejects a protected identity request without a Bearer token', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/v1/auth/me')
+      .expect('content-type', /application\/problem\+json/)
+      .expect(401);
+
+    expect(response.body).toMatchObject({
+      type: 'urn:problem:next-nest-saas-starter:authentication-required',
+      title: 'Authentication required',
+      status: 401,
+      detail: 'A valid session token is required.',
+      instance: expect.stringMatching(/^urn:uuid:/),
+      correlationId: expect.any(String),
+    });
+    expect(JSON.stringify(response.body)).not.toMatch(
+      /authorization|bearer|stack|clerk/i,
+    );
+  });
+
+  it('derives the User only from the verified token', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/v1/auth/me?userId=user_from_query')
+      .set('authorization', `Bearer ${createSessionToken()}`)
+      .set('x-user-id', 'user_from_header')
+      .send({ userId: 'user_from_body' })
+      .expect(200);
+
+    expect(response.body).toEqual({ id: 'user_verified' });
+  });
+
+  it.each([
+    {
+      name: 'invalid',
+      token: () => {
+        const token = createSessionToken();
+        return `${token.slice(0, -1)}${token.endsWith('A') ? 'B' : 'A'}`;
+      },
+    },
+    {
+      name: 'expired',
+      token: () =>
+        createSessionToken({
+          expiresAt: Math.floor(Date.now() / 1000) - 60,
+        }),
+    },
+    {
+      name: 'issued for an unauthorized origin',
+      token: () =>
+        createSessionToken({ authorizedParty: 'https://attacker.example' }),
+    },
+  ])('rejects a $name session token safely', async ({ token }) => {
+    const sessionToken = token();
+    const response = await request(app.getHttpServer())
+      .get('/v1/auth/me')
+      .set('authorization', `Bearer ${sessionToken}`)
+      .expect('content-type', /application\/problem\+json/)
+      .expect(401);
+
+    expect(response.body).toMatchObject({
+      type: 'urn:problem:next-nest-saas-starter:authentication-required',
+      title: 'Authentication required',
+      status: 401,
+      detail: 'A valid session token is required.',
+    });
+    expect(JSON.stringify(response.body)).not.toContain(sessionToken);
+    expect(JSON.stringify(response.body)).not.toMatch(/stack|clerk|signature/i);
+  });
+
   it('assigns and safely preserves correlation identifiers', async () => {
     const assigned = await request(app.getHttpServer())
       .get('/v1/health')
@@ -52,9 +169,7 @@ describe('AppController (e2e)', () => {
     expect(preserved.headers['x-correlation-id']).toBe(
       'web-01JQK3J8W8G8ZM6MJR7GQ2R9NN',
     );
-    expect(preserved.body.correlationId).toBe(
-      'web-01JQK3J8W8G8ZM6MJR7GQ2R9NN',
-    );
+    expect(preserved.body.correlationId).toBe('web-01JQK3J8W8G8ZM6MJR7GQ2R9NN');
 
     const replaced = await request(app.getHttpServer())
       .get('/v1/health')
@@ -211,6 +326,17 @@ describe('AppController (e2e)', () => {
     expect(response.body.paths['/v1/ready'].get.operationId).toBe(
       'getReadiness',
     );
+    expect(response.body.paths['/v1/auth/me'].get).toMatchObject({
+      operationId: 'getAuthenticatedUser',
+      security: [{ 'clerk-session': [] }],
+      responses: {
+        401: {
+          content: {
+            'application/problem+json': expect.any(Object),
+          },
+        },
+      },
+    });
     expect(
       response.body.paths['/v1/contract-examples'].get.parameters.find(
         (parameter: { name: string }) => parameter.name === 'limit',

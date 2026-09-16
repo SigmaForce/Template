@@ -1,10 +1,11 @@
+import { clerkMiddleware } from "@clerk/nextjs/server";
 import { NextResponse, type NextRequest } from "next/server";
 import {
   CORRELATION_ID_HEADER,
   resolveCorrelationId,
 } from "@saas/tooling-config/http";
 
-export function proxy(request: NextRequest) {
+export default clerkMiddleware((_auth, request: NextRequest) => {
   const correlationId = resolveCorrelationId(
     request.headers.get(CORRELATION_ID_HEADER),
   );
@@ -17,7 +18,7 @@ export function proxy(request: NextRequest) {
   response.headers.set(CORRELATION_ID_HEADER, correlationId);
 
   return response;
-}
+});
 
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],

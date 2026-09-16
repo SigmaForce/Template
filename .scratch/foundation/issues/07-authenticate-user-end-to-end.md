@@ -6,9 +6,9 @@
 
 **Status:** ready-for-agent
 
-- [ ] Visitantes podem iniciar e encerrar uma sessão usando a instância de desenvolvimento configurada.
-- [ ] Rotas protegidas encaminham visitantes não autenticados ao fluxo correto sem expor conteúdo privado.
-- [ ] A API rejeita token ausente, inválido, expirado ou emitido para uma origem não autorizada com Problem Details seguro.
-- [ ] A API deriva o User somente do token verificado e ignora identidade declarada em body, query ou headers não confiáveis.
-- [ ] O User autenticado consegue consultar sua identidade pela API usando o cliente gerado.
-- [ ] O percurso de autenticação possui cobertura no seam HTTP e no seam Playwright adequado ao ambiente de teste.
+- [x] Visitantes podem iniciar e encerrar uma sessão usando a instância de desenvolvimento configurada.
+- [x] Rotas protegidas encaminham visitantes não autenticados ao fluxo correto sem expor conteúdo privado.
+- [x] A API rejeita token ausente, inválido, expirado ou emitido para uma origem não autorizada com Problem Details seguro.
+- [x] A API deriva o User somente do token verificado e ignora identidade declarada em body, query ou headers não confiáveis.
+- [x] O User autenticado consegue consultar sua identidade pela API usando o cliente gerado.
+- [x] O percurso de autenticação possui cobertura no seam HTTP e no seam Playwright adequado ao ambiente de teste.
