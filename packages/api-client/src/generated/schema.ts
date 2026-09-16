@@ -99,6 +99,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/organizations/{organizationId}/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["updateOrganizationSettings"];
+        trace?: never;
+    };
     "/v1/ready": {
         parameters: {
             query?: never;
@@ -122,6 +138,7 @@ export interface components {
         ActiveOrganizationDto: {
             /** @example org_2abc */
             id: string;
+            permissions: ("organization:settings:read" | "organization:settings:update" | "organization:memberships:manage" | "billing:manage" | "organization:ownership:manage" | "organization:delete")[];
             /** @example northstar-labs */
             slug: string;
         };
@@ -269,6 +286,18 @@ export interface components {
             service: "api";
             /** @enum {string} */
             status: "ready" | "degraded" | "unready";
+        };
+        UpdateOrganizationSettingsDto: {
+            /**
+             * @example pt-BR
+             * @enum {string}
+             */
+            locale: "en-US" | "pt-BR";
+            /**
+             * @example America/Cuiaba
+             * @enum {string}
+             */
+            timeZone: "America/Cuiaba" | "America/Sao_Paulo" | "UTC";
         };
     };
     responses: never;
@@ -439,6 +468,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OrganizationOnboardingStateDto"];
+                };
+            };
+        };
+    };
+    updateOrganizationSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateOrganizationSettingsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetailsDto"];
                 };
             };
         };

@@ -4,6 +4,7 @@ import {
   MembershipRole,
   MembershipStatus,
   OnboardingStatus,
+  OrganizationState,
   Prisma,
   PrismaClient,
 } from '../generated/prisma/client.js';
@@ -138,6 +139,60 @@ export class PrismaOrganizationRepository
         userId: input.userId,
         idempotencyKey: input.idempotencyKey,
         status: OnboardingStatus.PROCESSING,
+      },
+    });
+  }
+
+  async findMembership(input: { organizationId: string; userId: string }) {
+    const membership = await this.client.membership.findUnique({
+      where: {
+        organizationId_userId: {
+          organizationId: input.organizationId,
+          userId: input.userId,
+        },
+      },
+      select: { role: true, status: true },
+    });
+    if (!membership) return undefined;
+
+    return {
+      role: membership.role.toLowerCase() as 'admin' | 'member' | 'owner',
+      status:
+        membership.status === MembershipStatus.ACTIVE
+          ? ('active' as const)
+          : ('suspended' as const),
+    };
+  }
+
+  async findOrganization(organizationId: string) {
+    const organization = await this.client.organization.findUnique({
+      where: { id: organizationId },
+      select: { id: true, state: true },
+    });
+    if (!organization) return undefined;
+
+    const states = {
+      [OrganizationState.ACTIVE]: 'active',
+      [OrganizationState.READ_ONLY]: 'read-only',
+      [OrganizationState.PENDING_DELETION]: 'pending-deletion',
+    } as const;
+    return { id: organization.id, state: states[organization.state] };
+  }
+
+  async updateSettings(input: {
+    locale: string;
+    organizationId: string;
+    timeZone: string;
+  }) {
+    return this.client.organization.update({
+      where: { id: input.organizationId },
+      data: { locale: input.locale, timeZone: input.timeZone },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        locale: true,
+        timeZone: true,
       },
     });
   }

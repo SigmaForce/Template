@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Permission, type PermissionId } from '../authorization/permission.js';
 
 export class OrganizationDto {
   @ApiProperty({ example: 'org_2abc' })
@@ -47,4 +48,7 @@ export class ActiveOrganizationDto {
 
   @ApiProperty({ example: 'northstar-labs' })
   slug!: string;
+
+  @ApiProperty({ enum: Object.values(Permission), isArray: true })
+  permissions!: PermissionId[];
 }

@@ -9,12 +9,17 @@ import {
   type OrganizationOnboardingResult,
   OrganizationSlugConflictError,
 } from './organization.js';
+import { AuthorizationService } from '../authorization/authorization.service.js';
+import { Capability } from '../authorization/authorization.js';
+import { Permission, permissionsForRole } from '../authorization/permission.js';
+import type { UpdateOrganizationSettingsDto } from './update-organization-settings.dto.js';
 
 @Injectable()
 export class OrganizationsService {
   constructor(
     private readonly repository: OrganizationRepository,
     private readonly directory: OrganizationDirectory,
+    private readonly authorization: AuthorizationService,
   ) {}
 
   async createFirstOrganization(
@@ -95,5 +100,36 @@ export class OrganizationsService {
     return result
       ? { status: 'complete' as const, ...result }
       : { status: 'required' as const };
+  }
+
+  getActiveOrganization(user: AuthenticatedUser) {
+    if (!user.activeOrganization) {
+      throw PublicProblemException.activeOrganizationRequired();
+    }
+    return {
+      id: user.activeOrganization.id,
+      slug: user.activeOrganization.slug,
+      permissions: permissionsForRole(user.activeOrganization.role),
+    };
+  }
+
+  async updateSettings(
+    user: AuthenticatedUser,
+    organizationId: string,
+    input: UpdateOrganizationSettingsDto,
+  ) {
+    const scope = await this.authorization.authorize({
+      user,
+      targetOrganizationId: organizationId,
+      capability: Capability.organizationSettings,
+      permission: Permission.organizationSettingsUpdate,
+      mode: 'write',
+    });
+
+    return this.repository.updateSettings({
+      organizationId: scope.organizationId,
+      locale: input.locale,
+      timeZone: input.timeZone,
+    });
   }
 }

@@ -26,14 +26,21 @@ enum OnboardingStatus {
   COMPLETED
 }
 
+enum OrganizationState {
+  ACTIVE
+  READ_ONLY
+  PENDING_DELETION
+}
+
 model Organization {
-  id         String   @id @db.VarChar(64)
-  name       String   @db.VarChar(100)
-  slug       String   @unique @db.VarChar(48)
-  locale     String   @db.VarChar(35)
-  timeZone   String   @map("time_zone") @db.VarChar(64)
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  id        String            @id @db.VarChar(64)
+  name      String            @db.VarChar(100)
+  slug      String            @unique @db.VarChar(48)
+  locale    String            @db.VarChar(35)
+  timeZone  String            @map("time_zone") @db.VarChar(64)
+  state     OrganizationState @default(ACTIVE)
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
 
   memberships       Membership[]
   onboardingRequest OrganizationOnboardingRequest?

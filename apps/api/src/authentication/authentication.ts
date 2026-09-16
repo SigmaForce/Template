@@ -10,6 +10,7 @@ export interface AuthenticatedUser {
 
 export interface ActiveOrganization {
   id: string;
+  role?: string;
   slug: string;
 }
 

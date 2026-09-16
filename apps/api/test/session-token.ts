@@ -12,11 +12,13 @@ export function createSessionToken({
   authorizedParty = 'http://localhost:3000',
   expiresAt = Math.floor(Date.now() / 1000) + 60,
   organization,
+  organizationRole = 'owner',
   userId = 'user_verified',
 }: {
   authorizedParty?: string;
   expiresAt?: number;
   organization?: { id: string; slug: string };
+  organizationRole?: 'admin' | 'member' | 'owner';
   userId?: string;
 } = {}) {
   const now = Math.floor(Date.now() / 1000);
@@ -34,7 +36,7 @@ export function createSessionToken({
         ? {
             o: {
               id: organization.id,
-              rol: 'owner',
+              rol: organizationRole,
               slg: organization.slug,
             },
             v: 2,

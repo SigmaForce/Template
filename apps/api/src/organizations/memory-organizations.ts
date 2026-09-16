@@ -5,7 +5,28 @@ import {
   type CompleteFirstOrganizationRecord,
   type OrganizationOnboardingClaim,
   type OrganizationOnboardingResult,
+  type OrganizationRecord,
 } from './organization.js';
+import type {
+  MembershipAccess,
+  MembershipAccessStatus,
+} from '../authorization/authorization.js';
+import type { OrganizationRole } from '../authorization/permission.js';
+
+interface MemoryMembership extends MembershipAccess {
+  organizationId: string;
+  userId: string;
+}
+
+export interface MemoryOrganizationRepositorySeed {
+  memberships?: Array<{
+    organizationId: string;
+    role: OrganizationRole;
+    status: MembershipAccessStatus;
+    userId: string;
+  }>;
+  organizations?: OrganizationRecord[];
+}
 
 export class MemoryOrganizationRepository extends OrganizationRepository {
   private readonly onboarding = new Map<string, OrganizationOnboardingResult>();
@@ -17,6 +38,18 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
       result?: OrganizationOnboardingResult;
     }
   >();
+  private readonly organizations = new Map<string, OrganizationRecord>();
+  private readonly memberships = new Map<string, MemoryMembership>();
+
+  constructor(seed: MemoryOrganizationRepositorySeed = {}) {
+    super();
+    for (const organization of seed.organizations ?? []) {
+      this.organizations.set(organization.id, { ...organization });
+    }
+    for (const membership of seed.memberships ?? []) {
+      this.memberships.set(this.membershipKey(membership), { ...membership });
+    }
+  }
 
   async claimOnboarding(input: {
     idempotencyKey: string;
@@ -51,6 +84,22 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
       membership: { role: 'owner' as const },
     };
     this.onboarding.set(record.userId, result);
+    this.organizations.set(record.organization.id, {
+      ...record.organization,
+      state: 'active',
+    });
+    this.memberships.set(
+      this.membershipKey({
+        organizationId: record.organization.id,
+        userId: record.userId,
+      }),
+      {
+        organizationId: record.organization.id,
+        userId: record.userId,
+        role: 'owner',
+        status: 'active',
+      },
+    );
     this.requests.set(record.userId, {
       idempotencyKey: record.idempotencyKey,
       requestHash: record.requestHash,
@@ -67,6 +116,38 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
     if (request?.idempotencyKey === input.idempotencyKey && !request.result) {
       this.requests.delete(input.userId);
     }
+  }
+
+  async findMembership(input: { organizationId: string; userId: string }) {
+    return this.memberships.get(this.membershipKey(input));
+  }
+
+  async findOrganization(organizationId: string) {
+    const organization = this.organizations.get(organizationId);
+    return organization
+      ? { id: organization.id, state: organization.state }
+      : undefined;
+  }
+
+  async updateSettings(input: {
+    locale: string;
+    organizationId: string;
+    timeZone: string;
+  }) {
+    const organization = this.organizations.get(input.organizationId);
+    if (!organization) throw new Error('Organization is unavailable.');
+    const updated = {
+      ...organization,
+      locale: input.locale,
+      timeZone: input.timeZone,
+    };
+    this.organizations.set(input.organizationId, updated);
+    const { state: _state, ...profile } = updated;
+    return profile;
+  }
+
+  private membershipKey(input: { organizationId: string; userId: string }) {
+    return `${input.organizationId}\u0000${input.userId}`;
   }
 }
 

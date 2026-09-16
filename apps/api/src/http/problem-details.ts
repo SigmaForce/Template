@@ -72,6 +72,15 @@ export class PublicProblemException extends HttpException {
     });
   }
 
+  static permissionDenied() {
+    return new PublicProblemException({
+      type: 'urn:problem:next-nest-saas-starter:permission-denied',
+      title: 'Permission denied',
+      status: 403,
+      detail: 'You do not have permission to perform this action.',
+    });
+  }
+
   static organizationSlugConflict() {
     return new PublicProblemException({
       type: 'urn:problem:next-nest-saas-starter:organization-slug-conflict',

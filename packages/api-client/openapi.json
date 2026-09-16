@@ -7,6 +7,20 @@
             "example": "org_2abc",
             "type": "string"
           },
+          "permissions": {
+            "items": {
+              "enum": [
+                "organization:settings:read",
+                "organization:settings:update",
+                "organization:memberships:manage",
+                "billing:manage",
+                "organization:ownership:manage",
+                "organization:delete"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
           "slug": {
             "example": "northstar-labs",
             "type": "string"
@@ -14,7 +28,8 @@
         },
         "required": [
           "id",
-          "slug"
+          "slug",
+          "permissions"
         ],
         "type": "object"
       },
@@ -397,6 +412,32 @@
           "dependencies"
         ],
         "type": "object"
+      },
+      "UpdateOrganizationSettingsDto": {
+        "properties": {
+          "locale": {
+            "enum": [
+              "en-US",
+              "pt-BR"
+            ],
+            "example": "pt-BR",
+            "type": "string"
+          },
+          "timeZone": {
+            "enum": [
+              "America/Cuiaba",
+              "America/Sao_Paulo",
+              "UTC"
+            ],
+            "example": "America/Cuiaba",
+            "type": "string"
+          }
+        },
+        "required": [
+          "locale",
+          "timeZone"
+        ],
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -660,6 +701,63 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/OrganizationOnboardingStateDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "clerk-session": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "organizations"
+        ]
+      }
+    },
+    "/v1/organizations/{organizationId}/settings": {
+      "patch": {
+        "operationId": "updateOrganizationSettings",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organizationId",
+            "required": true,
+            "schema": {
+              "example": "org_2abc",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOrganizationSettingsDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
                 }
               }
             },

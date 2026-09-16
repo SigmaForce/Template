@@ -151,6 +151,13 @@ export default async function Home({
   ) {
     redirect(`/organizations/${activeOrganization.organization.slug}`);
   }
+  const activePermissions = activeOrganization.available
+    ? activeOrganization.organization.permissions
+    : [];
+  const canManageBilling = activePermissions.includes("billing:manage");
+  const canUpdateOrganizationSettings = activePermissions.includes(
+    "organization:settings:update",
+  );
 
   return (
     <div className="dashboard-page" id="overview">
@@ -320,9 +327,15 @@ export default async function Home({
             <p className="eyebrow">Billing</p>
             <h2 id="billing-title">Launch plan</h2>
             <p>Next renewal on October 15 · 8 active seats</p>
-            <a href="#billing">
-              Manage plan <span aria-hidden="true">↗</span>
-            </a>
+            {canManageBilling ? (
+              <a href="#billing">
+                Manage plan <span aria-hidden="true">↗</span>
+              </a>
+            ) : (
+              <p data-testid="billing-permission-required">
+                An Owner can manage this plan.
+              </p>
+            )}
           </section>
 
           <section
@@ -333,9 +346,15 @@ export default async function Home({
             <p className="eyebrow">Organization</p>
             <h2 id="settings-title">Make it yours</h2>
             <p>Brand, semantic tokens and navigation are ready to customize.</p>
-            <a href="#settings">
-              Open settings <span aria-hidden="true">↗</span>
-            </a>
+            {canUpdateOrganizationSettings ? (
+              <a href="#settings">
+                Open settings <span aria-hidden="true">↗</span>
+              </a>
+            ) : (
+              <p data-testid="settings-permission-required">
+                You can view these settings, but cannot change them.
+              </p>
+            )}
           </section>
         </aside>
       </div>

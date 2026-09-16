@@ -22,14 +22,22 @@ export class ClerkTokenVerifier extends SessionTokenVerifier {
     const organizationClaim =
       payload.v === 2
         ? payload.o
-          ? { id: payload.o.id, slug: payload.o.slg }
+          ? { id: payload.o.id, role: payload.o.rol, slug: payload.o.slg }
           : undefined
         : payload.org_id
-          ? { id: payload.org_id, slug: payload.org_slug }
+          ? {
+              id: payload.org_id,
+              role: payload.org_role?.replace(/^org:/, ''),
+              slug: payload.org_slug,
+            }
           : undefined;
     const activeOrganization =
       organizationClaim?.id && organizationClaim.slug
-        ? { id: organizationClaim.id, slug: organizationClaim.slug }
+        ? {
+            id: organizationClaim.id,
+            ...(organizationClaim.role ? { role: organizationClaim.role } : {}),
+            slug: organizationClaim.slug,
+          }
         : undefined;
 
     return {

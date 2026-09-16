@@ -8,6 +8,7 @@ import { JsonLogger } from '@saas/tooling-config/logging';
 import {
   MemoryOrganizationDirectory,
   MemoryOrganizationRepository,
+  type MemoryOrganizationRepositorySeed,
 } from './../src/organizations/memory-organizations.js';
 import {
   authenticationPublicKey,
@@ -20,6 +21,7 @@ describe('AppController (e2e)', () => {
   async function createApp(
     readinessChecks: ReadinessCheck[] = [],
     logger?: JsonLogger,
+    repository = new MemoryOrganizationRepository(),
   ) {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
@@ -30,7 +32,7 @@ describe('AppController (e2e)', () => {
           },
           organizations: {
             directory: new MemoryOrganizationDirectory(),
-            repository: new MemoryOrganizationRepository(),
+            repository,
           },
         }),
       ],
@@ -98,7 +100,18 @@ describe('AppController (e2e)', () => {
       .expect(200);
 
     expect(response.headers['cache-control']).toBe('private, no-store');
-    expect(response.body).toEqual({ id: 'org_verified', slug: 'verified-org' });
+    expect(response.body).toEqual({
+      id: 'org_verified',
+      slug: 'verified-org',
+      permissions: [
+        'organization:settings:read',
+        'organization:settings:update',
+        'organization:memberships:manage',
+        'billing:manage',
+        'organization:ownership:manage',
+        'organization:delete',
+      ],
+    });
   });
 
   it('rejects an Organization-owned request without an Active Organization', async () => {
@@ -139,8 +152,175 @@ describe('AppController (e2e)', () => {
         .expect(200),
     ]);
 
-    expect(alpha.body).toEqual({ id: 'org_alpha', slug: 'alpha' });
-    expect(beta.body).toEqual({ id: 'org_beta', slug: 'beta' });
+    expect(alpha.body).toMatchObject({ id: 'org_alpha', slug: 'alpha' });
+    expect(beta.body).toMatchObject({ id: 'org_beta', slug: 'beta' });
+  });
+
+  describe('central Organization permission pipeline', () => {
+    const organization = {
+      id: 'org_northstar',
+      name: 'Northstar Labs',
+      slug: 'northstar',
+      locale: 'pt-BR',
+      timeZone: 'America/Cuiaba',
+      state: 'active' as const,
+    };
+
+    async function useAuthorizationFixture(
+      memberships: NonNullable<MemoryOrganizationRepositorySeed['memberships']>,
+    ) {
+      await app.close();
+      app = await createApp(
+        [],
+        undefined,
+        new MemoryOrganizationRepository({
+          organizations: [organization],
+          memberships,
+        }),
+      );
+    }
+
+    function tokenFor(
+      userId: string,
+      role: 'admin' | 'member' | 'owner',
+      activeOrganization = { id: organization.id, slug: organization.slug },
+    ) {
+      return `Bearer ${createSessionToken({
+        userId,
+        organization: activeOrganization,
+        organizationRole: role,
+      })}`;
+    }
+
+    it.each([
+      ['owner', 'user_owner'],
+      ['admin', 'user_admin'],
+    ] as const)('grants the settings update to %s', async (role, userId) => {
+      await useAuthorizationFixture([
+        {
+          organizationId: organization.id,
+          userId,
+          role,
+          status: 'active',
+        },
+      ]);
+
+      const response = await request(app.getHttpServer())
+        .patch(`/v1/organizations/${organization.id}/settings`)
+        .set('authorization', tokenFor(userId, role))
+        .send({ locale: 'en-US', timeZone: 'UTC' })
+        .expect(200);
+
+      expect(response.body).toEqual({
+        id: organization.id,
+        name: organization.name,
+        slug: organization.slug,
+        locale: 'en-US',
+        timeZone: 'UTC',
+      });
+    });
+
+    it('denies a Member consistently and keeps Owner-only permissions out of its projection', async () => {
+      await useAuthorizationFixture([
+        {
+          organizationId: organization.id,
+          userId: 'user_member',
+          role: 'member',
+          status: 'active',
+        },
+      ]);
+      const authorization = tokenFor('user_member', 'member');
+
+      const active = await request(app.getHttpServer())
+        .get('/v1/organizations/active')
+        .set('authorization', authorization)
+        .expect(200);
+      expect(active.body.permissions).toEqual(['organization:settings:read']);
+
+      const response = await request(app.getHttpServer())
+        .patch(`/v1/organizations/${organization.id}/settings`)
+        .set('authorization', authorization)
+        .send({ locale: 'en-US', timeZone: 'UTC' })
+        .expect('content-type', /application\/problem\+json/)
+        .expect(403);
+
+      expect(response.body).toMatchObject({
+        type: 'urn:problem:next-nest-saas-starter:permission-denied',
+        title: 'Permission denied',
+        status: 403,
+        detail: 'You do not have permission to perform this action.',
+      });
+    });
+
+    it('denies a suspended Membership with the same public response', async () => {
+      await useAuthorizationFixture([
+        {
+          organizationId: organization.id,
+          userId: 'user_suspended',
+          role: 'owner',
+          status: 'suspended',
+        },
+      ]);
+
+      const response = await request(app.getHttpServer())
+        .patch(`/v1/organizations/${organization.id}/settings`)
+        .set('authorization', tokenFor('user_suspended', 'owner'))
+        .send({ locale: 'en-US', timeZone: 'UTC' })
+        .expect(403);
+
+      expect(response.body).toMatchObject({
+        type: 'urn:problem:next-nest-saas-starter:permission-denied',
+        status: 403,
+      });
+    });
+
+    it('denies a resource outside the Active Organization context', async () => {
+      await useAuthorizationFixture([
+        {
+          organizationId: organization.id,
+          userId: 'user_owner',
+          role: 'owner',
+          status: 'active',
+        },
+      ]);
+
+      const response = await request(app.getHttpServer())
+        .patch('/v1/organizations/org_other/settings')
+        .set('authorization', tokenFor('user_owner', 'owner'))
+        .send({ locale: 'en-US', timeZone: 'UTC' })
+        .expect(403);
+
+      expect(response.body).toMatchObject({
+        type: 'urn:problem:next-nest-saas-starter:permission-denied',
+        status: 403,
+      });
+    });
+
+    it('keeps billing, ownership and deletion exclusive to Owner', async () => {
+      const admin = await request(app.getHttpServer())
+        .get('/v1/organizations/active')
+        .set(
+          'authorization',
+          tokenFor('user_admin', 'admin', {
+            id: 'org_admin',
+            slug: 'admin-org',
+          }),
+        )
+        .expect(200);
+
+      expect(admin.body.permissions).toEqual([
+        'organization:settings:read',
+        'organization:settings:update',
+        'organization:memberships:manage',
+      ]);
+      expect(admin.body.permissions).not.toEqual(
+        expect.arrayContaining([
+          'billing:manage',
+          'organization:ownership:manage',
+          'organization:delete',
+        ]),
+      );
+    });
   });
 
   it('creates the first Organization with exactly one Owner Membership', async () => {

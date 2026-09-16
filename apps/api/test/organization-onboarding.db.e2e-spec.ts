@@ -77,6 +77,60 @@ describe.skipIf(!databaseUrl)('Organization onboarding with PostgreSQL', () => {
       .expect({ status: 'complete', ...first.body });
   });
 
+  it('enforces the permission pipeline against the PostgreSQL Membership projection', async () => {
+    const userId = 'user_postgres_authorization';
+    const creation = await request(app.getHttpServer())
+      .post('/v1/organizations')
+      .set('authorization', `Bearer ${createSessionToken({ userId })}`)
+      .set('idempotency-key', 'postgres-authorization')
+      .send({
+        name: 'Postgres Authorization',
+        slug: 'postgres-authorization',
+        locale: 'pt-BR',
+        timeZone: 'America/Cuiaba',
+      })
+      .expect(201);
+    const organization = creation.body.organization as {
+      id: string;
+      slug: string;
+    };
+    const authorization = `Bearer ${createSessionToken({
+      userId,
+      organization,
+      organizationRole: 'owner',
+    })}`;
+
+    await request(app.getHttpServer())
+      .patch(`/v1/organizations/${organization.id}/settings`)
+      .set('authorization', authorization)
+      .send({ locale: 'en-US', timeZone: 'UTC' })
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toMatchObject({
+          id: organization.id,
+          locale: 'en-US',
+          timeZone: 'UTC',
+        });
+      });
+
+    await pool.query(
+      "UPDATE memberships SET status = 'SUSPENDED' WHERE organization_id = $1 AND user_id = $2",
+      [organization.id, userId],
+    );
+
+    await request(app.getHttpServer())
+      .patch(`/v1/organizations/${organization.id}/settings`)
+      .set('authorization', authorization)
+      .send({ locale: 'pt-BR', timeZone: 'America/Cuiaba' })
+      .expect(403)
+      .expect((response) => {
+        expect(response.body).toMatchObject({
+          type: 'urn:problem:next-nest-saas-starter:permission-denied',
+          status: 403,
+        });
+      });
+  });
+
   afterEach(async () => {
     await app.close();
   });
