@@ -161,13 +161,16 @@ describe('AppController (e2e)', () => {
 
     async function useAuthorizationFixture(
       memberships: NonNullable<MemoryOrganizationRepositorySeed['memberships']>,
+      state: NonNullable<
+        MemoryOrganizationRepositorySeed['organizations']
+      >[number]['state'] = 'active',
     ) {
       await app.close();
       app = await createApp(
         [],
         undefined,
         new MemoryOrganizationRepository({
-          organizations: [organization],
+          organizations: [{ ...organization, state }],
           memberships,
         }),
       );
@@ -295,6 +298,41 @@ describe('AppController (e2e)', () => {
         type: 'urn:problem:next-nest-saas-starter:permission-denied',
         status: 403,
       });
+    });
+
+    it('preserves safe read-only actions while denying settings writes', async () => {
+      await useAuthorizationFixture(
+        [
+          {
+            organizationId: organization.id,
+            userId: 'user_read_only_owner',
+            status: 'active',
+          },
+        ],
+        'read-only',
+      );
+      const authorization = tokenFor('user_read_only_owner', 'owner');
+
+      const active = await request(app.getHttpServer())
+        .get('/v1/organizations/active')
+        .set('authorization', authorization)
+        .expect(200);
+      expect(active.body.permissions).toEqual([
+        'organization:settings:read',
+        'organization:memberships:manage',
+        'billing:manage',
+        'organization:ownership:manage',
+      ]);
+
+      await request(app.getHttpServer())
+        .get(`/v1/organizations/${organization.id}/settings`)
+        .set('authorization', authorization)
+        .expect(200);
+      await request(app.getHttpServer())
+        .patch(`/v1/organizations/${organization.id}/settings`)
+        .set('authorization', authorization)
+        .send({ locale: 'en-US', timeZone: 'UTC' })
+        .expect(403);
     });
 
     it('keeps billing, ownership and deletion exclusive to Owner', async () => {

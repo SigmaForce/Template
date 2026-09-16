@@ -148,6 +148,12 @@ describe.skipIf(!databaseUrl)('Organization onboarding with PostgreSQL', () => {
       .set('authorization', authorization)
       .send({ locale: 'pt-BR', timeZone: 'America/Cuiaba' })
       .expect(403);
+    await request(app.getHttpServer())
+      .get(
+        `/v1/organizations/${otherCreation.body.organization.id as string}/settings`,
+      )
+      .set('authorization', authorization)
+      .expect(403);
 
     await pool.query(
       "UPDATE memberships SET status = 'SUSPENDED' WHERE organization_id = $1 AND user_id = $2",

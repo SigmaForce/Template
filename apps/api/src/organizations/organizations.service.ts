@@ -124,7 +124,6 @@ export class OrganizationsService {
       targetOrganizationId: organizationId,
       capability: Capability.organizationSettings,
       permission: Permission.organizationSettingsUpdate,
-      mode: 'write',
     });
 
     return this.repository.updateSettings({
@@ -140,7 +139,6 @@ export class OrganizationsService {
       targetOrganizationId: organizationId,
       capability: Capability.organizationSettings,
       permission: Permission.organizationSettingsRead,
-      mode: 'read',
     });
 
     return this.repository.getSettings(scope.organizationId);

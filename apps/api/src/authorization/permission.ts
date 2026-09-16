@@ -9,6 +9,7 @@ export const Permission = {
 
 export type PermissionId = (typeof Permission)[keyof typeof Permission];
 export type OrganizationRole = 'admin' | 'member' | 'owner';
+type OrganizationPolicyState = 'active' | 'pending-deletion' | 'read-only';
 
 const rolePermissions = {
   owner: Object.values(Permission),
@@ -42,5 +43,20 @@ export function roleHasPermission(
 ) {
   return (rolePermissions[role] as readonly PermissionId[]).includes(
     permission,
+  );
+}
+
+export function organizationStateAllows(
+  state: OrganizationPolicyState,
+  permission: PermissionId,
+) {
+  if (state === 'active') return true;
+  if (state === 'pending-deletion') return false;
+
+  return (
+    permission === Permission.organizationSettingsRead ||
+    permission === Permission.organizationMembershipsManage ||
+    permission === Permission.billingManage ||
+    permission === Permission.organizationOwnershipManage
   );
 }

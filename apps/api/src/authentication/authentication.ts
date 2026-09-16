@@ -2,6 +2,7 @@ import { createParamDecorator, SetMetadata } from '@nestjs/common';
 import type { ExecutionContext } from '@nestjs/common';
 import type { Request } from 'express';
 import { PublicProblemException } from '../http/problem-details.js';
+import type { OrganizationRole } from '../authorization/permission.js';
 
 export interface AuthenticatedUser {
   activeOrganization?: ActiveOrganization;
@@ -10,7 +11,7 @@ export interface AuthenticatedUser {
 
 export interface ActiveOrganization {
   id: string;
-  role?: string;
+  role?: OrganizationRole;
   slug: string;
 }
 

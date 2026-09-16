@@ -5,6 +5,7 @@ import {
   type AuthenticationOptions,
   SessionTokenVerifier,
 } from './authentication.js';
+import { resolveOrganizationRole } from '../authorization/permission.js';
 
 export const AUTHENTICATION_OPTIONS = Symbol('authentication-options');
 
@@ -22,12 +23,16 @@ export class ClerkTokenVerifier extends SessionTokenVerifier {
     const organizationClaim =
       payload.v === 2
         ? payload.o
-          ? { id: payload.o.id, role: payload.o.rol, slug: payload.o.slg }
+          ? {
+              id: payload.o.id,
+              role: resolveOrganizationRole(payload.o.rol),
+              slug: payload.o.slg,
+            }
           : undefined
         : payload.org_id
           ? {
               id: payload.org_id,
-              role: payload.org_role,
+              role: resolveOrganizationRole(payload.org_role),
               slug: payload.org_slug,
             }
           : undefined;

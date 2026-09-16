@@ -1,4 +1,4 @@
-import type { PermissionId } from './permission.js';
+import type { OrganizationRole, PermissionId } from './permission.js';
 
 export const Capability = {
   organizationSettings: 'organization-settings',
@@ -47,11 +47,13 @@ export class FoundationCapabilityPolicy extends CapabilityPolicy {
 
 export interface AuthorizeOrganizationOperation {
   capability: CapabilityId;
-  mode: 'read' | 'write';
   permission: PermissionId;
   targetOrganizationId: string;
   user:
-    | { activeOrganization?: { id: string; role?: string }; id: string }
+    | {
+        activeOrganization?: { id: string; role?: OrganizationRole };
+        id: string;
+      }
     | undefined;
 }
 
