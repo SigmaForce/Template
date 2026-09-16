@@ -6,6 +6,7 @@ import {
   CapabilityPolicy,
   type AuthorizeOrganizationOperation,
   type AuthorizedOrganizationScope,
+  type CapabilityId,
   type OrganizationAccess,
 } from './authorization.js';
 import {
@@ -33,23 +34,17 @@ export class AuthorizationService {
     operation: AuthorizeOrganizationOperation,
   ): Promise<AuthorizedOrganizationScope> {
     const context = await this.loadActiveAccess(operation.user);
-    if (
-      !context ||
-      !organizationStateAllows(context.organization.state, operation.permission)
-    ) {
+    if (!context) {
       throw PublicProblemException.permissionDenied();
     }
 
     if (
-      !(await this.capabilities.isEnabled({
-        capability: operation.capability,
-        organizationId: context.activeOrganization.id,
-      }))
+      !(await this.isPermissionAllowed(
+        context,
+        operation.permission,
+        operation.capability,
+      ))
     ) {
-      throw PublicProblemException.permissionDenied();
-    }
-
-    if (!roleHasPermission(context.role, operation.permission)) {
       throw PublicProblemException.permissionDenied();
     }
 
@@ -69,19 +64,47 @@ export class AuthorizationService {
     const context = await this.loadActiveAccess(user);
     if (!context) return [];
 
-    const settingsEnabled = await this.capabilities.isEnabled({
-      capability: Capability.organizationSettings,
-      organizationId: context.activeOrganization.id,
-    });
-
-    return Object.values(Permission).filter(
-      (permission) =>
-        organizationStateAllows(context.organization.state, permission) &&
-        (settingsEnabled ||
-          (permission !== Permission.organizationSettingsRead &&
-            permission !== Permission.organizationSettingsUpdate)) &&
-        roleHasPermission(context.role, permission),
+    const decisions = await Promise.all(
+      Object.values(Permission).map(async (permission) => ({
+        allowed: await this.isPermissionAllowed(
+          context,
+          permission,
+          this.capabilityForPermission(permission),
+        ),
+        permission,
+      })),
     );
+
+    return decisions
+      .filter((decision) => decision.allowed)
+      .map((decision) => decision.permission);
+  }
+
+  private async isPermissionAllowed(
+    context: ActiveAccessContext,
+    permission: PermissionId,
+    capability: CapabilityId | undefined,
+  ) {
+    if (!organizationStateAllows(context.organization.state, permission)) {
+      return false;
+    }
+    if (
+      capability &&
+      !(await this.capabilities.isEnabled({
+        capability,
+        organizationId: context.activeOrganization.id,
+      }))
+    ) {
+      return false;
+    }
+    return roleHasPermission(context.role, permission);
+  }
+
+  private capabilityForPermission(permission: PermissionId) {
+    return permission === Permission.organizationSettingsRead ||
+      permission === Permission.organizationSettingsUpdate
+      ? Capability.organizationSettings
+      : undefined;
   }
 
   private async loadActiveAccess(
