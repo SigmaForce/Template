@@ -6,6 +6,7 @@ import {
 } from './authentication.js';
 import { AuthenticationController } from './authentication.controller.js';
 import { AuthenticationGuard } from './authentication.guard.js';
+import { RequestRateLimiter } from './request-rate-limiter.js';
 import {
   AUTHENTICATION_OPTIONS,
   ClerkTokenVerifier,
@@ -23,6 +24,10 @@ export class AuthenticationModule {
         {
           provide: SessionTokenVerifier,
           useExisting: ClerkTokenVerifier,
+        },
+        {
+          provide: RequestRateLimiter,
+          useValue: new RequestRateLimiter(options.rateLimit),
         },
         { provide: APP_GUARD, useClass: AuthenticationGuard },
       ],

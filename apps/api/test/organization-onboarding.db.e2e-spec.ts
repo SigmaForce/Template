@@ -255,6 +255,133 @@ describe.skipIf(!databaseUrl)('Organization onboarding with PostgreSQL', () => {
       });
   });
 
+  it('keeps PostgreSQL Organization resources isolated after cross-Organization, suspended, and removed access attempts', async () => {
+    const createOrganization = async (slug: string) => {
+      const userId = `user_${slug}`;
+      const creation = await request(app.getHttpServer())
+        .post('/v1/organizations')
+        .set('authorization', `Bearer ${createSessionToken({ userId })}`)
+        .set('idempotency-key', `postgres-isolation-${slug}`)
+        .send({
+          name: `${slug} Organization`,
+          slug,
+          locale: 'en-US',
+          timeZone: 'UTC',
+        })
+        .expect(201);
+      const organization = creation.body.organization as {
+        id: string;
+        slug: string;
+      };
+      return {
+        organization,
+        userId,
+        authorization: `Bearer ${createSessionToken({
+          userId,
+          organization,
+          organizationRole: 'owner',
+        })}`,
+      };
+    };
+    const alpha = await createOrganization('postgres-isolation-alpha');
+    const beta = await createOrganization('postgres-isolation-beta');
+    const betaInvitation = await request(app.getHttpServer())
+      .post(`/v1/organizations/${beta.organization.id}/invitations`)
+      .set('authorization', beta.authorization)
+      .send({ emailAddress: 'member@beta.test', role: 'member' })
+      .expect(201);
+
+    const crossOrganization = await Promise.all([
+      request(app.getHttpServer())
+        .get(`/v1/organizations/${beta.organization.id}/settings`)
+        .set('authorization', alpha.authorization),
+      request(app.getHttpServer())
+        .patch(`/v1/organizations/${beta.organization.id}/settings`)
+        .set('authorization', alpha.authorization)
+        .send({ locale: 'pt-BR' }),
+      request(app.getHttpServer())
+        .get(`/v1/organizations/${beta.organization.id}/memberships`)
+        .set('authorization', alpha.authorization),
+      request(app.getHttpServer())
+        .patch(
+          `/v1/organizations/${beta.organization.id}/memberships/${beta.userId}`,
+        )
+        .set('authorization', alpha.authorization)
+        .send({ role: 'member' }),
+      request(app.getHttpServer())
+        .delete(
+          `/v1/organizations/${beta.organization.id}/memberships/${beta.userId}`,
+        )
+        .set('authorization', alpha.authorization),
+      request(app.getHttpServer())
+        .get(`/v1/organizations/${beta.organization.id}/invitations`)
+        .set('authorization', alpha.authorization),
+      request(app.getHttpServer())
+        .post(`/v1/organizations/${beta.organization.id}/invitations`)
+        .set('authorization', alpha.authorization)
+        .send({ emailAddress: 'cross-organization@beta.test', role: 'member' }),
+      request(app.getHttpServer())
+        .delete(
+          `/v1/organizations/${beta.organization.id}/invitations/${betaInvitation.body.id as string}`,
+        )
+        .set('authorization', alpha.authorization),
+    ]);
+    for (const response of crossOrganization) {
+      expect(response.status).toBe(403);
+      expect(response.body).toMatchObject({
+        type: 'urn:problem:next-nest-saas-starter:permission-denied',
+        status: 403,
+      });
+      expect(JSON.stringify(response.body)).not.toContain(beta.organization.id);
+    }
+
+    for (const status of ['SUSPENDED', 'REMOVED'] as const) {
+      await pool.query(
+        'UPDATE memberships SET status = $1 WHERE organization_id = $2 AND user_id = $3',
+        [status, alpha.organization.id, alpha.userId],
+      );
+      const lostAccess = await Promise.all([
+        request(app.getHttpServer())
+          .get('/v1/organizations/active')
+          .set('authorization', alpha.authorization),
+        request(app.getHttpServer())
+          .get(`/v1/organizations/${alpha.organization.id}/settings`)
+          .set('authorization', alpha.authorization),
+        request(app.getHttpServer())
+          .patch(`/v1/organizations/${alpha.organization.id}/settings`)
+          .set('authorization', alpha.authorization)
+          .send({ locale: 'pt-BR' }),
+        request(app.getHttpServer())
+          .get(`/v1/organizations/${alpha.organization.id}/memberships`)
+          .set('authorization', alpha.authorization),
+        request(app.getHttpServer())
+          .patch(
+            `/v1/organizations/${alpha.organization.id}/memberships/${alpha.userId}`,
+          )
+          .set('authorization', alpha.authorization)
+          .send({ role: 'member' }),
+        request(app.getHttpServer())
+          .delete(
+            `/v1/organizations/${alpha.organization.id}/memberships/${alpha.userId}`,
+          )
+          .set('authorization', alpha.authorization),
+        request(app.getHttpServer())
+          .get(`/v1/organizations/${alpha.organization.id}/invitations`)
+          .set('authorization', alpha.authorization),
+        request(app.getHttpServer())
+          .post(`/v1/organizations/${alpha.organization.id}/invitations`)
+          .set('authorization', alpha.authorization)
+          .send({ emailAddress: 'lost-access@test.invalid', role: 'member' }),
+        request(app.getHttpServer())
+          .get(`/v1/organizations/by-slug/${alpha.organization.slug}`)
+          .set('authorization', alpha.authorization),
+      ]);
+      expect(
+        lostAccess.map(({ status: responseStatus }) => responseStatus),
+      ).toEqual([403, 403, 403, 403, 403, 403, 403, 403, 403]);
+    }
+  });
+
   it('persists Membership lifecycle transitions and protects the last Owner', async () => {
     const ownerId = 'user_postgres_owner';
     const memberId = 'user_postgres_member';

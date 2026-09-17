@@ -44,3 +44,15 @@ authenticatedTest(
     );
   },
 );
+
+authenticatedTest(
+  "User cannot resolve an Organization link outside their Memberships",
+  async ({ authenticatedPage: page }) => {
+    await page.goto("/organizations/not-a-membership-foundation");
+
+    await expect(
+      page.getByRole("heading", { name: "Organization link unavailable" }),
+    ).toBeVisible();
+    await expect(page.getByText("not-a-membership-foundation")).toHaveCount(0);
+  },
+);

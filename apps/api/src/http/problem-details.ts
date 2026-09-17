@@ -81,6 +81,15 @@ export class PublicProblemException extends HttpException {
     });
   }
 
+  static rateLimited() {
+    return new PublicProblemException({
+      type: 'urn:problem:next-nest-saas-starter:rate-limited',
+      title: 'Too many requests',
+      status: 429,
+      detail: 'Retry after the indicated interval.',
+    });
+  }
+
   static organizationSlugConflict() {
     return new PublicProblemException({
       type: 'urn:problem:next-nest-saas-starter:organization-slug-conflict',

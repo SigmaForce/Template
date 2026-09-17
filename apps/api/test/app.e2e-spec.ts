@@ -3,6 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from './../src/app.module.js';
 import { configureApi } from './../src/configure-api.js';
+import type { AuthenticationOptions } from './../src/authentication/authentication.js';
 import type { ReadinessCheck } from '@saas/tooling-config/readiness';
 import { JsonLogger } from '@saas/tooling-config/logging';
 import {
@@ -23,6 +24,7 @@ describe('AppController (e2e)', () => {
     logger?: JsonLogger,
     repository = new MemoryOrganizationRepository(),
     directory = new MemoryOrganizationDirectory(),
+    rateLimit?: AuthenticationOptions['rateLimit'],
   ) {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
@@ -30,6 +32,7 @@ describe('AppController (e2e)', () => {
           authentication: {
             authorizedParties: ['http://localhost:3000'],
             jwtKey: authenticationPublicKey,
+            ...(rateLimit ? { rateLimit } : {}),
           },
           organizations: {
             directory,
@@ -56,6 +59,310 @@ describe('AppController (e2e)', () => {
       .expect(200)
       .expect({ service: 'api', status: 'healthy' });
   });
+
+  it('allows only the configured frontend origin and emits API security headers', async () => {
+    const allowed = await request(app.getHttpServer())
+      .options('/v1/health')
+      .set('origin', 'http://localhost:3000')
+      .set('access-control-request-method', 'GET')
+      .expect(204);
+
+    expect(allowed.headers['access-control-allow-origin']).toBe(
+      'http://localhost:3000',
+    );
+    expect(allowed.headers['access-control-allow-credentials']).toBe('true');
+    expect(allowed.headers['content-security-policy']).toBe(
+      "default-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+    );
+    expect(allowed.headers['x-content-type-options']).toBe('nosniff');
+    expect(allowed.headers['x-frame-options']).toBe('DENY');
+    expect(allowed.headers['referrer-policy']).toBe('no-referrer');
+
+    const denied = await request(app.getHttpServer())
+      .get('/v1/health')
+      .set('origin', 'https://untrusted.example')
+      .expect(200);
+    expect(denied.headers['access-control-allow-origin']).toBeUndefined();
+  });
+
+  it('rejects oversized and unknown request bodies without exposing internals', async () => {
+    const authorization = `Bearer ${createSessionToken()}`;
+    const oversized = await request(app.getHttpServer())
+      .post('/v1/organizations')
+      .set('authorization', authorization)
+      .set('idempotency-key', 'oversized-payload')
+      .send({ padding: 'x'.repeat(33 * 1024) })
+      .expect('content-type', /application\/problem\+json/)
+      .expect(413);
+    expect(JSON.stringify(oversized.body)).not.toMatch(/stack|payload|body/i);
+
+    const unknown = await request(app.getHttpServer())
+      .post('/v1/organizations')
+      .set('authorization', authorization)
+      .set('idempotency-key', 'unknown-field')
+      .send({
+        locale: 'en-US',
+        name: 'Unknown Field Test',
+        slug: 'unknown-field-test',
+        timeZone: 'UTC',
+        organizationId: 'org_client_controlled',
+      })
+      .expect(400);
+    expect(unknown.body.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ pointer: '#/body/organizationId' }),
+      ]),
+    );
+  });
+
+  it('limits anonymous, verified User, and Active Organization traffic separately', async () => {
+    await app.close();
+    const organization = {
+      id: 'org_limited',
+      locale: 'en-US',
+      name: 'Limited Organization',
+      slug: 'limited-organization',
+      state: 'active' as const,
+      timeZone: 'UTC',
+    };
+    app = await createApp(
+      [],
+      undefined,
+      new MemoryOrganizationRepository({
+        organizations: [organization],
+        memberships: [
+          {
+            organizationId: organization.id,
+            role: 'owner',
+            status: 'active',
+            userId: 'user_organization',
+          },
+        ],
+      }),
+      undefined,
+      { anonymous: 1, organization: 2, user: 3, windowMs: 60_000 },
+    );
+    const server = app.getHttpServer();
+
+    await request(server)
+      .get('/v1/health')
+      .set('x-forwarded-for', '198.51.100.1')
+      .expect('ratelimit-limit', '1')
+      .expect(200);
+    await request(server)
+      .get('/v1/health')
+      .set('authorization', 'Bearer client-controlled')
+      .set('x-forwarded-for', '203.0.113.1')
+      .expect(429);
+
+    const userAuthorization = `Bearer ${createSessionToken({
+      userId: 'user_limited',
+    })}`;
+    for (let count = 0; count < 3; count += 1) {
+      await request(server)
+        .get('/v1/auth/me')
+        .set('authorization', userAuthorization)
+        .expect('ratelimit-limit', '3')
+        .expect(200);
+    }
+    await request(server)
+      .get('/v1/auth/me')
+      .set('authorization', userAuthorization)
+      .expect(429);
+
+    const organizationAuthorization = `Bearer ${createSessionToken({
+      organization,
+      organizationRole: 'owner',
+      userId: 'user_organization',
+    })}`;
+    for (let count = 0; count < 2; count += 1) {
+      await request(server)
+        .get('/v1/organizations/active')
+        .set('authorization', organizationAuthorization)
+        .expect('ratelimit-limit', '2')
+        .expect(200);
+    }
+    await request(server)
+      .get('/v1/organizations/active')
+      .set('authorization', organizationAuthorization)
+      .expect(429);
+  });
+
+  it('hides resources, Memberships, and settings outside the Active Organization', async () => {
+    await app.close();
+    const alpha = {
+      id: 'org_alpha_isolation',
+      locale: 'en-US',
+      name: 'Alpha Isolation',
+      slug: 'alpha-isolation',
+      state: 'active' as const,
+      timeZone: 'UTC',
+    };
+    const beta = { ...alpha, id: 'org_beta_isolation', slug: 'beta-isolation' };
+    app = await createApp(
+      [],
+      undefined,
+      new MemoryOrganizationRepository({
+        organizations: [alpha, beta],
+        memberships: [
+          {
+            organizationId: alpha.id,
+            role: 'owner',
+            status: 'active',
+            userId: 'user_alpha',
+          },
+          {
+            organizationId: beta.id,
+            role: 'owner',
+            status: 'active',
+            userId: 'user_beta',
+          },
+          {
+            organizationId: beta.id,
+            role: 'member',
+            status: 'active',
+            userId: 'user_beta_member',
+          },
+        ],
+      }),
+    );
+    const server = app.getHttpServer();
+    const betaAuthorization = `Bearer ${createSessionToken({
+      organization: beta,
+      organizationRole: 'owner',
+      userId: 'user_beta',
+    })}`;
+    const invitation = await request(server)
+      .post(`/v1/organizations/${beta.id}/invitations`)
+      .set('authorization', betaAuthorization)
+      .send({ emailAddress: 'member@beta.test', role: 'member' })
+      .expect(201);
+    const alphaAuthorization = `Bearer ${createSessionToken({
+      organization: alpha,
+      organizationRole: 'owner',
+      userId: 'user_alpha',
+    })}`;
+
+    const responses = await Promise.all([
+      request(server)
+        .get(`/v1/organizations/${beta.id}/settings`)
+        .set('authorization', alphaAuthorization),
+      request(server)
+        .patch(
+          `/v1/organizations/${beta.id}/settings?organizationId=${alpha.id}`,
+        )
+        .set('authorization', alphaAuthorization)
+        .set('x-organization-id', alpha.id)
+        .send({ locale: 'pt-BR', timeZone: 'UTC' }),
+      request(server)
+        .get(`/v1/organizations/${beta.id}/memberships`)
+        .set('authorization', alphaAuthorization),
+      request(server)
+        .patch(`/v1/organizations/${beta.id}/memberships/user_beta_member`)
+        .set('authorization', alphaAuthorization)
+        .send({ status: 'suspended' }),
+      request(server)
+        .get(`/v1/organizations/${beta.id}/invitations`)
+        .set('authorization', alphaAuthorization),
+      request(server)
+        .delete(
+          `/v1/organizations/${beta.id}/invitations/${invitation.body.id as string}`,
+        )
+        .set('authorization', alphaAuthorization),
+    ]);
+
+    for (const response of responses) {
+      expect(response.status).toBe(403);
+      expect(response.body).toMatchObject({
+        type: 'urn:problem:next-nest-saas-starter:permission-denied',
+        status: 403,
+      });
+      expect(JSON.stringify(response.body)).not.toContain(beta.id);
+    }
+  });
+
+  it.each(['suspended', 'removed'] as const)(
+    'denies every Active Organization operation after a Membership is %s',
+    async (status) => {
+      await app.close();
+      const organization = {
+        id: `org_${status}_access`,
+        locale: 'en-US',
+        name: `${status} access`,
+        slug: `${status}-access`,
+        state: 'active' as const,
+        timeZone: 'UTC',
+      };
+      app = await createApp(
+        [],
+        undefined,
+        new MemoryOrganizationRepository({
+          organizations: [organization],
+          memberships: [
+            {
+              organizationId: organization.id,
+              role: 'owner',
+              status,
+              userId: 'user_lost_access',
+            },
+            {
+              organizationId: organization.id,
+              role: 'member',
+              status: 'active',
+              userId: 'user_target',
+            },
+          ],
+        }),
+      );
+      const server = app.getHttpServer();
+      const authorization = `Bearer ${createSessionToken({
+        organization,
+        organizationRole: 'owner',
+        userId: 'user_lost_access',
+      })}`;
+      const protectedRequests = [
+        () => request(server).get('/v1/organizations/active'),
+        () =>
+          request(server).get(`/v1/organizations/${organization.id}/settings`),
+        () =>
+          request(server)
+            .patch(`/v1/organizations/${organization.id}/settings`)
+            .send({ locale: 'pt-BR' }),
+        () =>
+          request(server).get(
+            `/v1/organizations/${organization.id}/memberships`,
+          ),
+        () =>
+          request(server)
+            .patch(
+              `/v1/organizations/${organization.id}/memberships/user_target`,
+            )
+            .send({ status: 'suspended' }),
+        () =>
+          request(server).delete(
+            `/v1/organizations/${organization.id}/memberships/user_target`,
+          ),
+        () =>
+          request(server).get(
+            `/v1/organizations/${organization.id}/invitations`,
+          ),
+        () =>
+          request(server)
+            .post(`/v1/organizations/${organization.id}/invitations`)
+            .send({ emailAddress: 'lost-access@test.invalid', role: 'member' }),
+        () =>
+          request(server).get(`/v1/organizations/by-slug/${organization.slug}`),
+      ];
+
+      for (const operation of protectedRequests) {
+        const response = await operation().set('authorization', authorization);
+        expect(response.status).toBe(403);
+        expect(response.body.type).toBe(
+          'urn:problem:next-nest-saas-starter:permission-denied',
+        );
+      }
+    },
+  );
 
   it('rejects a protected identity request without a Bearer token', async () => {
     const response = await request(app.getHttpServer())

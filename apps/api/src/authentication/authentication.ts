@@ -18,7 +18,15 @@ export interface ActiveOrganization {
 export interface AuthenticationOptions {
   authorizedParties: string[];
   jwtKey?: string;
+  rateLimit?: RequestRateLimitOptions;
   secretKey?: string;
+}
+
+export interface RequestRateLimitOptions {
+  anonymous: number;
+  organization: number;
+  user: number;
+  windowMs: number;
 }
 
 export abstract class SessionTokenVerifier {

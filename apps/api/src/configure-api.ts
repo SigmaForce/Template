@@ -42,15 +42,55 @@ function validationRoot(errors: ValidationError[]) {
 }
 
 export interface ConfigureApiOptions {
+  allowedOrigins?: string[];
   readinessChecks?: ReadinessCheck[];
   logger?: JsonLogger;
 }
 
+type BodyParserApplication = INestApplication & {
+  useBodyParser(type: 'json' | 'urlencoded', options: { limit: string }): void;
+};
+
 export function configureApi(
   app: INestApplication,
-  { readinessChecks = [], logger }: ConfigureApiOptions = {},
+  {
+    allowedOrigins = ['http://localhost:3000'],
+    readinessChecks = [],
+    logger,
+  }: ConfigureApiOptions = {},
 ) {
   app.setGlobalPrefix('v1');
+  const bodyParserApp = app as BodyParserApplication;
+  bodyParserApp.useBodyParser('json', { limit: '32kb' });
+  bodyParserApp.useBodyParser('urlencoded', { limit: '32kb' });
+  app.use(
+    (
+      _request: object,
+      response: { setHeader(name: string, value: string): void },
+      next: () => void,
+    ) => {
+      response.setHeader(
+        'content-security-policy',
+        "default-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      );
+      response.setHeader('referrer-policy', 'no-referrer');
+      response.setHeader('strict-transport-security', 'max-age=31536000');
+      response.setHeader('x-content-type-options', 'nosniff');
+      response.setHeader('x-frame-options', 'DENY');
+      next();
+    },
+  );
+  app.enableCors({
+    allowedHeaders: [
+      'authorization',
+      'content-type',
+      'idempotency-key',
+      'x-correlation-id',
+    ],
+    credentials: true,
+    methods: ['GET', 'HEAD', 'PATCH', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    origin: allowedOrigins,
+  });
   app.use(correlationIdMiddleware);
   if (logger) {
     app.useLogger(logger);

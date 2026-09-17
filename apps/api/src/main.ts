@@ -38,6 +38,7 @@ async function bootstrap() {
   );
 
   configureApi(app, {
+    allowedOrigins: config.authentication.authorizedParties,
     logger,
     readinessChecks: [
       {

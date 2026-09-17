@@ -34,7 +34,8 @@ export class ProblemDetailsFilter implements ExceptionFilter {
     const status =
       exception instanceof HttpException
         ? exception.getStatus()
-        : HttpStatus.INTERNAL_SERVER_ERROR;
+        : (this.statusFromHttpMiddleware(exception) ??
+          HttpStatus.INTERNAL_SERVER_ERROR);
 
     if (status === HttpStatus.NOT_FOUND) {
       return {
@@ -57,5 +58,19 @@ export class ProblemDetailsFilter implements ExceptionFilter {
           ? 'An unexpected error occurred.'
           : 'The request could not be processed.',
     };
+  }
+
+  private statusFromHttpMiddleware(exception: unknown) {
+    if (
+      typeof exception !== 'object' ||
+      exception === null ||
+      !('status' in exception) ||
+      typeof exception.status !== 'number' ||
+      exception.status < 400 ||
+      exception.status > 599
+    ) {
+      return undefined;
+    }
+    return exception.status;
   }
 }
