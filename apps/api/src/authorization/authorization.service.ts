@@ -17,8 +17,8 @@ import {
   type PermissionId,
 } from './permission.js';
 
-interface ActiveAccessContext {
-  activeOrganization: { id: string };
+interface OrganizationAccessContext {
+  organizationId: string;
   organization: OrganizationAccess;
   role: OrganizationRole;
 }
@@ -48,12 +48,41 @@ export class AuthorizationService {
       throw PublicProblemException.permissionDenied();
     }
 
-    if (operation.targetOrganizationId !== context.activeOrganization.id) {
+    if (operation.targetOrganizationId !== context.organizationId) {
       throw PublicProblemException.permissionDenied();
     }
 
     return {
-      organizationId: context.activeOrganization.id,
+      organizationId: context.organizationId,
+      role: context.role,
+    };
+  }
+
+  async authorizeMembership(operation: {
+    capability: CapabilityId;
+    permission: PermissionId;
+    targetOrganizationId: string;
+    user: { id: string } | undefined;
+  }): Promise<AuthorizedOrganizationScope> {
+    if (!operation.user?.id) throw PublicProblemException.permissionDenied();
+
+    const context = await this.loadOrganizationAccess(
+      operation.user,
+      operation.targetOrganizationId,
+    );
+    if (
+      !context ||
+      !(await this.isPermissionAllowed(
+        context,
+        operation.permission,
+        operation.capability,
+      ))
+    ) {
+      throw PublicProblemException.permissionDenied();
+    }
+
+    return {
+      organizationId: operation.targetOrganizationId,
       role: context.role,
     };
   }
@@ -82,7 +111,7 @@ export class AuthorizationService {
   }
 
   private async isPermissionAllowed(
-    context: ActiveAccessContext,
+    context: OrganizationAccessContext,
     permission: PermissionId,
     capability: CapabilityId | undefined,
   ) {
@@ -93,7 +122,7 @@ export class AuthorizationService {
       capability &&
       !(await this.capabilities.isEnabled({
         capability,
-        organizationId: context.activeOrganization.id,
+        organizationId: context.organizationId,
       }))
     ) {
       return false;
@@ -121,7 +150,7 @@ export class AuthorizationService {
           id: string;
         }
       | undefined,
-  ): Promise<ActiveAccessContext | undefined> {
+  ): Promise<OrganizationAccessContext | undefined> {
     // Deliberately ordered. Moving an inexpensive check earlier can leak whether
     // a resource exists outside the caller's active Organization context.
     if (!user?.id) throw PublicProblemException.permissionDenied();
@@ -131,27 +160,42 @@ export class AuthorizationService {
       throw PublicProblemException.activeOrganizationRequired();
     }
 
+    const context = await this.loadOrganizationAccess(
+      user,
+      activeOrganization.id,
+      activeOrganization.role,
+    );
+    if (context?.role !== activeOrganization.role) return undefined;
+
+    return context;
+  }
+
+  private async loadOrganizationAccess(
+    user: { id: string },
+    organizationId: string,
+    assertedRole?: OrganizationRole,
+  ): Promise<OrganizationAccessContext | undefined> {
     const membership = await this.repository.findMembership({
-      organizationId: activeOrganization.id,
+      organizationId,
       userId: user.id,
     });
     if (
       !membership ||
       membership.status !== 'active' ||
-      (membership.role && membership.role !== activeOrganization.role)
+      (assertedRole &&
+        membership.role &&
+        membership.role !== assertedRole)
     ) {
       return undefined;
     }
-
-    const organization = await this.repository.findOrganization(
-      activeOrganization.id,
-    );
-    if (!organization || !activeOrganization.role) return undefined;
-
+    const role = membership.role ?? assertedRole;
+    if (!role) return undefined;
+    const organization = await this.repository.findOrganization(organizationId);
+    if (!organization) return undefined;
     return {
-      activeOrganization,
+      organizationId,
       organization,
-      role: activeOrganization.role,
+      role,
     };
   }
 }

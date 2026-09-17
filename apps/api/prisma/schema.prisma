@@ -40,20 +40,33 @@ enum InvitationStatus {
 }
 
 model Organization {
-  id        String            @id @db.VarChar(64)
-  name      String            @db.VarChar(100)
-  slug      String            @unique @db.VarChar(48)
-  locale    String            @db.VarChar(35)
-  timeZone  String            @map("time_zone") @db.VarChar(64)
-  state     OrganizationState @default(ACTIVE)
-  createdAt DateTime          @default(now()) @map("created_at")
-  updatedAt DateTime          @updatedAt @map("updated_at")
+  id                  String            @id @db.VarChar(64)
+  name                String            @db.VarChar(100)
+  slug                String            @unique @db.VarChar(48)
+  billingContactEmail String?           @map("billing_contact_email") @db.VarChar(320)
+  locale              String            @db.VarChar(35)
+  timeZone            String            @map("time_zone") @db.VarChar(64)
+  state               OrganizationState @default(ACTIVE)
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
 
   memberships       Membership[]
   invitations       Invitation[]
+  slugs             OrganizationSlug[]
   onboardingRequest OrganizationOnboardingRequest?
 
   @@map("organizations")
+}
+
+model OrganizationSlug {
+  slug           String   @id @db.VarChar(48)
+  organizationId String   @map("organization_id") @db.VarChar(64)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("organization_slugs")
 }
 
 model Invitation {

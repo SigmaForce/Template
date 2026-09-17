@@ -34,6 +34,7 @@ import {
   OrganizationInvitationListDto,
   OrganizationOnboardingResultDto,
   OrganizationOnboardingStateDto,
+  OrganizationSlugResolutionDto,
 } from './organization.dto.js';
 import { OrganizationsService } from './organizations.service.js';
 import {
@@ -60,7 +61,7 @@ export class OrganizationsController {
   @ApiOperation({ operationId: 'getActiveOrganization' })
   @ApiOkResponse({ type: ActiveOrganizationDto })
   @ApiResponse({ status: 403, content: problemContent })
-  @ApiConflictResponse({ type: ProblemDetailsDto })
+  @ApiResponse({ status: 409, content: problemContent })
   getActiveOrganization(@CurrentUser() user: AuthenticatedUser) {
     return this.organizations.getActiveOrganization(user);
   }
@@ -69,6 +70,7 @@ export class OrganizationsController {
   @ApiOperation({ operationId: 'updateOrganizationSettings' })
   @ApiParam({ name: 'organizationId', example: 'org_2abc' })
   @ApiOkResponse({ type: OrganizationDto })
+  @ApiResponse({ status: 409, content: problemContent })
   @ApiResponse({
     status: 403,
     description: 'The operation is outside the granted Organization policy.',
@@ -84,6 +86,18 @@ export class OrganizationsController {
     @Body() input: UpdateOrganizationSettingsDto,
   ) {
     return this.organizations.updateSettings(user, organizationId, input);
+  }
+
+  @Get('by-slug/:slug')
+  @ApiOperation({ operationId: 'resolveOrganizationSlug' })
+  @ApiParam({ name: 'slug', example: 'northstar-labs' })
+  @ApiOkResponse({ type: OrganizationSlugResolutionDto })
+  @ApiResponse({ status: 403, content: problemContent })
+  resolveSlug(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('slug') slug: string,
+  ) {
+    return this.organizations.resolveSlug(user, slug);
   }
 
   @Post(':organizationId/invitations')

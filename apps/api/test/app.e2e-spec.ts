@@ -211,6 +211,7 @@ describe('AppController (e2e)', () => {
       state: NonNullable<
         MemoryOrganizationRepositorySeed['organizations']
       >[number]['state'] = 'active',
+      directory = new MemoryOrganizationDirectory(),
     ) {
       await app.close();
       app = await createApp(
@@ -220,6 +221,7 @@ describe('AppController (e2e)', () => {
           organizations: [{ ...organization, state }],
           memberships,
         }),
+        directory,
       );
     }
 
@@ -254,6 +256,7 @@ describe('AppController (e2e)', () => {
         .expect(200);
 
       expect(response.body).toEqual({
+        billingContactEmail: null,
         id: organization.id,
         name: organization.name,
         slug: organization.slug,
@@ -266,6 +269,203 @@ describe('AppController (e2e)', () => {
         .set('authorization', tokenFor(userId, role))
         .expect(200)
         .expect(response.body);
+    });
+
+    it('updates the complete Organization profile without changing its ID', async () => {
+      const directory = new MemoryOrganizationDirectory();
+      await useAuthorizationFixture(
+        [
+          {
+            organizationId: organization.id,
+            userId: 'user_owner',
+            role: 'owner',
+            status: 'active',
+          },
+        ],
+        'active',
+        directory,
+      );
+      const authorization = tokenFor('user_owner', 'owner');
+
+      const response = await request(app.getHttpServer())
+        .patch(`/v1/organizations/${organization.id}/settings`)
+        .set('authorization', authorization)
+        .send({
+          billingContactEmail: 'billing@northstar.test',
+          locale: 'en-US',
+          name: 'Northstar Systems',
+          slug: 'northstar-systems',
+          timeZone: 'UTC',
+        })
+        .expect(200);
+
+      expect(response.body).toEqual({
+        billingContactEmail: 'billing@northstar.test',
+        id: organization.id,
+        locale: 'en-US',
+        name: 'Northstar Systems',
+        slug: 'northstar-systems',
+        timeZone: 'UTC',
+      });
+      expect(directory.organizationNameFor(organization.id)).toBe(
+        'Northstar Systems',
+      );
+
+      await request(app.getHttpServer())
+        .get('/v1/organizations/active')
+        .set('authorization', authorization)
+        .expect(200)
+        .expect((active) => {
+          expect(active.body).toMatchObject({
+            id: organization.id,
+            slug: 'northstar-systems',
+          });
+        });
+    });
+
+    it.each([
+      ['billingContactEmail', 'not-an-email'],
+      ['name', 'x'],
+      ['slug', 'Invalid Slug'],
+      ['slug', 'api'],
+    ])('validates the %s setting consistently', async (field, value) => {
+      await useAuthorizationFixture([
+        {
+          organizationId: organization.id,
+          userId: 'user_owner',
+          role: 'owner',
+          status: 'active',
+        },
+      ]);
+
+      const response = await request(app.getHttpServer())
+        .patch(`/v1/organizations/${organization.id}/settings`)
+        .set('authorization', tokenFor('user_owner', 'owner'))
+        .send({ [field]: value })
+        .expect(400);
+
+      expect(response.body.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ pointer: `#/body/${field}` }),
+        ]),
+      );
+    });
+
+    it('reserves old slugs and allows only one concurrent claimant', async () => {
+      await app.close();
+      const organizations = ['alpha', 'beta'].map((slug) => ({
+        id: `org_${slug}`,
+        locale: 'en-US',
+        name: `${slug} org`,
+        slug,
+        state: 'active' as const,
+        timeZone: 'UTC',
+      }));
+      app = await createApp(
+        [],
+        undefined,
+        new MemoryOrganizationRepository({
+          organizations,
+          memberships: organizations.map(({ id }) => ({
+            organizationId: id,
+            role: 'owner' as const,
+            status: 'active' as const,
+            userId: `user_${id}`,
+          })),
+        }),
+      );
+      const token = (slug: string) =>
+        `Bearer ${createSessionToken({
+          userId: `user_org_${slug}`,
+          organization: { id: `org_${slug}`, slug },
+          organizationRole: 'owner',
+        })}`;
+
+      await request(app.getHttpServer())
+        .patch('/v1/organizations/org_alpha/settings')
+        .set('authorization', token('alpha'))
+        .send({ slug: 'alpha-new' })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .patch('/v1/organizations/org_beta/settings')
+        .set('authorization', token('beta'))
+        .send({ slug: 'alpha' })
+        .expect(409);
+
+      const contenders = await Promise.all([
+        request(app.getHttpServer())
+          .patch('/v1/organizations/org_alpha/settings')
+          .set('authorization', token('alpha'))
+          .send({ slug: 'shared-slug' }),
+        request(app.getHttpServer())
+          .patch('/v1/organizations/org_beta/settings')
+          .set('authorization', token('beta'))
+          .send({ slug: 'shared-slug' }),
+      ]);
+
+      expect(contenders.map(({ status }) => status).sort()).toEqual([200, 409]);
+    });
+
+    it('resolves an old slug only for a User with an active Membership', async () => {
+      await app.close();
+      const organizations = ['alpha', 'beta'].map((slug) => ({
+        id: `org_${slug}`,
+        locale: 'en-US',
+        name: `${slug} org`,
+        slug,
+        state: 'active' as const,
+        timeZone: 'UTC',
+      }));
+      app = await createApp(
+        [],
+        undefined,
+        new MemoryOrganizationRepository({
+          organizations,
+          memberships: [
+            ...organizations.map(({ id }) => ({
+              organizationId: id,
+              role: 'owner' as const,
+              status: 'active' as const,
+              userId: 'user_link',
+            })),
+            {
+              organizationId: 'org_alpha',
+              role: 'owner' as const,
+              status: 'active' as const,
+              userId: 'user_outsider',
+            },
+          ],
+        }),
+      );
+      const token = (userId: string, slug: string) =>
+        `Bearer ${createSessionToken({
+          userId,
+          organization: { id: `org_${slug}`, slug },
+          organizationRole: 'owner',
+        })}`;
+
+      await request(app.getHttpServer())
+        .patch('/v1/organizations/org_beta/settings')
+        .set('authorization', token('user_link', 'beta'))
+        .send({ slug: 'beta-new' })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .get('/v1/organizations/by-slug/beta')
+        .set('authorization', token('user_link', 'alpha'))
+        .expect(200)
+        .expect({ id: 'org_beta', slug: 'beta-new' });
+
+      const denied = await request(app.getHttpServer())
+        .get('/v1/organizations/by-slug/beta')
+        .set('authorization', token('user_outsider', 'alpha'))
+        .expect(403);
+      const missing = await request(app.getHttpServer())
+        .get('/v1/organizations/by-slug/unknown')
+        .set('authorization', token('user_outsider', 'alpha'))
+        .expect(403);
+      expect(missing.body.type).toBe(denied.body.type);
     });
 
     it('denies a Member consistently and keeps Owner-only permissions out of its projection', async () => {
@@ -1490,6 +1690,7 @@ describe('AppController (e2e)', () => {
 
     expect(creation.body).toEqual({
       organization: {
+        billingContactEmail: null,
         id: 'org_northstar_labs',
         name: 'Northstar Labs',
         slug: 'northstar-labs',

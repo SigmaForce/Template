@@ -70,7 +70,11 @@ export class OrganizationsService {
       throw error;
     }
     const result = {
-      organization: { id: directoryOrganization.id, ...input },
+      organization: {
+        billingContactEmail: null,
+        id: directoryOrganization.id,
+        ...input,
+      },
       membership: { role: 'owner' as const },
     };
 
@@ -371,10 +375,13 @@ export class OrganizationsService {
       capability: Capability.organizationSettings,
       permission: Permission.organizationSettingsRead,
     });
+    const organization = await this.repository.getSettings(
+      scope.organizationId,
+    );
     return {
       id: user.activeOrganization.id,
       role: scope.role,
-      slug: user.activeOrganization.slug,
+      slug: organization.slug,
       permissions:
         await this.authorization.permissionsForActiveOrganization(user),
     };
@@ -392,11 +399,46 @@ export class OrganizationsService {
       permission: Permission.organizationSettingsUpdate,
     });
 
-    return this.repository.updateSettings({
-      organizationId: scope.organizationId,
-      locale: input.locale,
-      timeZone: input.timeZone,
-    });
+    const previous = await this.repository.getSettings(scope.organizationId);
+    let updated;
+    try {
+      updated = await this.repository.updateSettings({
+        billingContactEmail: input.billingContactEmail,
+        locale: input.locale,
+        name: input.name,
+        organizationId: scope.organizationId,
+        slug: input.slug,
+        timeZone: input.timeZone,
+      });
+    } catch (error) {
+      if (error instanceof OrganizationSlugConflictError) {
+        throw PublicProblemException.organizationSlugConflict();
+      }
+      throw error;
+    }
+
+    if (updated.name === previous.name && updated.slug === previous.slug) {
+      return updated;
+    }
+
+    try {
+      await this.directory.update({
+        name: updated.name,
+        organizationId: updated.id,
+        slug: updated.slug,
+      });
+    } catch (error) {
+      await this.repository.updateSettings({
+        ...previous,
+        organizationId: previous.id,
+      });
+      if (error instanceof OrganizationSlugConflictError) {
+        throw PublicProblemException.organizationSlugConflict();
+      }
+      throw error;
+    }
+
+    return updated;
   }
 
   async getSettings(user: AuthenticatedUser, organizationId: string) {
@@ -408,5 +450,18 @@ export class OrganizationsService {
     });
 
     return this.repository.getSettings(scope.organizationId);
+  }
+
+  async resolveSlug(user: AuthenticatedUser, slug: string) {
+    const organization = await this.repository.resolveSlug(slug);
+    if (!organization) throw PublicProblemException.permissionDenied();
+
+    await this.authorization.authorizeMembership({
+      user,
+      targetOrganizationId: organization.id,
+      capability: Capability.organizationSettings,
+      permission: Permission.organizationSettingsRead,
+    });
+    return organization;
   }
 }

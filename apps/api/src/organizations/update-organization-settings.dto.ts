@@ -1,18 +1,19 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsIn } from 'class-validator';
-import {
-  organizationLocales,
-  organizationTimeZones,
-} from './create-organization.dto.js';
+import { ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { IsEmail, ValidateIf } from 'class-validator';
+import { CreateOrganizationDto } from './create-organization.dto.js';
 
-export class UpdateOrganizationSettingsDto {
+export class UpdateOrganizationSettingsDto extends PartialType(
+  CreateOrganizationDto,
+) {
   static readonly validationRoot = '#/body';
 
-  @ApiProperty({ enum: organizationLocales, example: 'pt-BR' })
-  @IsIn(organizationLocales)
-  locale!: (typeof organizationLocales)[number];
-
-  @ApiProperty({ enum: organizationTimeZones, example: 'America/Cuiaba' })
-  @IsIn(organizationTimeZones)
-  timeZone!: (typeof organizationTimeZones)[number];
+  @ApiPropertyOptional({
+    example: 'billing@northstar.test',
+    format: 'email',
+    nullable: true,
+    type: String,
+  })
+  @ValidateIf((_, value: unknown) => value !== undefined && value !== null)
+  @IsEmail()
+  billingContactEmail?: string | null;
 }

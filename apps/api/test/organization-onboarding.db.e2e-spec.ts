@@ -77,6 +77,88 @@ describe.skipIf(!databaseUrl)('Organization onboarding with PostgreSQL', () => {
       .expect({ status: 'complete', ...first.body });
   });
 
+  it('persists profile changes and serializes competing slug claims', async () => {
+    const createOrganization = async (slug: string) => {
+      const userId = `user_${slug}`;
+      const response = await request(app.getHttpServer())
+        .post('/v1/organizations')
+        .set('authorization', `Bearer ${createSessionToken({ userId })}`)
+        .set('idempotency-key', `postgres-settings-${slug}`)
+        .send({ name: `${slug} org`, slug, locale: 'en-US', timeZone: 'UTC' })
+        .expect(201);
+      const organization = response.body.organization as {
+        id: string;
+        slug: string;
+      };
+      return {
+        organization,
+        authorization: `Bearer ${createSessionToken({
+          userId,
+          organization,
+          organizationRole: 'owner',
+        })}`,
+      };
+    };
+    const alpha = await createOrganization('postgres-alpha');
+    const beta = await createOrganization('postgres-beta');
+
+    await request(app.getHttpServer())
+      .patch(`/v1/organizations/${alpha.organization.id}/settings`)
+      .set('authorization', alpha.authorization)
+      .send({
+        billingContactEmail: 'billing@alpha.test',
+        name: 'Postgres Alpha',
+        slug: 'postgres-alpha-new',
+      })
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toMatchObject({
+          billingContactEmail: 'billing@alpha.test',
+          id: alpha.organization.id,
+          name: 'Postgres Alpha',
+          slug: 'postgres-alpha-new',
+        });
+      });
+
+    await request(app.getHttpServer())
+      .get('/v1/organizations/by-slug/postgres-alpha')
+      .set('authorization', alpha.authorization)
+      .expect(200)
+      .expect({
+        id: alpha.organization.id,
+        slug: 'postgres-alpha-new',
+      });
+
+    await request(app.getHttpServer())
+      .patch(`/v1/organizations/${beta.organization.id}/settings`)
+      .set('authorization', beta.authorization)
+      .send({ slug: 'postgres-alpha' })
+      .expect(409);
+
+    const contenders = await Promise.all([
+      request(app.getHttpServer())
+        .patch(`/v1/organizations/${alpha.organization.id}/settings`)
+        .set('authorization', alpha.authorization)
+        .send({ slug: 'postgres-shared' }),
+      request(app.getHttpServer())
+        .patch(`/v1/organizations/${beta.organization.id}/settings`)
+        .set('authorization', beta.authorization)
+        .send({ slug: 'postgres-shared' }),
+    ]);
+    expect(contenders.map(({ status }) => status).sort()).toEqual([200, 409]);
+
+    const current = await pool.query<{ count: string }>(
+      'SELECT COUNT(*)::text AS count FROM organizations WHERE slug = $1',
+      ['postgres-shared'],
+    );
+    const reservation = await pool.query<{ count: string }>(
+      'SELECT COUNT(*)::text AS count FROM organization_slugs WHERE slug = $1',
+      ['postgres-shared'],
+    );
+    expect(current.rows[0]?.count).toBe('1');
+    expect(reservation.rows[0]?.count).toBe('1');
+  });
+
   it('enforces the permission pipeline against the PostgreSQL Membership projection', async () => {
     const userId = 'user_postgres_authorization';
     const creation = await request(app.getHttpServer())

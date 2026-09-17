@@ -115,6 +115,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/organizations/by-slug/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["resolveOrganizationSlug"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/organizations/onboarding": {
         parameters: {
             query?: never;
@@ -371,6 +387,11 @@ export interface components {
             currency: string;
         };
         OrganizationDto: {
+            /**
+             * Format: email
+             * @example billing@northstar.test
+             */
+            billingContactEmail: string | null;
             /** @example org_2abc */
             id: string;
             /** @example pt-BR */
@@ -408,6 +429,12 @@ export interface components {
             organization?: components["schemas"]["OrganizationDto"];
             /** @enum {string} */
             status: "required" | "complete";
+        };
+        OrganizationSlugResolutionDto: {
+            /** @example org_2abc */
+            id: string;
+            /** @example northstar-labs */
+            slug: string;
         };
         OwnerMembershipDto: {
             /**
@@ -461,15 +488,24 @@ export interface components {
         };
         UpdateOrganizationSettingsDto: {
             /**
+             * Format: email
+             * @example billing@northstar.test
+             */
+            billingContactEmail?: string | null;
+            /**
              * @example pt-BR
              * @enum {string}
              */
-            locale: "en-US" | "pt-BR";
+            locale?: "en-US" | "pt-BR";
+            /** @example Northstar Labs */
+            name?: string;
+            /** @example northstar-labs */
+            slug?: string;
             /**
              * @example America/Cuiaba
              * @enum {string}
              */
-            timeZone: "America/Cuiaba" | "America/Sao_Paulo" | "UTC";
+            timeZone?: "America/Cuiaba" | "America/Sao_Paulo" | "UTC";
         };
     };
     responses: never;
@@ -686,7 +722,36 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProblemDetailsDto"];
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
+    resolveOrganizationSlug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationSlugResolutionDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
                 };
             };
         };
@@ -1048,6 +1113,14 @@ export interface operations {
             };
             /** @description The operation is outside the granted Organization policy. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

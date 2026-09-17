@@ -5,6 +5,7 @@ import {
 import type { OrganizationRole } from '../authorization/permission.js';
 
 export interface OrganizationProfile {
+  billingContactEmail: string | null;
   id: string;
   locale: string;
   name: string;
@@ -126,15 +127,22 @@ export abstract class OrganizationRepository extends AuthorizationRepository {
 
   abstract getSettings(organizationId: string): Promise<OrganizationProfile>;
 
+  abstract resolveSlug(
+    slug: string,
+  ): Promise<Pick<OrganizationProfile, 'id' | 'slug'> | undefined>;
+
   abstract releaseOnboarding(input: {
     idempotencyKey: string;
     userId: string;
   }): Promise<void>;
 
   abstract updateSettings(input: {
-    locale: string;
+    billingContactEmail?: string | null;
+    locale?: string;
+    name?: string;
     organizationId: string;
-    timeZone: string;
+    slug?: string;
+    timeZone?: string;
   }): Promise<OrganizationProfile>;
 }
 
@@ -162,6 +170,12 @@ export abstract class OrganizationDirectory {
   }): Promise<{ id: string }>;
 
   abstract delete(organizationId: string): Promise<void>;
+
+  abstract update(input: {
+    name: string;
+    organizationId: string;
+    slug: string;
+  }): Promise<void>;
 
   abstract createInvitation(input: {
     emailAddress: string;

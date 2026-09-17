@@ -1,0 +1,3 @@
+# Resolve Organization links before activation
+
+Organization link resolution is the sole exception to ADR-0002's requirement that Organization operations use the verified Active Organization: a read-only navigation endpoint may map a current or historical slug to an Organization only after authenticating the User and passing the same centralized active-Membership, Organization-state, Capability, Role-Permission checks against the resolved immutable ID. It returns only that ID and the current slug, uses the same denial for missing and unauthorized aliases, and performs no business operation; the client must then ask Clerk to activate the authorized Organization before normal Active-Organization-scoped requests resume.

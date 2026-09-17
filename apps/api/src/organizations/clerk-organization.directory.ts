@@ -47,6 +47,18 @@ export class ClerkOrganizationDirectory extends OrganizationDirectory {
     await this.client.organizations.deleteOrganization(organizationId);
   }
 
+  async update(input: { name: string; organizationId: string; slug: string }) {
+    try {
+      await this.client.organizations.updateOrganization(input.organizationId, {
+        name: input.name,
+        slug: input.slug,
+      });
+    } catch (error) {
+      if (this.isSlugConflict(error)) throw new OrganizationSlugConflictError();
+      throw error;
+    }
+  }
+
   async createInvitation(input: {
     emailAddress: string;
     inviterUserId: string;

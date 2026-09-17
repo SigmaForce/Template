@@ -7,6 +7,7 @@ import { logWebOperation } from "../../../../operational-log";
 import { createServerApiContext } from "../../../../server-api-context";
 import { getWebEnvironment } from "../../../../environment";
 import { OrganizationInvitations } from "./organization-invitations";
+import { OrganizationLinkRedirect } from "./organization-link-redirect";
 import { OrganizationMemberships } from "./organization-memberships";
 
 type Money = components["schemas"]["MoneyDto"];
@@ -46,6 +47,13 @@ type OrganizationSettings =
     }
   | { available: false };
 
+type OrganizationSlugResolution =
+  | {
+      available: true;
+      organization: components["schemas"]["OrganizationSlugResolutionDto"];
+    }
+  | { available: false; reason: "forbidden" | "unavailable" };
+
 async function updateOrganizationSettingsAction(
   organizationId: string,
   slug: string,
@@ -53,9 +61,15 @@ async function updateOrganizationSettingsAction(
 ) {
   "use server";
 
+  const billingContactEmail = formData.get("billingContactEmail");
   const locale = formData.get("locale");
+  const name = formData.get("name");
+  const nextSlug = formData.get("slug");
   const timeZone = formData.get("timeZone");
   if (
+    typeof billingContactEmail !== "string" ||
+    typeof name !== "string" ||
+    typeof nextSlug !== "string" ||
     (locale !== "en-US" && locale !== "pt-BR") ||
     (timeZone !== "America/Cuiaba" &&
       timeZone !== "America/Sao_Paulo" &&
@@ -72,7 +86,7 @@ async function updateOrganizationSettingsAction(
   if (!token) throw new Error("Authentication is required.");
 
   const { client, correlatedHeaders } = await createServerApiContext();
-  const { error } = await client.PATCH(
+  const { data, error } = await client.PATCH(
     "/v1/organizations/{organizationId}/settings",
     {
       headers: {
@@ -80,12 +94,21 @@ async function updateOrganizationSettingsAction(
         authorization: `Bearer ${token}`,
       },
       params: { path: { organizationId } },
-      body: { locale, timeZone },
+      body: {
+        billingContactEmail: billingContactEmail || null,
+        locale,
+        name,
+        slug: nextSlug,
+        timeZone,
+      },
     },
   );
-  if (error) throw new Error("Organization settings could not be updated.");
+  if (error || !data) {
+    throw new Error("Organization settings could not be updated.");
+  }
 
   revalidatePath(`/organizations/${slug}`);
+  redirect(`/organizations/${data.slug}`);
 }
 
 async function getAuthenticatedIdentity(
@@ -159,6 +182,35 @@ async function getOrganizationSettings(
   }
 }
 
+async function resolveOrganizationSlug(
+  token: string,
+  slug: string,
+): Promise<OrganizationSlugResolution> {
+  try {
+    const { client, correlatedHeaders } = await createServerApiContext();
+    const { data, response } = await client.GET(
+      "/v1/organizations/by-slug/{slug}",
+      {
+        cache: "no-store",
+        headers: {
+          ...correlatedHeaders,
+          authorization: `Bearer ${token}`,
+        },
+        params: { path: { slug } },
+        signal: AbortSignal.timeout(3_000),
+      },
+    );
+
+    if (data) return { available: true, organization: data };
+    return {
+      available: false,
+      reason: response.status === 403 ? "forbidden" : "unavailable",
+    };
+  } catch {
+    return { available: false, reason: "unavailable" };
+  }
+}
+
 async function getApiAvailability(): Promise<ApiAvailability> {
   const { client, correlatedHeaders, correlationId, environment } =
     await createServerApiContext();
@@ -222,17 +274,42 @@ export default async function Home({
   params: Promise<{ slug: string }>;
 }) {
   const [{ slug }, session] = await Promise.all([params, auth()]);
-  const { getToken, orgSlug } = session;
-  if (orgSlug !== slug) redirect("/");
+  const { getToken, orgId } = session;
 
   const token = await getToken();
   if (!token) redirect("/");
 
-  const [api, identity, activeOrganization] = await Promise.all([
-    getApiAvailability(),
-    getAuthenticatedIdentity(token),
-    getActiveOrganization(token),
-  ]);
+  const [api, identity, activeOrganization, slugResolution] = await Promise.all(
+    [
+      getApiAvailability(),
+      getAuthenticatedIdentity(token),
+      getActiveOrganization(token),
+      resolveOrganizationSlug(token, slug),
+    ],
+  );
+  if (!slugResolution.available) {
+    return (
+      <ForbiddenState
+        description={
+          slugResolution.reason === "forbidden"
+            ? "Your membership does not grant access to the Organization referenced by this link."
+            : "The Organization link could not be resolved. Try again."
+        }
+        title="Organization link unavailable"
+      />
+    );
+  }
+  if (orgId !== slugResolution.organization.id) {
+    return (
+      <OrganizationLinkRedirect
+        organizationId={slugResolution.organization.id}
+        slug={slugResolution.organization.slug}
+      />
+    );
+  }
+  if (slugResolution.organization.slug !== slug) {
+    redirect(`/organizations/${slugResolution.organization.slug}`);
+  }
   if (
     activeOrganization.available &&
     activeOrganization.organization.slug !== slug
@@ -450,7 +527,9 @@ export default async function Home({
           >
             <p className="eyebrow">Organization</p>
             <h2 id="settings-title">Make it yours</h2>
-            <p>Choose the regional defaults used by this Organization.</p>
+            <p>
+              Manage the identity and regional defaults for this Organization.
+            </p>
             {canUpdateOrganizationSettings && organizationSettings.available ? (
               <form
                 action={updateOrganizationSettingsAction.bind(
@@ -460,6 +539,37 @@ export default async function Home({
                 )}
                 className="organization-settings-form"
               >
+                <label>
+                  Organization name
+                  <input
+                    defaultValue={organizationSettings.value.name}
+                    maxLength={100}
+                    minLength={2}
+                    name="name"
+                    required
+                  />
+                </label>
+                <label>
+                  Organization URL slug
+                  <input
+                    defaultValue={organizationSettings.value.slug}
+                    maxLength={48}
+                    minLength={3}
+                    name="slug"
+                    pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+                    required
+                  />
+                </label>
+                <label>
+                  Billing contact
+                  <input
+                    defaultValue={
+                      organizationSettings.value.billingContactEmail ?? ""
+                    }
+                    name="billingContactEmail"
+                    type="email"
+                  />
+                </label>
                 <label>
                   Locale
                   <select
@@ -485,11 +595,34 @@ export default async function Home({
                   Save settings
                 </button>
               </form>
+            ) : organizationSettings.available ? (
+              <>
+                <dl className="organization-settings-values">
+                  <dt>Name</dt>
+                  <dd>{organizationSettings.value.name}</dd>
+                  <dt>Slug</dt>
+                  <dd>{organizationSettings.value.slug}</dd>
+                  <dt>Billing contact</dt>
+                  <dd>
+                    {organizationSettings.value.billingContactEmail ??
+                      "Not set"}
+                  </dd>
+                  <dt>Locale</dt>
+                  <dd>{organizationSettings.value.locale}</dd>
+                  <dt>Time zone</dt>
+                  <dd>{organizationSettings.value.timeZone}</dd>
+                </dl>
+                <p data-testid="settings-permission-required">
+                  You can view these settings, but cannot change them.
+                </p>
+              </>
             ) : (
-              <p data-testid="settings-permission-required">
-                You can view these settings, but cannot change them.
-              </p>
+              <p>Organization settings are unavailable.</p>
             )}
+            <p data-testid="future-organization-settings">
+              Logo and custom domain support are future capabilities and are not
+              configurable yet.
+            </p>
           </section>
 
           {activeOrganization.available ? (

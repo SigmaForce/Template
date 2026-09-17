@@ -326,6 +326,7 @@ export class PrismaOrganizationRepository
         await transaction.organization.create({
           data: {
             ...record.organization,
+            slugs: { create: { slug: record.organization.slug } },
             memberships: {
               create: {
                 userId: record.userId,
@@ -385,6 +386,7 @@ export class PrismaOrganizationRepository
 
     return {
       organization: {
+        billingContactEmail: organization.billingContactEmail,
         id: organization.id,
         name: organization.name,
         slug: organization.slug,
@@ -442,6 +444,7 @@ export class PrismaOrganizationRepository
     return this.client.organization.findUniqueOrThrow({
       where: { id: organizationId },
       select: {
+        billingContactEmail: true,
         id: true,
         name: true,
         slug: true,
@@ -451,22 +454,67 @@ export class PrismaOrganizationRepository
     });
   }
 
-  async updateSettings(input: {
-    locale: string;
-    organizationId: string;
-    timeZone: string;
-  }) {
-    return this.client.organization.update({
-      where: { id: input.organizationId },
-      data: { locale: input.locale, timeZone: input.timeZone },
+  async resolveSlug(slug: string) {
+    const reservation = await this.client.organizationSlug.findUnique({
+      where: { slug },
       select: {
-        id: true,
-        name: true,
-        slug: true,
-        locale: true,
-        timeZone: true,
+        organization: { select: { id: true, slug: true } },
       },
     });
+    return reservation?.organization;
+  }
+
+  async updateSettings(input: {
+    billingContactEmail?: string | null;
+    locale?: string;
+    name?: string;
+    organizationId: string;
+    slug?: string;
+    timeZone?: string;
+  }) {
+    try {
+      return await this.client.$transaction(async (transaction) => {
+        if (input.slug) {
+          const reservation = await transaction.organizationSlug.findUnique({
+            where: { slug: input.slug },
+            select: { organizationId: true },
+          });
+          if (reservation?.organizationId !== input.organizationId) {
+            if (reservation) throw new OrganizationSlugConflictError();
+            await transaction.organizationSlug.create({
+              data: {
+                organizationId: input.organizationId,
+                slug: input.slug,
+              },
+            });
+          }
+        }
+
+        return transaction.organization.update({
+          where: { id: input.organizationId },
+          data: {
+            billingContactEmail: input.billingContactEmail,
+            locale: input.locale,
+            name: input.name,
+            slug: input.slug,
+            timeZone: input.timeZone,
+          },
+          select: {
+            billingContactEmail: true,
+            id: true,
+            name: true,
+            slug: true,
+            locale: true,
+            timeZone: true,
+          },
+        });
+      });
+    } catch (error) {
+      if (this.isUniqueConflict(error)) {
+        throw new OrganizationSlugConflictError();
+      }
+      throw error;
+    }
   }
 
   async onModuleDestroy() {

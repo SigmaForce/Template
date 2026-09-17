@@ -31,7 +31,10 @@ export interface MemoryOrganizationRepositorySeed {
     status: MembershipAccessStatus;
     userId: string;
   }>;
-  organizations?: OrganizationRecord[];
+  organizations?: Array<
+    Omit<OrganizationRecord, 'billingContactEmail'> &
+      Partial<Pick<OrganizationRecord, 'billingContactEmail'>>
+  >;
 }
 
 export class MemoryOrganizationRepository extends OrganizationRepository {
@@ -45,13 +48,18 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
     }
   >();
   private readonly organizations = new Map<string, OrganizationRecord>();
+  private readonly organizationSlugs = new Map<string, string>();
   private readonly memberships = new Map<string, MemoryMembership>();
   private readonly invitations = new Map<string, OrganizationInvitation>();
 
   constructor(seed: MemoryOrganizationRepositorySeed = {}) {
     super();
     for (const organization of seed.organizations ?? []) {
-      this.organizations.set(organization.id, { ...organization });
+      this.organizations.set(organization.id, {
+        billingContactEmail: null,
+        ...organization,
+      });
+      this.organizationSlugs.set(organization.slug, organization.id);
     }
     for (const membership of seed.memberships ?? []) {
       this.memberships.set(this.membershipKey(membership), { ...membership });
@@ -254,6 +262,10 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
   }
 
   async completeOnboarding(record: CompleteFirstOrganizationRecord) {
+    const slugOwner = this.organizationSlugs.get(record.organization.slug);
+    if (slugOwner && slugOwner !== record.organization.id) {
+      throw new OrganizationSlugConflictError();
+    }
     const result = {
       organization: record.organization,
       membership: { role: 'owner' as const },
@@ -263,6 +275,10 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
       ...record.organization,
       state: 'active',
     });
+    this.organizationSlugs.set(
+      record.organization.slug,
+      record.organization.id,
+    );
     this.memberships.set(
       this.membershipKey({
         organizationId: record.organization.id,
@@ -309,17 +325,44 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
     return profile;
   }
 
+  async resolveSlug(slug: string) {
+    const organizationId = this.organizationSlugs.get(slug);
+    const organization = organizationId
+      ? this.organizations.get(organizationId)
+      : undefined;
+    return organization
+      ? { id: organization.id, slug: organization.slug }
+      : undefined;
+  }
+
   async updateSettings(input: {
-    locale: string;
+    billingContactEmail?: string | null;
+    locale?: string;
+    name?: string;
     organizationId: string;
-    timeZone: string;
+    slug?: string;
+    timeZone?: string;
   }) {
     const organization = this.organizations.get(input.organizationId);
     if (!organization) throw new Error('Organization is unavailable.');
+    const slugOwner = input.slug
+      ? this.organizationSlugs.get(input.slug)
+      : undefined;
+    if (slugOwner && slugOwner !== input.organizationId) {
+      throw new OrganizationSlugConflictError();
+    }
+    if (input.slug) {
+      this.organizationSlugs.set(input.slug, input.organizationId);
+    }
     const updated = {
       ...organization,
-      locale: input.locale,
-      timeZone: input.timeZone,
+      ...(input.billingContactEmail !== undefined && {
+        billingContactEmail: input.billingContactEmail,
+      }),
+      ...(input.locale !== undefined && { locale: input.locale }),
+      ...(input.name !== undefined && { name: input.name }),
+      ...(input.slug !== undefined && { slug: input.slug }),
+      ...(input.timeZone !== undefined && { timeZone: input.timeZone }),
     };
     this.organizations.set(input.organizationId, updated);
     const { state: _state, ...profile } = updated;
@@ -333,6 +376,7 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
 
 export class MemoryOrganizationDirectory extends OrganizationDirectory {
   private readonly organizationsBySlug = new Map<string, string>();
+  private readonly organizationNames = new Map<string, string>();
   private readonly invitations = new Map<
     string,
     {
@@ -358,6 +402,7 @@ export class MemoryOrganizationDirectory extends OrganizationDirectory {
 
     const id = `org_${input.slug.replaceAll('-', '_')}`;
     this.organizationsBySlug.set(input.slug, id);
+    this.organizationNames.set(id, input.name);
     return { id };
   }
 
@@ -365,6 +410,20 @@ export class MemoryOrganizationDirectory extends OrganizationDirectory {
     for (const [slug, id] of this.organizationsBySlug) {
       if (id === organizationId) this.organizationsBySlug.delete(slug);
     }
+    this.organizationNames.delete(organizationId);
+  }
+
+  async update(input: { name: string; organizationId: string; slug: string }) {
+    const existing = this.organizationsBySlug.get(input.slug);
+    if (existing && existing !== input.organizationId) {
+      throw new OrganizationSlugConflictError();
+    }
+    this.organizationsBySlug.set(input.slug, input.organizationId);
+    this.organizationNames.set(input.organizationId, input.name);
+  }
+
+  organizationNameFor(organizationId: string) {
+    return this.organizationNames.get(organizationId);
   }
 
   async createInvitation(input: {

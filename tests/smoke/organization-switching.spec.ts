@@ -38,8 +38,9 @@ authenticatedTest(
     );
 
     await page.goto(`/organizations/${firstSlug}`);
-    await expect(page).toHaveURL(
-      new RegExp(`/organizations/${targetOrganization.slug}$`),
+    await expect(page).toHaveURL(new RegExp(`/organizations/${firstSlug}$`));
+    await expect(page.getByTestId("active-organization-slug")).toHaveText(
+      firstSlug,
     );
   },
 );

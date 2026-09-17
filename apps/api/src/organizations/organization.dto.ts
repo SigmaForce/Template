@@ -3,6 +3,14 @@ import { Permission, type PermissionId } from '../authorization/permission.js';
 import { PageInfoDto } from '../http/page-info.dto.js';
 
 export class OrganizationDto {
+  @ApiProperty({
+    example: 'billing@northstar.test',
+    format: 'email',
+    nullable: true,
+    type: String,
+  })
+  billingContactEmail!: string | null;
+
   @ApiProperty({ example: 'org_2abc' })
   id!: string;
 
@@ -55,6 +63,14 @@ export class ActiveOrganizationDto {
 
   @ApiProperty({ enum: Object.values(Permission), isArray: true })
   permissions!: PermissionId[];
+}
+
+export class OrganizationSlugResolutionDto {
+  @ApiProperty({ example: 'org_2abc' })
+  id!: string;
+
+  @ApiProperty({ example: 'northstar-labs' })
+  slug!: string;
 }
 
 export class MembershipDto {
