@@ -12,6 +12,8 @@ import {
 import {
   OrganizationRepository,
   InvitationStateConflictError,
+  LastOwnerRequiredError,
+  MembershipStateConflictError,
   OrganizationSlugConflictError,
   type CompleteFirstOrganizationRecord,
   type OrganizationOnboardingClaim,
@@ -30,6 +32,101 @@ export class PrismaOrganizationRepository
     this.client = new PrismaClient({
       adapter: new PrismaPg({ connectionString }),
     });
+  }
+
+  async findMembershipRecord(input: {
+    organizationId: string;
+    userId: string;
+  }) {
+    const membership = await this.client.membership.findUnique({
+      where: { organizationId_userId: input },
+    });
+    return membership ? this.toMembership(membership) : undefined;
+  }
+
+  async listMemberships(input: {
+    afterUserId?: string;
+    limit: number;
+    organizationId: string;
+  }) {
+    const memberships = await this.client.membership.findMany({
+      where: {
+        organizationId: input.organizationId,
+        userId: input.afterUserId ? { gt: input.afterUserId } : undefined,
+      },
+      orderBy: { userId: 'asc' },
+      take: input.limit,
+    });
+    return memberships.map((membership) => this.toMembership(membership));
+  }
+
+  async updateMembership(input: {
+    expectedRole?: 'admin' | 'member' | 'owner';
+    organizationId: string;
+    role?: 'admin' | 'member' | 'owner';
+    status?: 'active' | 'removed' | 'suspended';
+    userId: string;
+  }) {
+    try {
+      return await this.client.$transaction(
+        async (transaction) => {
+          const where = {
+            organizationId_userId: {
+              organizationId: input.organizationId,
+              userId: input.userId,
+            },
+          };
+          const membership = await transaction.membership.findUnique({ where });
+          if (!membership) throw new MembershipStateConflictError();
+          if (
+            input.expectedRole &&
+            this.organizationRole(membership.role) !== input.expectedRole
+          ) {
+            throw new MembershipStateConflictError();
+          }
+          const role = input.role
+            ? this.membershipRole(input.role)
+            : membership.role;
+          const status = input.status
+            ? {
+                active: MembershipStatus.ACTIVE,
+                removed: MembershipStatus.REMOVED,
+                suspended: MembershipStatus.SUSPENDED,
+              }[input.status]
+            : membership.status;
+          if (
+            membership.role === MembershipRole.OWNER &&
+            membership.status === MembershipStatus.ACTIVE &&
+            (role !== MembershipRole.OWNER ||
+              status !== MembershipStatus.ACTIVE) &&
+            (await transaction.membership.count({
+              where: {
+                organizationId: input.organizationId,
+                role: MembershipRole.OWNER,
+                status: MembershipStatus.ACTIVE,
+              },
+            })) <= 1
+          ) {
+            throw new LastOwnerRequiredError();
+          }
+          return this.toMembership(
+            await transaction.membership.update({
+              where,
+              data: { role, status },
+            }),
+          );
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2034'
+      ) {
+        throw new MembershipStateConflictError();
+      }
+      throw error;
+    }
   }
 
   async createInvitation(invitation: OrganizationInvitation) {
@@ -316,15 +413,13 @@ export class PrismaOrganizationRepository
           userId: input.userId,
         },
       },
-      select: { status: true },
+      select: { role: true, status: true },
     });
     if (!membership) return undefined;
 
     return {
-      status:
-        membership.status === MembershipStatus.ACTIVE
-          ? ('active' as const)
-          : ('suspended' as const),
+      role: this.organizationRole(membership.role),
+      status: this.membershipStatus(membership.status),
     };
   }
 
@@ -421,6 +516,28 @@ export class PrismaOrganizationRepository
 
   private organizationRole(role: MembershipRole) {
     return role.toLowerCase() as 'admin' | 'member' | 'owner';
+  }
+
+  private membershipStatus(status: MembershipStatus) {
+    return status === MembershipStatus.ACTIVE
+      ? ('active' as const)
+      : status === MembershipStatus.SUSPENDED
+        ? ('suspended' as const)
+        : ('removed' as const);
+  }
+
+  private toMembership(membership: {
+    organizationId: string;
+    role: MembershipRole;
+    status: MembershipStatus;
+    userId: string;
+  }) {
+    return {
+      organizationId: membership.organizationId,
+      role: this.organizationRole(membership.role),
+      status: this.membershipStatus(membership.status),
+      userId: membership.userId,
+    };
   }
 
   private toInvitation(invitation: {

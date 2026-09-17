@@ -88,6 +88,31 @@ describe('AppController (e2e)', () => {
   });
 
   it('derives the Active Organization only from the verified token', async () => {
+    await app.close();
+    app = await createApp(
+      [],
+      undefined,
+      new MemoryOrganizationRepository({
+        organizations: [
+          {
+            id: 'org_verified',
+            name: 'Verified Organization',
+            slug: 'verified-org',
+            locale: 'en-US',
+            timeZone: 'UTC',
+            state: 'active',
+          },
+        ],
+        memberships: [
+          {
+            organizationId: 'org_verified',
+            userId: 'user_verified',
+            role: 'owner',
+            status: 'active',
+          },
+        ],
+      }),
+    );
     const response = await request(app.getHttpServer())
       .get('/v1/organizations/active?organizationId=org_from_query')
       .set(
@@ -101,10 +126,10 @@ describe('AppController (e2e)', () => {
       .expect(200);
 
     expect(response.headers['cache-control']).toBe('private, no-store');
-    expect(response.body).toEqual({
+    expect(response.body).toMatchObject({
       id: 'org_verified',
+      role: 'owner',
       slug: 'verified-org',
-      permissions: [],
     });
   });
 
@@ -124,6 +149,27 @@ describe('AppController (e2e)', () => {
   });
 
   it('keeps concurrent Active Organization contexts request-scoped', async () => {
+    await app.close();
+    app = await createApp(
+      [],
+      undefined,
+      new MemoryOrganizationRepository({
+        organizations: ['alpha', 'beta'].map((slug) => ({
+          id: `org_${slug}`,
+          name: slug,
+          slug,
+          locale: 'en-US',
+          timeZone: 'UTC',
+          state: 'active' as const,
+        })),
+        memberships: ['alpha', 'beta'].map((slug) => ({
+          organizationId: `org_${slug}`,
+          userId: 'user_verified',
+          role: 'owner' as const,
+          status: 'active' as const,
+        })),
+      }),
+    );
     const server = app.getHttpServer();
     const [alpha, beta] = await Promise.all([
       request(server)
@@ -236,7 +282,10 @@ describe('AppController (e2e)', () => {
         .get('/v1/organizations/active')
         .set('authorization', authorization)
         .expect(200);
-      expect(active.body.permissions).toEqual(['organization:settings:read']);
+      expect(active.body.permissions).toEqual([
+        'organization:settings:read',
+        'organization:memberships:leave',
+      ]);
 
       const response = await request(app.getHttpServer())
         .patch(`/v1/organizations/${organization.id}/settings`)
@@ -265,8 +314,10 @@ describe('AppController (e2e)', () => {
       const projection = await request(app.getHttpServer())
         .get('/v1/organizations/active')
         .set('authorization', tokenFor('user_suspended', 'owner'))
-        .expect(200);
-      expect(projection.body.permissions).toEqual([]);
+        .expect(403);
+      expect(projection.body.type).toBe(
+        'urn:problem:next-nest-saas-starter:permission-denied',
+      );
 
       const response = await request(app.getHttpServer())
         .patch(`/v1/organizations/${organization.id}/settings`)
@@ -321,6 +372,7 @@ describe('AppController (e2e)', () => {
       expect(active.body.permissions).toEqual([
         'organization:settings:read',
         'organization:memberships:manage',
+        'organization:memberships:leave',
         'billing:manage',
         'organization:ownership:manage',
       ]);
@@ -362,6 +414,7 @@ describe('AppController (e2e)', () => {
         'organization:settings:read',
         'organization:settings:update',
         'organization:memberships:manage',
+        'organization:memberships:leave',
       ]);
       expect(admin.body.permissions).not.toEqual(
         expect.arrayContaining([
@@ -724,7 +777,10 @@ describe('AppController (e2e)', () => {
         .get('/v1/organizations/active')
         .set('authorization', activeAuthorization)
         .expect(200);
-      expect(active.body.permissions).toEqual(['organization:settings:read']);
+      expect(active.body.permissions).toEqual([
+        'organization:settings:read',
+        'organization:memberships:leave',
+      ]);
 
       await request(app.getHttpServer())
         .post(`/v1/invitations/${externalId}/accept`)
@@ -837,6 +893,584 @@ describe('AppController (e2e)', () => {
           `Bearer ${createSessionToken({ userId: 'user_other' })}`,
         )
         .expect(409);
+    });
+  });
+
+  describe('Membership lifecycle', () => {
+    const organization = {
+      id: 'org_memberships',
+      name: 'Membership Labs',
+      slug: 'membership-labs',
+      locale: 'pt-BR',
+      timeZone: 'America/Cuiaba',
+      state: 'active' as const,
+    };
+
+    const authorization = (
+      userId: string,
+      role: 'admin' | 'member' | 'owner',
+    ) =>
+      `Bearer ${createSessionToken({
+        userId,
+        organization,
+        organizationRole: role,
+      })}`;
+
+    it('lets an Owner promote a Membership and rejects its stale Role token', async () => {
+      await app.close();
+      app = await createApp(
+        [],
+        undefined,
+        new MemoryOrganizationRepository({
+          organizations: [organization],
+          memberships: [
+            {
+              organizationId: organization.id,
+              userId: 'user_owner',
+              role: 'owner',
+              status: 'active',
+            },
+            {
+              organizationId: organization.id,
+              userId: 'user_target',
+              role: 'member',
+              status: 'active',
+            },
+          ],
+        }),
+      );
+
+      await request(app.getHttpServer())
+        .patch(`/v1/organizations/${organization.id}/memberships/user_target`)
+        .set('authorization', authorization('user_owner', 'owner'))
+        .send({ role: 'admin' })
+        .expect(200)
+        .expect({ userId: 'user_target', role: 'admin', status: 'active' });
+
+      await request(app.getHttpServer())
+        .patch(`/v1/organizations/${organization.id}/settings`)
+        .set('authorization', authorization('user_target', 'member'))
+        .send({ locale: 'en-US', timeZone: 'UTC' })
+        .expect(403);
+      await request(app.getHttpServer())
+        .patch(`/v1/organizations/${organization.id}/settings`)
+        .set('authorization', authorization('user_target', 'admin'))
+        .send({ locale: 'en-US', timeZone: 'UTC' })
+        .expect(200);
+    });
+
+    it('lets an Admin manage non-Owner Roles only', async () => {
+      await app.close();
+      app = await createApp(
+        [],
+        undefined,
+        new MemoryOrganizationRepository({
+          organizations: [organization],
+          memberships: [
+            {
+              organizationId: organization.id,
+              userId: 'user_owner',
+              role: 'owner',
+              status: 'active',
+            },
+            {
+              organizationId: organization.id,
+              userId: 'user_admin',
+              role: 'admin',
+              status: 'active',
+            },
+            {
+              organizationId: organization.id,
+              userId: 'user_member',
+              role: 'member',
+              status: 'active',
+            },
+          ],
+        }),
+      );
+      const admin = authorization('user_admin', 'admin');
+
+      await request(app.getHttpServer())
+        .patch(`/v1/organizations/${organization.id}/memberships/user_member`)
+        .set('authorization', admin)
+        .send({ role: 'admin' })
+        .expect(200);
+      await request(app.getHttpServer())
+        .patch(`/v1/organizations/${organization.id}/memberships/user_owner`)
+        .set('authorization', admin)
+        .send({ role: 'member' })
+        .expect(403);
+      await request(app.getHttpServer())
+        .patch(`/v1/organizations/${organization.id}/memberships/user_member`)
+        .set('authorization', admin)
+        .send({ role: 'owner' })
+        .expect(403);
+      await request(app.getHttpServer())
+        .patch(`/v1/organizations/${organization.id}/memberships/user_member`)
+        .set('authorization', admin)
+        .send({ status: 'suspended' })
+        .expect(200);
+      await request(app.getHttpServer())
+        .patch(`/v1/organizations/${organization.id}/memberships/user_member`)
+        .set('authorization', admin)
+        .send({ status: 'active' })
+        .expect(200);
+      await request(app.getHttpServer())
+        .delete(`/v1/organizations/${organization.id}/memberships/user_member`)
+        .set('authorization', admin)
+        .expect(200);
+    });
+
+    it('rejects an Admin change when the target becomes an Owner concurrently', async () => {
+      const repository = new (class extends MemoryOrganizationRepository {
+        private promoted = false;
+
+        override async findMembershipRecord(input: {
+          organizationId: string;
+          userId: string;
+        }) {
+          const membership = await super.findMembershipRecord(input);
+          if (
+            !this.promoted &&
+            membership?.userId === 'user_target' &&
+            membership.role === 'member'
+          ) {
+            this.promoted = true;
+            await super.updateMembership({
+              expectedRole: 'member',
+              organizationId: input.organizationId,
+              role: 'owner',
+              userId: input.userId,
+            });
+          }
+          return membership;
+        }
+      })({
+        organizations: [organization],
+        memberships: [
+          {
+            organizationId: organization.id,
+            userId: 'user_owner',
+            role: 'owner',
+            status: 'active',
+          },
+          {
+            organizationId: organization.id,
+            userId: 'user_admin',
+            role: 'admin',
+            status: 'active',
+          },
+          {
+            organizationId: organization.id,
+            userId: 'user_target',
+            role: 'member',
+            status: 'active',
+          },
+        ],
+      });
+      await app.close();
+      app = await createApp([], undefined, repository);
+
+      await request(app.getHttpServer())
+        .patch(`/v1/organizations/${organization.id}/memberships/user_target`)
+        .set('authorization', authorization('user_admin', 'admin'))
+        .send({ status: 'suspended' })
+        .expect(409);
+
+      const memberships = await request(app.getHttpServer())
+        .get(`/v1/organizations/${organization.id}/memberships`)
+        .set('authorization', authorization('user_owner', 'owner'))
+        .expect(200);
+      expect(memberships.body.items).toContainEqual({
+        userId: 'user_target',
+        role: 'owner',
+        status: 'active',
+      });
+    });
+
+    it('never demotes the last active Owner', async () => {
+      await app.close();
+      const roleUpdates: string[] = [];
+      const directory = new (class extends MemoryOrganizationDirectory {
+        override async updateMembershipRole(input: { userId: string }) {
+          roleUpdates.push(input.userId);
+        }
+      })();
+      app = await createApp(
+        [],
+        undefined,
+        new MemoryOrganizationRepository({
+          organizations: [organization],
+          memberships: ['user_owner', 'user_other_owner'].map((userId) => ({
+            organizationId: organization.id,
+            userId,
+            role: 'owner' as const,
+            status: 'active' as const,
+          })),
+        }),
+        directory,
+      );
+      const owner = authorization('user_owner', 'owner');
+
+      await request(app.getHttpServer())
+        .patch(
+          `/v1/organizations/${organization.id}/memberships/user_other_owner`,
+        )
+        .set('authorization', owner)
+        .send({ role: 'member' })
+        .expect(200);
+      await request(app.getHttpServer())
+        .patch(`/v1/organizations/${organization.id}/memberships/user_owner`)
+        .set('authorization', owner)
+        .send({ role: 'member' })
+        .expect(409)
+        .expect((response) => {
+          expect(response.body.type).toBe(
+            'urn:problem:next-nest-saas-starter:last-owner-required',
+          );
+        });
+      expect(roleUpdates).toEqual(['user_other_owner']);
+    });
+
+    it('paginates Memberships with an opaque Organization-bound cursor', async () => {
+      const otherOrganization = {
+        ...organization,
+        id: 'org_membership_cursor_other',
+        slug: 'membership-cursor-other',
+      };
+      await app.close();
+      app = await createApp(
+        [],
+        undefined,
+        new MemoryOrganizationRepository({
+          organizations: [organization, otherOrganization],
+          memberships: [
+            {
+              organizationId: organization.id,
+              userId: 'user_owner',
+              role: 'owner',
+              status: 'active',
+            },
+            {
+              organizationId: organization.id,
+              userId: 'user_second',
+              role: 'member',
+              status: 'active',
+            },
+            {
+              organizationId: otherOrganization.id,
+              userId: 'user_owner',
+              role: 'owner',
+              status: 'active',
+            },
+          ],
+        }),
+      );
+      const first = await request(app.getHttpServer())
+        .get(`/v1/organizations/${organization.id}/memberships`)
+        .query({ limit: 1 })
+        .set('authorization', authorization('user_owner', 'owner'))
+        .expect(200);
+
+      expect(first.body).toMatchObject({
+        items: [expect.objectContaining({ userId: expect.any(String) })],
+        pageInfo: {
+          hasNextPage: true,
+          nextCursor: expect.stringMatching(/^[A-Za-z0-9_-]+$/),
+        },
+      });
+      expect(first.body).not.toHaveProperty('total');
+      await request(app.getHttpServer())
+        .get(`/v1/organizations/${organization.id}/memberships`)
+        .query({ cursor: first.body.pageInfo.nextCursor, limit: 1 })
+        .set('authorization', authorization('user_owner', 'owner'))
+        .expect(200)
+        .expect((response) => {
+          expect(response.body.items[0].userId).not.toBe(
+            first.body.items[0].userId,
+          );
+          expect(response.body.pageInfo).toEqual({
+            hasNextPage: false,
+            nextCursor: null,
+          });
+        });
+      await request(app.getHttpServer())
+        .get(`/v1/organizations/${otherOrganization.id}/memberships`)
+        .query({ cursor: first.body.pageInfo.nextCursor, limit: 1 })
+        .set(
+          'authorization',
+          `Bearer ${createSessionToken({
+            userId: 'user_owner',
+            organization: otherOrganization,
+            organizationRole: 'owner',
+          })}`,
+        )
+        .expect(400);
+    });
+
+    it('suspends and restores a Membership without losing its history', async () => {
+      await app.close();
+      app = await createApp(
+        [],
+        undefined,
+        new MemoryOrganizationRepository({
+          organizations: [organization],
+          memberships: [
+            {
+              organizationId: organization.id,
+              userId: 'user_owner',
+              role: 'owner',
+              status: 'active',
+            },
+            {
+              organizationId: organization.id,
+              userId: 'user_member',
+              role: 'member',
+              status: 'active',
+            },
+          ],
+        }),
+      );
+      const owner = authorization('user_owner', 'owner');
+      const member = authorization('user_member', 'member');
+      const membershipPath = `/v1/organizations/${organization.id}/memberships/user_member`;
+
+      await request(app.getHttpServer())
+        .patch(membershipPath)
+        .set('authorization', owner)
+        .send({ status: 'suspended' })
+        .expect(200)
+        .expect({ userId: 'user_member', role: 'member', status: 'suspended' });
+      await request(app.getHttpServer())
+        .get(`/v1/organizations/${organization.id}/settings`)
+        .set('authorization', member)
+        .expect(403);
+      await request(app.getHttpServer())
+        .get('/v1/organizations/active')
+        .set('authorization', member)
+        .expect(403);
+      await request(app.getHttpServer())
+        .patch(membershipPath)
+        .set('authorization', owner)
+        .send({ status: 'active' })
+        .expect(200)
+        .expect({ userId: 'user_member', role: 'member', status: 'active' });
+      await request(app.getHttpServer())
+        .get(`/v1/organizations/${organization.id}/settings`)
+        .set('authorization', member)
+        .expect(200);
+    });
+
+    it('removes access while retaining the Membership record', async () => {
+      await app.close();
+      app = await createApp(
+        [],
+        undefined,
+        new MemoryOrganizationRepository({
+          organizations: [organization],
+          memberships: [
+            {
+              organizationId: organization.id,
+              userId: 'user_owner',
+              role: 'owner',
+              status: 'active',
+            },
+            {
+              organizationId: organization.id,
+              userId: 'user_member',
+              role: 'member',
+              status: 'active',
+            },
+          ],
+        }),
+      );
+      const owner = authorization('user_owner', 'owner');
+
+      await request(app.getHttpServer())
+        .delete(`/v1/organizations/${organization.id}/memberships/user_member`)
+        .set('authorization', owner)
+        .expect(200)
+        .expect({ userId: 'user_member', role: 'member', status: 'removed' });
+      await request(app.getHttpServer())
+        .get(`/v1/organizations/${organization.id}/settings`)
+        .set('authorization', authorization('user_member', 'member'))
+        .expect(403);
+      await request(app.getHttpServer())
+        .patch(`/v1/organizations/${organization.id}/memberships/user_member`)
+        .set('authorization', owner)
+        .send({ status: 'active' })
+        .expect(409);
+      const memberships = await request(app.getHttpServer())
+        .get(`/v1/organizations/${organization.id}/memberships`)
+        .set('authorization', owner)
+        .expect(200);
+      expect(memberships.body).toMatchObject({
+        items: expect.arrayContaining([
+          { userId: 'user_member', role: 'member', status: 'removed' },
+        ]),
+      });
+    });
+
+    it('lets a User leave but keeps the last Owner', async () => {
+      await app.close();
+      app = await createApp(
+        [],
+        undefined,
+        new MemoryOrganizationRepository({
+          organizations: [organization],
+          memberships: [
+            {
+              organizationId: organization.id,
+              userId: 'user_owner',
+              role: 'owner',
+              status: 'active',
+            },
+            {
+              organizationId: organization.id,
+              userId: 'user_member',
+              role: 'member',
+              status: 'active',
+            },
+          ],
+        }),
+      );
+
+      await request(app.getHttpServer())
+        .delete(`/v1/organizations/${organization.id}/memberships/user_member`)
+        .set('authorization', authorization('user_member', 'member'))
+        .expect(200);
+      await request(app.getHttpServer())
+        .delete(`/v1/organizations/${organization.id}/memberships/user_owner`)
+        .set('authorization', authorization('user_owner', 'owner'))
+        .expect(409);
+    });
+
+    it('protects Owner Memberships from Admin and last-Owner transitions', async () => {
+      await app.close();
+      app = await createApp(
+        [],
+        undefined,
+        new MemoryOrganizationRepository({
+          organizations: [organization],
+          memberships: [
+            {
+              organizationId: organization.id,
+              userId: 'user_owner',
+              role: 'owner',
+              status: 'active',
+            },
+            {
+              organizationId: organization.id,
+              userId: 'user_admin',
+              role: 'admin',
+              status: 'active',
+            },
+          ],
+        }),
+      );
+      const path = `/v1/organizations/${organization.id}/memberships/user_owner`;
+
+      await request(app.getHttpServer())
+        .patch(path)
+        .set('authorization', authorization('user_admin', 'admin'))
+        .send({ status: 'suspended' })
+        .expect(403);
+      await request(app.getHttpServer())
+        .delete(path)
+        .set('authorization', authorization('user_admin', 'admin'))
+        .expect(403);
+      await request(app.getHttpServer())
+        .patch(path)
+        .set('authorization', authorization('user_owner', 'owner'))
+        .send({ status: 'suspended' })
+        .expect(409);
+      await request(app.getHttpServer())
+        .delete(path)
+        .set('authorization', authorization('user_owner', 'owner'))
+        .expect(409);
+    });
+
+    it('rejects cross-Organization Membership enumeration and mutation', async () => {
+      const otherOrganization = {
+        ...organization,
+        id: 'org_other_memberships',
+        slug: 'other-memberships',
+      };
+      await app.close();
+      app = await createApp(
+        [],
+        undefined,
+        new MemoryOrganizationRepository({
+          organizations: [organization, otherOrganization],
+          memberships: [
+            {
+              organizationId: organization.id,
+              userId: 'user_owner',
+              role: 'owner',
+              status: 'active',
+            },
+            {
+              organizationId: otherOrganization.id,
+              userId: 'user_other',
+              role: 'member',
+              status: 'active',
+            },
+          ],
+        }),
+      );
+      const owner = authorization('user_owner', 'owner');
+      const path = `/v1/organizations/${otherOrganization.id}/memberships`;
+
+      await request(app.getHttpServer())
+        .get(path)
+        .set('authorization', owner)
+        .expect(403);
+      await request(app.getHttpServer())
+        .patch(`${path}/user_other`)
+        .set('authorization', owner)
+        .send({ role: 'admin' })
+        .expect(403);
+      await request(app.getHttpServer())
+        .delete(`${path}/user_other`)
+        .set('authorization', owner)
+        .expect(403);
+    });
+
+    it('requires exactly one Membership transition', async () => {
+      await app.close();
+      app = await createApp(
+        [],
+        undefined,
+        new MemoryOrganizationRepository({
+          organizations: [organization],
+          memberships: [
+            {
+              organizationId: organization.id,
+              userId: 'user_owner',
+              role: 'owner',
+              status: 'active',
+            },
+            {
+              organizationId: organization.id,
+              userId: 'user_member',
+              role: 'member',
+              status: 'active',
+            },
+          ],
+        }),
+      );
+      const path = `/v1/organizations/${organization.id}/memberships/user_member`;
+
+      await request(app.getHttpServer())
+        .patch(path)
+        .set('authorization', authorization('user_owner', 'owner'))
+        .send({ role: 'admin', status: 'suspended' })
+        .expect(400);
+      await request(app.getHttpServer())
+        .patch(path)
+        .set('authorization', authorization('user_owner', 'owner'))
+        .send({})
+        .expect(400);
     });
   });
 

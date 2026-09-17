@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Permission, type PermissionId } from '../authorization/permission.js';
+import { PageInfoDto } from '../http/page-info.dto.js';
 
 export class OrganizationDto {
   @ApiProperty({ example: 'org_2abc' })
@@ -49,8 +50,30 @@ export class ActiveOrganizationDto {
   @ApiProperty({ example: 'northstar-labs' })
   slug!: string;
 
+  @ApiProperty({ enum: ['admin', 'member', 'owner'] })
+  role!: 'admin' | 'member' | 'owner';
+
   @ApiProperty({ enum: Object.values(Permission), isArray: true })
   permissions!: PermissionId[];
+}
+
+export class MembershipDto {
+  @ApiProperty({ example: 'user_2abc' })
+  userId!: string;
+
+  @ApiProperty({ enum: ['admin', 'member', 'owner'] })
+  role!: 'admin' | 'member' | 'owner';
+
+  @ApiProperty({ enum: ['active', 'removed', 'suspended'] })
+  status!: 'active' | 'removed' | 'suspended';
+}
+
+export class MembershipListDto {
+  @ApiProperty({ type: [MembershipDto] })
+  items!: MembershipDto[];
+
+  @ApiProperty({ type: PageInfoDto })
+  pageInfo!: PageInfoDto;
 }
 
 export class OrganizationInvitationDto {

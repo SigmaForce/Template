@@ -2,6 +2,7 @@ export const Permission = {
   organizationSettingsRead: 'organization:settings:read',
   organizationSettingsUpdate: 'organization:settings:update',
   organizationMembershipsManage: 'organization:memberships:manage',
+  organizationMembershipsLeave: 'organization:memberships:leave',
   billingManage: 'billing:manage',
   organizationOwnershipManage: 'organization:ownership:manage',
   organizationDelete: 'organization:delete',
@@ -17,8 +18,12 @@ const rolePermissions = {
     Permission.organizationSettingsRead,
     Permission.organizationSettingsUpdate,
     Permission.organizationMembershipsManage,
+    Permission.organizationMembershipsLeave,
   ],
-  member: [Permission.organizationSettingsRead],
+  member: [
+    Permission.organizationSettingsRead,
+    Permission.organizationMembershipsLeave,
+  ],
 } as const satisfies Record<OrganizationRole, readonly PermissionId[]>;
 
 export function permissionsForRole(role: string | undefined): PermissionId[] {
@@ -56,6 +61,7 @@ export function organizationStateAllows(
   return (
     permission === Permission.organizationSettingsRead ||
     permission === Permission.organizationMembershipsManage ||
+    permission === Permission.organizationMembershipsLeave ||
     permission === Permission.billingManage ||
     permission === Permission.organizationOwnershipManage
   );

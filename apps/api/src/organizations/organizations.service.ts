@@ -365,8 +365,15 @@ export class OrganizationsService {
     if (!user.activeOrganization) {
       throw PublicProblemException.activeOrganizationRequired();
     }
+    const scope = await this.authorization.authorize({
+      user,
+      targetOrganizationId: user.activeOrganization.id,
+      capability: Capability.organizationSettings,
+      permission: Permission.organizationSettingsRead,
+    });
     return {
       id: user.activeOrganization.id,
+      role: scope.role,
       slug: user.activeOrganization.slug,
       permissions:
         await this.authorization.permissionsForActiveOrganization(user),

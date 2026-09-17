@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { PageInfoDto } from '../http/page-info.dto.js';
 
 const uuidV7Pattern =
   '^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$';
@@ -64,19 +65,6 @@ export class ContractExampleDto {
     example: 'Generated from the public OpenAPI document.',
   })
   summary?: string;
-}
-
-export class PageInfoDto {
-  @ApiProperty({ example: true })
-  hasNextPage!: boolean;
-
-  @ApiProperty({
-    description: 'Opaque cursor for the next page, or null at the end.',
-    example: 'eyJ2IjoxLCJzY29wZSI6ImNvbnRyYWN0LWV4YW1wbGVzIn0',
-    nullable: true,
-    type: String,
-  })
-  nextCursor!: string | null;
 }
 
 export class ContractExamplePageDto {

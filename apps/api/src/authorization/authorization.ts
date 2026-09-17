@@ -8,9 +8,10 @@ export const Capability = {
 export type CapabilityId = (typeof Capability)[keyof typeof Capability];
 export type OrganizationAccessState =
   'active' | 'pending-deletion' | 'read-only';
-export type MembershipAccessStatus = 'active' | 'suspended';
+export type MembershipAccessStatus = 'active' | 'removed' | 'suspended';
 
 export interface MembershipAccess {
+  role?: OrganizationRole;
   status: MembershipAccessStatus;
 }
 

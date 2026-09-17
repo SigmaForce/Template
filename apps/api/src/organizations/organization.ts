@@ -22,6 +22,13 @@ export interface AcceptedInvitationResult {
   organization: { id: string; slug: string };
 }
 
+export interface MembershipRecord {
+  organizationId: string;
+  role: OrganizationRole;
+  status: 'active' | 'removed' | 'suspended';
+  userId: string;
+}
+
 export interface CompleteFirstOrganizationRecord {
   idempotencyKey: string;
   organization: OrganizationProfile;
@@ -35,6 +42,25 @@ export type OrganizationOnboardingClaim =
   | { status: 'already-complete' | 'conflict' | 'in-progress' };
 
 export abstract class OrganizationRepository extends AuthorizationRepository {
+  abstract findMembershipRecord(input: {
+    organizationId: string;
+    userId: string;
+  }): Promise<MembershipRecord | undefined>;
+
+  abstract listMemberships(input: {
+    afterUserId?: string;
+    limit: number;
+    organizationId: string;
+  }): Promise<MembershipRecord[]>;
+
+  abstract updateMembership(input: {
+    expectedRole?: OrganizationRole;
+    organizationId: string;
+    role?: OrganizationRole;
+    status?: MembershipRecord['status'];
+    userId: string;
+  }): Promise<MembershipRecord>;
+
   abstract createInvitation(
     invitation: OrganizationInvitation,
   ): Promise<OrganizationInvitation>;
@@ -155,7 +181,20 @@ export abstract class OrganizationDirectory {
     organizationId: string;
     userId: string;
   }): Promise<{ role: OrganizationRole } | undefined>;
+
+  abstract updateMembershipRole(input: {
+    organizationId: string;
+    role: OrganizationRole;
+    userId: string;
+  }): Promise<void>;
+
+  abstract deleteMembership(input: {
+    organizationId: string;
+    userId: string;
+  }): Promise<void>;
 }
 
 export class OrganizationSlugConflictError extends Error {}
 export class InvitationStateConflictError extends Error {}
+export class LastOwnerRequiredError extends Error {}
+export class MembershipStateConflictError extends Error {}

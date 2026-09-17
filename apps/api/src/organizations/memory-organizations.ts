@@ -3,6 +3,8 @@ import {
   InvitationStateConflictError,
   OrganizationRepository,
   OrganizationSlugConflictError,
+  LastOwnerRequiredError,
+  MembershipStateConflictError,
   type CompleteFirstOrganizationRecord,
   type OrganizationOnboardingClaim,
   type OrganizationOnboardingResult,
@@ -14,15 +16,18 @@ import type {
   MembershipIdentity,
   MembershipAccessStatus,
 } from '../authorization/authorization.js';
+import type { OrganizationRole } from '../authorization/permission.js';
 
 interface MemoryMembership extends MembershipAccess {
   organizationId: string;
+  role?: OrganizationRole;
   userId: string;
 }
 
 export interface MemoryOrganizationRepositorySeed {
   memberships?: Array<{
     organizationId: string;
+    role?: OrganizationRole;
     status: MembershipAccessStatus;
     userId: string;
   }>;
@@ -51,6 +56,65 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
     for (const membership of seed.memberships ?? []) {
       this.memberships.set(this.membershipKey(membership), { ...membership });
     }
+  }
+
+  async findMembershipRecord(input: MembershipIdentity) {
+    const membership = this.memberships.get(this.membershipKey(input));
+    return membership?.role
+      ? { ...membership, role: membership.role }
+      : undefined;
+  }
+
+  async listMemberships(input: {
+    afterUserId?: string;
+    limit: number;
+    organizationId: string;
+  }) {
+    return [...this.memberships.values()]
+      .filter(
+        (
+          membership,
+        ): membership is MemoryMembership & { role: OrganizationRole } =>
+          membership.organizationId === input.organizationId &&
+          Boolean(membership.role) &&
+          (!input.afterUserId || membership.userId > input.afterUserId),
+      )
+      .sort((left, right) =>
+        left.userId < right.userId ? -1 : left.userId > right.userId ? 1 : 0,
+      )
+      .slice(0, input.limit);
+  }
+
+  async updateMembership(input: {
+    expectedRole?: OrganizationRole;
+    organizationId: string;
+    role?: OrganizationRole;
+    status?: 'active' | 'removed' | 'suspended';
+    userId: string;
+  }) {
+    const membership = await this.findMembershipRecord(input);
+    if (!membership) throw new MembershipStateConflictError();
+    if (input.expectedRole && membership.role !== input.expectedRole) {
+      throw new MembershipStateConflictError();
+    }
+    const role = input.role ?? membership.role;
+    const status = input.status ?? membership.status;
+    if (
+      membership.role === 'owner' &&
+      membership.status === 'active' &&
+      (role !== 'owner' || status !== 'active') &&
+      [...this.memberships.values()].filter(
+        (candidate) =>
+          candidate.organizationId === input.organizationId &&
+          candidate.role === 'owner' &&
+          candidate.status === 'active',
+      ).length <= 1
+    ) {
+      throw new LastOwnerRequiredError();
+    }
+    const updated = { ...membership, role, status };
+    this.memberships.set(this.membershipKey(input), updated);
+    return updated;
   }
 
   async claimOnboarding(input: {
@@ -144,6 +208,7 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
     invitation.acceptedByUserId = input.userId;
     this.memberships.set(this.membershipKey(input), {
       organizationId: input.organizationId,
+      role: input.role,
       userId: input.userId,
       status: 'active',
     });
@@ -205,6 +270,7 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
       }),
       {
         organizationId: record.organization.id,
+        role: 'owner',
         userId: record.userId,
         status: 'active',
       },
@@ -372,4 +438,12 @@ export class MemoryOrganizationDirectory extends OrganizationDirectory {
       ? { role: invitation.role }
       : undefined;
   }
+
+  async updateMembershipRole(_input: {
+    organizationId: string;
+    role: OrganizationRole;
+    userId: string;
+  }) {}
+
+  async deleteMembership(_input: { organizationId: string; userId: string }) {}
 }

@@ -131,4 +131,22 @@ export class PublicProblemException extends HttpException {
       detail: 'This Invitation cannot be used in its current state.',
     });
   }
+
+  static membershipUnavailable() {
+    return new PublicProblemException({
+      type: 'urn:problem:next-nest-saas-starter:membership-unavailable',
+      title: 'Membership unavailable',
+      status: 409,
+      detail: 'This Membership cannot be changed in its current state.',
+    });
+  }
+
+  static lastOwnerRequired() {
+    return new PublicProblemException({
+      type: 'urn:problem:next-nest-saas-starter:last-owner-required',
+      title: 'An active Owner is required',
+      status: 409,
+      detail: 'Assign another active Owner before changing this Membership.',
+    });
+  }
 }

@@ -111,6 +111,22 @@ export class ClerkOrganizationDirectory extends OrganizationDirectory {
     return role ? { role } : undefined;
   }
 
+  async updateMembershipRole(input: {
+    organizationId: string;
+    role: 'admin' | 'member' | 'owner';
+    userId: string;
+  }) {
+    await this.client.organizations.updateOrganizationMembership({
+      organizationId: input.organizationId,
+      userId: input.userId,
+      role: `org:${input.role}`,
+    });
+  }
+
+  async deleteMembership(input: { organizationId: string; userId: string }) {
+    await this.client.organizations.deleteOrganizationMembership(input);
+  }
+
   private isSlugConflict(error: unknown) {
     return (
       isClerkAPIResponseError(error) &&

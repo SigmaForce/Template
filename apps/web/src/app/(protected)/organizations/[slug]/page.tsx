@@ -1,5 +1,5 @@
 import type { components } from "@saas/api-client";
-import { brand } from "@saas/ui";
+import { brand, ForbiddenState } from "@saas/ui";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -7,6 +7,7 @@ import { logWebOperation } from "../../../../operational-log";
 import { createServerApiContext } from "../../../../server-api-context";
 import { getWebEnvironment } from "../../../../environment";
 import { OrganizationInvitations } from "./organization-invitations";
+import { OrganizationMemberships } from "./organization-memberships";
 
 type Money = components["schemas"]["MoneyDto"];
 type PermissionId =
@@ -36,7 +37,7 @@ type ActiveOrganizationContext =
       available: true;
       organization: components["schemas"]["ActiveOrganizationDto"];
     }
-  | { available: false };
+  | { available: false; reason: "forbidden" | "unavailable" };
 
 type OrganizationSettings =
   | {
@@ -114,7 +115,7 @@ async function getActiveOrganization(
 ): Promise<ActiveOrganizationContext> {
   try {
     const { client, correlatedHeaders } = await createServerApiContext();
-    const { data } = await client.GET("/v1/organizations/active", {
+    const { data, response } = await client.GET("/v1/organizations/active", {
       cache: "no-store",
       headers: {
         ...correlatedHeaders,
@@ -123,11 +124,13 @@ async function getActiveOrganization(
       signal: AbortSignal.timeout(3_000),
     });
 
-    return data
-      ? { available: true, organization: data }
-      : { available: false };
+    if (data) return { available: true, organization: data };
+    return {
+      available: false,
+      reason: response.status === 403 ? "forbidden" : "unavailable",
+    };
   } catch {
-    return { available: false };
+    return { available: false, reason: "unavailable" };
   }
 }
 
@@ -235,6 +238,17 @@ export default async function Home({
     activeOrganization.organization.slug !== slug
   ) {
     redirect(`/organizations/${activeOrganization.organization.slug}`);
+  }
+  if (
+    !activeOrganization.available &&
+    activeOrganization.reason === "forbidden"
+  ) {
+    return (
+      <ForbiddenState
+        description="Your membership does not currently grant access to this Organization. Choose another Organization to continue."
+        title="Organization access unavailable"
+      />
+    );
   }
   const activePermissions = activeOrganization.available
     ? activeOrganization.organization.permissions
@@ -478,11 +492,21 @@ export default async function Home({
             )}
           </section>
 
-          {canManageMemberships && activeOrganization.available ? (
-            <OrganizationInvitations
-              apiUrl={getWebEnvironment().apiUrl.toString()}
-              organizationId={activeOrganization.organization.id}
-            />
+          {activeOrganization.available ? (
+            <>
+              <OrganizationMemberships
+                actorRole={activeOrganization.organization.role}
+                apiUrl={getWebEnvironment().apiUrl.toString()}
+                canManage={canManageMemberships}
+                organizationId={activeOrganization.organization.id}
+              />
+              {canManageMemberships ? (
+                <OrganizationInvitations
+                  apiUrl={getWebEnvironment().apiUrl.toString()}
+                  organizationId={activeOrganization.organization.id}
+                />
+              ) : null}
+            </>
           ) : null}
         </aside>
       </div>

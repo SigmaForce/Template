@@ -102,7 +102,10 @@ export class AuthorizationService {
   }
 
   private capabilityForPermission(permission: PermissionId) {
-    if (permission === Permission.organizationMembershipsManage) {
+    if (
+      permission === Permission.organizationMembershipsManage ||
+      permission === Permission.organizationMembershipsLeave
+    ) {
       return Capability.organizationMemberships;
     }
     return permission === Permission.organizationSettingsRead ||
@@ -132,7 +135,13 @@ export class AuthorizationService {
       organizationId: activeOrganization.id,
       userId: user.id,
     });
-    if (!membership || membership.status !== 'active') return undefined;
+    if (
+      !membership ||
+      membership.status !== 'active' ||
+      (membership.role && membership.role !== activeOrganization.role)
+    ) {
+      return undefined;
+    }
 
     const organization = await this.repository.findOrganization(
       activeOrganization.id,

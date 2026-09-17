@@ -61,6 +61,7 @@
                 "organization:settings:read",
                 "organization:settings:update",
                 "organization:memberships:manage",
+                "organization:memberships:leave",
                 "billing:manage",
                 "organization:ownership:manage",
                 "organization:delete"
@@ -68,6 +69,14 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "role": {
+            "enum": [
+              "admin",
+              "member",
+              "owner"
+            ],
+            "type": "string"
           },
           "slug": {
             "example": "northstar-labs",
@@ -77,6 +86,7 @@
         "required": [
           "id",
           "slug",
+          "role",
           "permissions"
         ],
         "type": "object"
@@ -271,6 +281,54 @@
         ],
         "type": "object"
       },
+      "MembershipDto": {
+        "properties": {
+          "role": {
+            "enum": [
+              "admin",
+              "member",
+              "owner"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "removed",
+              "suspended"
+            ],
+            "type": "string"
+          },
+          "userId": {
+            "example": "user_2abc",
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId",
+          "role",
+          "status"
+        ],
+        "type": "object"
+      },
+      "MembershipListDto": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MembershipDto"
+            },
+            "type": "array"
+          },
+          "pageInfo": {
+            "$ref": "#/components/schemas/PageInfoDto"
+          }
+        },
+        "required": [
+          "items",
+          "pageInfo"
+        ],
+        "type": "object"
+      },
       "MoneyDto": {
         "properties": {
           "amountMinor": {
@@ -442,7 +500,7 @@
           },
           "nextCursor": {
             "description": "Opaque cursor for the next page, or null at the end.",
-            "example": "eyJ2IjoxLCJzY29wZSI6ImNvbnRyYWN0LWV4YW1wbGVzIn0",
+            "example": "eyJ2IjoxLCJzY29wZSI6ImNvbGxlY3Rpb24ifQ",
             "nullable": true,
             "type": "string"
           }
@@ -541,6 +599,26 @@
           "status",
           "dependencies"
         ],
+        "type": "object"
+      },
+      "UpdateMembershipDto": {
+        "properties": {
+          "role": {
+            "enum": [
+              "admin",
+              "member",
+              "owner"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "suspended"
+            ],
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "UpdateOrganizationSettingsDto": {
@@ -891,6 +969,16 @@
             },
             "description": ""
           },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": ""
+          },
           "409": {
             "content": {
               "application/json": {
@@ -1187,6 +1275,228 @@
         "summary": "",
         "tags": [
           "organizations"
+        ]
+      }
+    },
+    "/v1/organizations/{organizationId}/memberships": {
+      "get": {
+        "operationId": "listOrganizationMemberships",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organizationId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque cursor returned by the previous page.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembershipListDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "clerk-session": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "memberships"
+        ]
+      }
+    },
+    "/v1/organizations/{organizationId}/memberships/{userId}": {
+      "delete": {
+        "operationId": "removeOrganizationMembership",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organizationId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembershipDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "clerk-session": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "memberships"
+        ]
+      },
+      "patch": {
+        "operationId": "updateOrganizationMembership",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organizationId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMembershipDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembershipDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "clerk-session": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "memberships"
         ]
       }
     },

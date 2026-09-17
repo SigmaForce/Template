@@ -179,6 +179,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/organizations/{organizationId}/memberships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listOrganizationMemberships"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/organizations/{organizationId}/memberships/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["removeOrganizationMembership"];
+        options?: never;
+        head?: never;
+        patch: operations["updateOrganizationMembership"];
+        trace?: never;
+    };
     "/v1/organizations/{organizationId}/settings": {
         parameters: {
             query?: never;
@@ -232,7 +264,9 @@ export interface components {
         ActiveOrganizationDto: {
             /** @example org_2abc */
             id: string;
-            permissions: ("organization:settings:read" | "organization:settings:update" | "organization:memberships:manage" | "billing:manage" | "organization:ownership:manage" | "organization:delete")[];
+            permissions: ("organization:settings:read" | "organization:settings:update" | "organization:memberships:manage" | "organization:memberships:leave" | "billing:manage" | "organization:ownership:manage" | "organization:delete")[];
+            /** @enum {string} */
+            role: "admin" | "member" | "owner";
             /** @example northstar-labs */
             slug: string;
         };
@@ -315,6 +349,18 @@ export interface components {
             /** @example America/Cuiaba */
             timeZone: string;
         };
+        MembershipDto: {
+            /** @enum {string} */
+            role: "admin" | "member" | "owner";
+            /** @enum {string} */
+            status: "active" | "removed" | "suspended";
+            /** @example user_2abc */
+            userId: string;
+        };
+        MembershipListDto: {
+            items: components["schemas"]["MembershipDto"][];
+            pageInfo: components["schemas"]["PageInfoDto"];
+        };
         MoneyDto: {
             /**
              * @description Integer minor units encoded as a decimal string.
@@ -375,7 +421,7 @@ export interface components {
             hasNextPage: boolean;
             /**
              * @description Opaque cursor for the next page, or null at the end.
-             * @example eyJ2IjoxLCJzY29wZSI6ImNvbnRyYWN0LWV4YW1wbGVzIn0
+             * @example eyJ2IjoxLCJzY29wZSI6ImNvbGxlY3Rpb24ifQ
              */
             nextCursor: string | null;
         };
@@ -406,6 +452,12 @@ export interface components {
             service: "api";
             /** @enum {string} */
             status: "ready" | "degraded" | "unready";
+        };
+        UpdateMembershipDto: {
+            /** @enum {string} */
+            role?: "admin" | "member" | "owner";
+            /** @enum {string} */
+            status?: "active" | "suspended";
         };
         UpdateOrganizationSettingsDto: {
             /**
@@ -621,6 +673,14 @@ export interface operations {
                     "application/json": components["schemas"]["ActiveOrganizationDto"];
                 };
             };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -784,6 +844,135 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OrganizationInvitationDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
+    listOrganizationMemberships: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Opaque cursor returned by the previous page. */
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipListDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
+    removeOrganizationMembership: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
+    updateOrganizationMembership: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMembershipDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
                 };
             };
             403: {

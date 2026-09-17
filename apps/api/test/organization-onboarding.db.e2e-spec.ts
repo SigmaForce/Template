@@ -173,6 +173,120 @@ describe.skipIf(!databaseUrl)('Organization onboarding with PostgreSQL', () => {
       });
   });
 
+  it('persists Membership lifecycle transitions and protects the last Owner', async () => {
+    const ownerId = 'user_postgres_owner';
+    const memberId = 'user_postgres_member';
+    const creation = await request(app.getHttpServer())
+      .post('/v1/organizations')
+      .set('authorization', `Bearer ${createSessionToken({ userId: ownerId })}`)
+      .set('idempotency-key', 'postgres-membership-lifecycle')
+      .send({
+        name: 'Postgres Memberships',
+        slug: 'postgres-memberships',
+        locale: 'pt-BR',
+        timeZone: 'America/Cuiaba',
+      })
+      .expect(201);
+    const organization = creation.body.organization as {
+      id: string;
+      slug: string;
+    };
+    const ownerAuthorization = `Bearer ${createSessionToken({
+      userId: ownerId,
+      organization,
+      organizationRole: 'owner',
+    })}`;
+    const memberPath = `/v1/organizations/${organization.id}/memberships/${memberId}`;
+
+    await pool.query(
+      `INSERT INTO memberships (id, organization_id, user_id, role, status, updated_at)
+       VALUES ($1, $2, $3, 'MEMBER', 'ACTIVE', NOW())`,
+      ['018f0c4a-7b5d-7cc4-b3e1-5a6f8d9c2001', organization.id, memberId],
+    );
+
+    await request(app.getHttpServer())
+      .patch(memberPath)
+      .set('authorization', ownerAuthorization)
+      .send({ role: 'admin' })
+      .expect(200)
+      .expect({ userId: memberId, role: 'admin', status: 'active' });
+    await request(app.getHttpServer())
+      .patch(memberPath)
+      .set('authorization', ownerAuthorization)
+      .send({ status: 'suspended' })
+      .expect(200)
+      .expect({ userId: memberId, role: 'admin', status: 'suspended' });
+
+    const memberAuthorization = `Bearer ${createSessionToken({
+      userId: memberId,
+      organization,
+      organizationRole: 'admin',
+    })}`;
+    await request(app.getHttpServer())
+      .get(`/v1/organizations/${organization.id}/settings`)
+      .set('authorization', memberAuthorization)
+      .expect(403);
+
+    await request(app.getHttpServer())
+      .patch(memberPath)
+      .set('authorization', ownerAuthorization)
+      .send({ status: 'active' })
+      .expect(200);
+    await request(app.getHttpServer())
+      .delete(memberPath)
+      .set('authorization', ownerAuthorization)
+      .expect(200)
+      .expect({ userId: memberId, role: 'admin', status: 'removed' });
+    await request(app.getHttpServer())
+      .get(`/v1/organizations/${organization.id}/memberships`)
+      .set('authorization', ownerAuthorization)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.items).toContainEqual({
+          userId: memberId,
+          role: 'admin',
+          status: 'removed',
+        });
+      });
+
+    await request(app.getHttpServer())
+      .patch(`/v1/organizations/${organization.id}/memberships/${ownerId}`)
+      .set('authorization', ownerAuthorization)
+      .send({ role: 'admin' })
+      .expect(409);
+
+    const otherCreation = await request(app.getHttpServer())
+      .post('/v1/organizations')
+      .set(
+        'authorization',
+        `Bearer ${createSessionToken({ userId: 'user_postgres_other_owner' })}`,
+      )
+      .set('idempotency-key', 'postgres-other-memberships')
+      .send({
+        name: 'Other Postgres Memberships',
+        slug: 'other-postgres-memberships',
+        locale: 'pt-BR',
+        timeZone: 'America/Cuiaba',
+      })
+      .expect(201);
+    const otherOrganizationId = otherCreation.body.organization.id as string;
+    const otherMembershipsPath = `/v1/organizations/${otherOrganizationId}/memberships`;
+
+    await request(app.getHttpServer())
+      .get(otherMembershipsPath)
+      .set('authorization', ownerAuthorization)
+      .expect(403);
+    await request(app.getHttpServer())
+      .patch(`${otherMembershipsPath}/user_postgres_other_owner`)
+      .set('authorization', ownerAuthorization)
+      .send({ role: 'member' })
+      .expect(403);
+    await request(app.getHttpServer())
+      .delete(`${otherMembershipsPath}/user_postgres_other_owner`)
+      .set('authorization', ownerAuthorization)
+      .expect(403);
+  });
+
   afterEach(async () => {
     await app.close();
   });

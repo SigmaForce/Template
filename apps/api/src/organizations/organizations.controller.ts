@@ -59,6 +59,7 @@ export class OrganizationsController {
   @Get('active')
   @ApiOperation({ operationId: 'getActiveOrganization' })
   @ApiOkResponse({ type: ActiveOrganizationDto })
+  @ApiResponse({ status: 403, content: problemContent })
   @ApiConflictResponse({ type: ProblemDetailsDto })
   getActiveOrganization(@CurrentUser() user: AuthenticatedUser) {
     return this.organizations.getActiveOrganization(user);

@@ -19,6 +19,7 @@ enum MembershipRole {
 enum MembershipStatus {
   ACTIVE
   SUSPENDED
+  REMOVED
 }
 
 enum OnboardingStatus {
