@@ -6,10 +6,10 @@
 
 **Status:** ready-for-agent
 
-- [ ] CI usa instalação congelada, runtime documentado e cache somente para tarefas determinísticas.
-- [ ] Formatting, lint, typecheck, testes unitários/integração, Storybook, acessibilidade e builds são gates obrigatórios.
-- [ ] Playwright executa os fluxos críticos com paralelismo e retries controlados para CI.
-- [ ] OpenAPI e cliente gerado divergentes fazem a pipeline falhar.
-- [ ] Dependency Review, CodeQL, Dependabot, secret scanning e verificações de workflows estão configurados quando suportados.
-- [ ] Actions usam referências imutáveis e permissões mínimas; logs e caches não carregam secrets.
-- [ ] Migration, deploy e seed não são cacheados nem executados concorrentemente contra o mesmo banco.
+- [x] CI usa instalação congelada, runtime documentado e cache somente para tarefas determinísticas.
+- [x] Formatting, lint, typecheck, testes unitários/integração, Storybook, acessibilidade e builds são gates obrigatórios.
+- [x] Playwright executa os fluxos críticos com paralelismo e retries controlados para CI.
+- [x] OpenAPI e cliente gerado divergentes fazem a pipeline falhar.
+- [x] Dependency Review, CodeQL, Dependabot, secret scanning e verificações de workflows estão configurados quando suportados.
+- [x] Actions usam referências imutáveis e permissões mínimas; logs e caches não carregam secrets.
+- [x] Migration, deploy e seed não são cacheados nem executados concorrentemente contra o mesmo banco.

@@ -6,9 +6,9 @@
 
 **Status:** ready-for-agent
 
-- [ ] A API expõe um documento OpenAPI reproduzível com identificadores de operação estáveis.
-- [ ] O frontend consome uma operação real por meio do cliente gerado, sem importar código do backend.
-- [ ] Falhas seguem RFC 9457 Problem Details e não revelam stack trace ou mensagens internas.
-- [ ] Uma operação de lista demonstra cursor opaco, limite validado e `pageInfo` sem total obrigatório.
-- [ ] Datas, IDs, dinheiro, `null` e campos ausentes seguem as convenções definidas na especificação.
-- [ ] Uma verificação automatizada falha quando o documento OpenAPI e o cliente gerado divergem.
+- [x] A API expõe um documento OpenAPI reproduzível com identificadores de operação estáveis.
+- [x] O frontend consome uma operação real por meio do cliente gerado, sem importar código do backend.
+- [x] Falhas seguem RFC 9457 Problem Details e não revelam stack trace ou mensagens internas.
+- [x] Uma operação de lista demonstra cursor opaco, limite validado e `pageInfo` sem total obrigatório.
+- [x] Datas, IDs, dinheiro, `null` e campos ausentes seguem as convenções definidas na especificação.
+- [x] Uma verificação automatizada falha quando o documento OpenAPI e o cliente gerado divergem.

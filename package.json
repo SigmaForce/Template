@@ -1,0 +1,39 @@
+{
+  "name": "next-nest-saas-starter",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "bootstrap": "node scripts/bootstrap.mjs",
+    "build": "turbo run build",
+    "contract:check": "pnpm --filter @saas/api build && node scripts/generate-contract.mjs --check",
+    "contract:generate": "pnpm --filter @saas/api build && node scripts/generate-contract.mjs",
+    "dev": "node scripts/dev.mjs",
+    "dev:apps": "turbo run dev",
+    "dev:infra": "docker compose up -d",
+    "dev:infra:down": "docker compose down",
+    "env:check": "node scripts/check-environment.mjs",
+    "format:check": "pnpm --filter @saas/api exec prettier --check \"src/**/*.ts\" \"test/**/*.ts\" \"../../apps/worker/src/**/*.ts\" \"../../apps/worker/test/**/*.ts\" \"../../apps/web/src/**/*.{ts,tsx}\" \"../../packages/ui/src/**/*.{ts,tsx}\" \"../../packages/ui/.storybook/**/*.{ts,tsx}\" \"../../packages/ui/tests/**/*.{ts,tsx}\"",
+    "lint": "turbo run lint",
+    "storybook": "pnpm --filter @saas/ui storybook",
+    "storybook:build": "pnpm --filter @saas/ui build-storybook",
+    "test": "turbo run test && pnpm contract:check",
+    "test:smoke": "node scripts/smoke.mjs",
+    "test:startup": "node --test tests/startup/*.test.mjs",
+    "typecheck": "turbo run typecheck"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@clerk/backend": "3.17.2",
+    "@clerk/testing": "2.2.34",
+    "@playwright/test": "1.63.0",
+    "openapi-typescript": "7.13.0",
+    "pnpm": "11.9.0",
+    "turbo": "2.10.13",
+    "typescript": "5.9.3"
+  }
+}

@@ -6,9 +6,9 @@
 
 **Status:** ready-for-agent
 
-- [ ] Uma instalação limpa e determinística funciona com a versão documentada do Node.js e com o lockfile.
-- [ ] Um comando documentado inicia a infraestrutura local e os três processos da aplicação.
-- [ ] Configuração obrigatória ausente ou inválida interrompe o startup com uma mensagem acionável.
-- [ ] A página pública consulta um health check real da API e apresenta os estados disponível e indisponível.
-- [ ] Web, API e worker compilam independentemente sem compartilhar modelos de persistência ou serviços de domínio.
-- [ ] Um smoke test automatizado comprova o percurso web → API durante desenvolvimento local.
+- [x] Uma instalação limpa e determinística funciona com a versão documentada do Node.js e com o lockfile.
+- [x] Um comando documentado inicia a infraestrutura local e os três processos da aplicação.
+- [x] Configuração obrigatória ausente ou inválida interrompe o startup com uma mensagem acionável.
+- [x] A página pública consulta um health check real da API e apresenta os estados disponível e indisponível.
+- [x] Web, API e worker compilam independentemente sem compartilhar modelos de persistência ou serviços de domínio.
+- [x] Um smoke test automatizado comprova o percurso web → API durante desenvolvimento local.

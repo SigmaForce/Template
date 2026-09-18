@@ -1,0 +1,120 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  engineType          = "client"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum MembershipRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum MembershipStatus {
+  ACTIVE
+  SUSPENDED
+  REMOVED
+}
+
+enum OnboardingStatus {
+  PROCESSING
+  COMPLETED
+}
+
+enum OrganizationState {
+  ACTIVE
+  READ_ONLY
+  PENDING_DELETION
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+}
+
+model Organization {
+  id                  String            @id @db.VarChar(64)
+  name                String            @db.VarChar(100)
+  slug                String            @unique @db.VarChar(48)
+  billingContactEmail String?           @map("billing_contact_email") @db.VarChar(320)
+  locale              String            @db.VarChar(35)
+  timeZone            String            @map("time_zone") @db.VarChar(64)
+  state               OrganizationState @default(ACTIVE)
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+
+  memberships       Membership[]
+  invitations       Invitation[]
+  slugs             OrganizationSlug[]
+  onboardingRequest OrganizationOnboardingRequest?
+
+  @@map("organizations")
+}
+
+model OrganizationSlug {
+  slug           String   @id @db.VarChar(48)
+  organizationId String   @map("organization_id") @db.VarChar(64)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("organization_slugs")
+}
+
+model Invitation {
+  id               String           @id @default(uuid()) @db.Uuid
+  organizationId   String           @map("organization_id") @db.VarChar(64)
+  emailAddress     String           @map("email_address") @db.VarChar(320)
+  role             MembershipRole
+  status           InvitationStatus @default(PENDING)
+  externalId       String           @unique @map("external_id") @db.VarChar(64)
+  invitedByUserId  String           @map("invited_by_user_id") @db.VarChar(64)
+  acceptedByUserId String?          @map("accepted_by_user_id") @db.VarChar(64)
+  expiresAt        DateTime         @map("expires_at")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, emailAddress])
+  @@index([status, expiresAt])
+  @@map("invitations")
+}
+
+model Membership {
+  id             String           @id @default(uuid()) @db.Uuid
+  organizationId String           @map("organization_id") @db.VarChar(64)
+  userId         String           @map("user_id") @db.VarChar(64)
+  role           MembershipRole
+  status         MembershipStatus @default(ACTIVE)
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId, status])
+  @@map("memberships")
+}
+
+model OrganizationOnboardingRequest {
+  userId         String           @id @map("user_id") @db.VarChar(64)
+  idempotencyKey String           @map("idempotency_key") @db.VarChar(128)
+  requestHash    String           @map("request_hash") @db.Char(64)
+  status         OnboardingStatus @default(PROCESSING)
+  organizationId String?          @unique @map("organization_id") @db.VarChar(64)
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@map("organization_onboarding_requests")
+}

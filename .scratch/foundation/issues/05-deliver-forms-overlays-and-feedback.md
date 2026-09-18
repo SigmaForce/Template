@@ -6,9 +6,9 @@
 
 **Status:** ready-for-agent
 
-- [ ] Button, Link, Input, Textarea, Select, Checkbox, Radio e Switch cobrem estados normal, focus, disabled, invalid e loading aplicáveis.
-- [ ] FormField associa label, descrição e erro ao controle sem depender somente de cor.
-- [ ] Dialog e Drawer controlam foco, fechamento e retorno de foco corretamente.
-- [ ] Dropdown, Tooltip e Toast têm navegação e anúncios acessíveis apropriados.
-- [ ] Variantes seguem uma única convenção tipada e preservam uma fachada estável sobre os primitives.
-- [ ] Stories e testes de interação cobrem estados, teclado, temas e conteúdo extremo.
+- [x] Button, Link, Input, Textarea, Select, Checkbox, Radio e Switch cobrem estados normal, focus, disabled, invalid e loading aplicáveis.
+- [x] FormField associa label, descrição e erro ao controle sem depender somente de cor.
+- [x] Dialog e Drawer controlam foco, fechamento e retorno de foco corretamente.
+- [x] Dropdown, Tooltip e Toast têm navegação e anúncios acessíveis apropriados.
+- [x] Variantes seguem uma única convenção tipada e preservam uma fachada estável sobre os primitives.
+- [x] Stories e testes de interação cobrem estados, teclado, temas e conteúdo extremo.

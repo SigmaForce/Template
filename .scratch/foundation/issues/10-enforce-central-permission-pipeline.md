@@ -6,9 +6,9 @@
 
 **Status:** ready-for-agent
 
-- [ ] Permissions têm identificadores centrais e não dependem de comparações de Role espalhadas pela aplicação.
-- [ ] A operação avalia identidade, Active Organization, Membership ativa, estado da Organization, Capability, Permission e invariantes do recurso na ordem acordada.
-- [ ] Owner e Admin executam somente as ações concedidas pela matriz padrão; Member recebe Forbidden consistente.
-- [ ] Permissions de billing, ownership e Organization Deletion permanecem exclusivas de Owner mesmo antes desses módulos existirem.
-- [ ] Controles do frontend refletem a política para UX, mas requisições forjadas continuam negadas pela API.
-- [ ] Testes HTTP cobrem permissão concedida, ausente, Membership suspensa e contexto organizacional incompatível.
+- [x] Permissions têm identificadores centrais e não dependem de comparações de Role espalhadas pela aplicação.
+- [x] A operação avalia identidade, Active Organization, Membership ativa, estado da Organization, Capability, Permission e invariantes do recurso na ordem acordada.
+- [x] Owner e Admin executam somente as ações concedidas pela matriz padrão; Member recebe Forbidden consistente.
+- [x] Permissions de billing, ownership e Organization Deletion permanecem exclusivas de Owner mesmo antes desses módulos existirem.
+- [x] Controles do frontend refletem a política para UX, mas requisições forjadas continuam negadas pela API.
+- [x] Testes HTTP cobrem permissão concedida, ausente, Membership suspensa e contexto organizacional incompatível.
