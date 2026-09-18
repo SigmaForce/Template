@@ -7,24 +7,28 @@ export interface TableProps extends ComponentProps<"table"> {
   containerClassName?: string;
 }
 
-export const Table = forwardRef<HTMLTableElement, TableProps>(
-  function Table({ className, containerClassName, ...properties }, reference) {
-    return (
-      <div
+export const Table = forwardRef<HTMLTableElement, TableProps>(function Table(
+  { className, containerClassName, ...properties },
+  reference,
+) {
+  return (
+    <div
+      className={cn(
+        "max-w-full overflow-x-auto rounded-panel border border-border bg-surface",
+        containerClassName,
+      )}
+    >
+      <table
+        {...properties}
         className={cn(
-          "max-w-full overflow-x-auto rounded-panel border border-border bg-surface",
-          containerClassName,
+          "w-full min-w-max border-collapse text-sm text-foreground",
+          className,
         )}
-      >
-        <table
-          {...properties}
-          className={cn("w-full min-w-max border-collapse text-sm text-foreground", className)}
-          ref={reference}
-        />
-      </div>
-    );
-  },
-);
+        ref={reference}
+      />
+    </div>
+  );
+});
 
 export const TableHeader = forwardRef<
   HTMLTableSectionElement,
@@ -57,39 +61,43 @@ export const TableRow = forwardRef<HTMLTableRowElement, ComponentProps<"tr">>(
     return (
       <tr
         {...properties}
-        className={cn("transition-colors hover:bg-surface-strong/60", className)}
+        className={cn(
+          "transition-colors hover:bg-surface-strong/60",
+          className,
+        )}
         ref={reference}
       />
     );
   },
 );
 
-export const TableHead = forwardRef<
-  HTMLTableCellElement,
-  ComponentProps<"th">
->(function TableHead({ className, scope = "col", ...properties }, reference) {
-  return (
-    <th
-      {...properties}
-      className={cn("h-11 px-4 text-xs font-black uppercase tracking-wide text-muted", className)}
-      ref={reference}
-      scope={scope}
-    />
-  );
-});
+export const TableHead = forwardRef<HTMLTableCellElement, ComponentProps<"th">>(
+  function TableHead({ className, scope = "col", ...properties }, reference) {
+    return (
+      <th
+        {...properties}
+        className={cn(
+          "h-11 px-4 text-xs font-black uppercase tracking-wide text-muted",
+          className,
+        )}
+        ref={reference}
+        scope={scope}
+      />
+    );
+  },
+);
 
-export const TableCell = forwardRef<
-  HTMLTableCellElement,
-  ComponentProps<"td">
->(function TableCell({ className, ...properties }, reference) {
-  return (
-    <td
-      {...properties}
-      className={cn("px-4 py-3 align-middle", className)}
-      ref={reference}
-    />
-  );
-});
+export const TableCell = forwardRef<HTMLTableCellElement, ComponentProps<"td">>(
+  function TableCell({ className, ...properties }, reference) {
+    return (
+      <td
+        {...properties}
+        className={cn("px-4 py-3 align-middle", className)}
+        ref={reference}
+      />
+    );
+  },
+);
 
 export const TableCaption = forwardRef<
   HTMLTableCaptionElement,

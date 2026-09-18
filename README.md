@@ -146,6 +146,20 @@ corepack pnpm test:smoke
 corepack pnpm build
 ```
 
+## CI
+
+GitHub Actions runs frozen installs on Node 22.18.0 and blocks pull requests on
+formatting, lint, typechecks, unit/integration/API database tests, Storybook
+browser accessibility tests, contract freshness, and builds. It also runs
+Dependency Review, CodeQL (including workflows), Gitleaks, and Dependabot.
+
+The authenticated smoke job is intentionally protected by the `ci` environment.
+Add `CLERK_SECRET_KEY`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, and
+`E2E_CLERK_USER_EMAIL` as environment secrets before enabling required checks.
+Add `GITLEAKS_LICENSE` when the repository belongs to an Organization.
+Migrations run only against each job's disposable PostgreSQL service; this CI
+workflow does not deploy or seed shared environments.
+
 Architecture and domain decisions live in `CONTEXT.md` and `docs/adr/`.
 
 ## Design system

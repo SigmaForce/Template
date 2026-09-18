@@ -182,9 +182,7 @@ export class AuthorizationService {
     if (
       !membership ||
       membership.status !== 'active' ||
-      (assertedRole &&
-        membership.role &&
-        membership.role !== assertedRole)
+      (assertedRole && membership.role && membership.role !== assertedRole)
     ) {
       return undefined;
     }

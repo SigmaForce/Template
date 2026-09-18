@@ -20,7 +20,8 @@ export const inputVariants = cva(
 );
 
 export interface InputProps
-  extends Omit<ComponentProps<typeof BaseInput>, "className" | "size">,
+  extends
+    Omit<ComponentProps<typeof BaseInput>, "className" | "size">,
     VariantProps<typeof inputVariants> {
   className?: string;
 }

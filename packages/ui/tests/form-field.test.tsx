@@ -18,9 +18,12 @@ describe("FormField", () => {
     );
 
     const input = screen.getByRole("textbox", { name: /Organization name/ });
-    const description = screen.getByText("Shown to other Organization Members.");
+    const description = screen.getByText(
+      "Shown to other Organization Members.",
+    );
     const error = screen.getByRole("alert");
-    const describedBy = input.getAttribute("aria-describedby")?.split(" ") ?? [];
+    const describedBy =
+      input.getAttribute("aria-describedby")?.split(" ") ?? [];
 
     expect(error.textContent).toContain("Enter an Organization name.");
     expect(input.getAttribute("aria-invalid")).toBe("true");

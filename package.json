@@ -16,6 +16,7 @@
     "dev:infra": "docker compose up -d",
     "dev:infra:down": "docker compose down",
     "env:check": "node scripts/check-environment.mjs",
+    "format:check": "pnpm --filter @saas/api exec prettier --check \"src/**/*.ts\" \"test/**/*.ts\" \"../../apps/worker/src/**/*.ts\" \"../../apps/worker/test/**/*.ts\" \"../../apps/web/src/**/*.{ts,tsx}\" \"../../packages/ui/src/**/*.{ts,tsx}\" \"../../packages/ui/.storybook/**/*.{ts,tsx}\" \"../../packages/ui/tests/**/*.{ts,tsx}\"",
     "lint": "turbo run lint",
     "storybook": "pnpm --filter @saas/ui storybook",
     "storybook:build": "pnpm --filter @saas/ui build-storybook",

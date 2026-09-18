@@ -7,7 +7,8 @@ import { inputVariants } from "./input";
 import { cn } from "./utils";
 
 export interface TextareaProps
-  extends Omit<ComponentProps<"textarea">, "className">,
+  extends
+    Omit<ComponentProps<"textarea">, "className">,
     VariantProps<typeof inputVariants> {
   className?: string;
 }

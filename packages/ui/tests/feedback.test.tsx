@@ -1,13 +1,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  Button,
-  Dropdown,
-  ToastProvider,
-  Tooltip,
-  useToast,
-} from "../src";
+import { Button, Dropdown, ToastProvider, Tooltip, useToast } from "../src";
 
 afterEach(cleanup);
 
@@ -45,7 +39,9 @@ describe("menus and feedback", () => {
       />,
     );
 
-    const trigger = screen.getByRole("button", { name: "Organization actions" });
+    const trigger = screen.getByRole("button", {
+      name: "Organization actions",
+    });
     trigger.focus();
     await user.keyboard("{Enter}");
 
@@ -80,7 +76,9 @@ describe("menus and feedback", () => {
     ).toBeTruthy();
 
     await user.keyboard("{Escape}");
-    expect(screen.queryByText("Only Owners can change this setting.")).toBeNull();
+    expect(
+      screen.queryByText("Only Owners can change this setting."),
+    ).toBeNull();
   });
 
   it("announces urgent toast feedback and keeps it keyboard reachable", async () => {
@@ -96,9 +94,7 @@ describe("menus and feedback", () => {
 
     const announcement = await screen.findByRole("alert");
     expect(announcement.textContent).toContain("Organization saved");
-    expect(announcement.textContent).toContain(
-      "The new settings are active.",
-    );
+    expect(announcement.textContent).toContain("The new settings are active.");
 
     await user.keyboard("{F6}");
     expect(document.activeElement?.closest('[role="region"]')).toBeTruthy();

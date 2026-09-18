@@ -33,8 +33,7 @@ interface OverlayContentProps {
 }
 
 export interface DialogProps
-  extends OverlayContentProps,
-    Omit<BaseDialog.Root.Props, "children"> {}
+  extends OverlayContentProps, Omit<BaseDialog.Root.Props, "children"> {}
 
 export function Dialog({
   children,
@@ -50,7 +49,9 @@ export function Dialog({
       <BaseDialog.Portal>
         <BaseDialog.Backdrop className={overlayBackdropVariants()} />
         <BaseDialog.Viewport className="fixed inset-0 z-50 grid place-items-center overflow-y-auto p-4">
-          <BaseDialog.Popup className={overlayPanelVariants({ kind: "dialog" })}>
+          <BaseDialog.Popup
+            className={overlayPanelVariants({ kind: "dialog" })}
+          >
             <BaseDialog.Title className="text-xl font-black tracking-tight">
               {title}
             </BaseDialog.Title>
@@ -76,7 +77,8 @@ export function Dialog({
 }
 
 export interface DrawerProps
-  extends OverlayContentProps,
+  extends
+    OverlayContentProps,
     Omit<BaseDrawer.Root.Props, "children" | "swipeDirection"> {}
 
 export function Drawer({
@@ -93,7 +95,9 @@ export function Drawer({
       <BaseDrawer.Portal>
         <BaseDrawer.Backdrop className={overlayBackdropVariants()} />
         <BaseDrawer.Viewport className="fixed inset-0 z-50 flex justify-end pl-4">
-          <BaseDrawer.Popup className={overlayPanelVariants({ kind: "drawer" })}>
+          <BaseDrawer.Popup
+            className={overlayPanelVariants({ kind: "drawer" })}
+          >
             <BaseDrawer.Content className="flex h-full min-h-0 flex-col">
               <BaseDrawer.Title className="text-xl font-black tracking-tight">
                 {title}
@@ -103,11 +107,16 @@ export function Drawer({
                   {description}
                 </BaseDrawer.Description>
               ) : null}
-              <div className="mt-6 min-h-0 flex-1 overflow-y-auto">{children}</div>
+              <div className="mt-6 min-h-0 flex-1 overflow-y-auto">
+                {children}
+              </div>
               <div className="mt-7 flex flex-wrap justify-end gap-3 border-t border-border pt-5">
                 {footer}
                 <BaseDrawer.Close
-                  className={buttonVariants({ size: "sm", variant: "secondary" })}
+                  className={buttonVariants({
+                    size: "sm",
+                    variant: "secondary",
+                  })}
                 >
                   Close
                 </BaseDrawer.Close>

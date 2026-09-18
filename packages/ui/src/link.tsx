@@ -6,7 +6,8 @@ import { buttonVariants } from "./button";
 import { cn } from "./utils";
 
 export interface LinkProps
-  extends Omit<ComponentProps<"a">, "className">,
+  extends
+    Omit<ComponentProps<"a">, "className">,
     VariantProps<typeof buttonVariants> {
   className?: string;
   disabled?: boolean;

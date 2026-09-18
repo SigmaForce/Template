@@ -19,7 +19,9 @@ describe("data display and contextual navigation", () => {
     );
 
     const card = screen.getByRole("region", { name: "Organization summary" });
-    expect(within(card).getByText("Current commercial agreement.")).toBeTruthy();
+    expect(
+      within(card).getByText("Current commercial agreement."),
+    ).toBeTruthy();
     expect(within(card).getByLabelText("Northstar Admin")).toBeTruthy();
     expect(within(card).getByText("Active")).toBeTruthy();
     expect(within(card).getByRole("button", { name: "Manage" })).toBeTruthy();
@@ -38,9 +40,9 @@ describe("data display and contextual navigation", () => {
 
     const navigation = screen.getByRole("navigation", { name: "Breadcrumb" });
     expect(within(navigation).getAllByRole("link")).toHaveLength(2);
-    expect(within(navigation).getByText("Memberships").getAttribute("aria-current")).toBe(
-      "page",
-    );
+    expect(
+      within(navigation).getByText("Memberships").getAttribute("aria-current"),
+    ).toBe("page");
   });
 
   it("moves between related tab panels with arrow keys", async () => {
@@ -50,8 +52,16 @@ describe("data display and contextual navigation", () => {
       <Tabs
         defaultValue="overview"
         items={[
-          { content: "Organization health", label: "Overview", value: "overview" },
-          { content: "Three active Memberships", label: "Memberships", value: "memberships" },
+          {
+            content: "Organization health",
+            label: "Overview",
+            value: "overview",
+          },
+          {
+            content: "Three active Memberships",
+            label: "Memberships",
+            value: "memberships",
+          },
         ]}
       />,
     );
@@ -60,11 +70,13 @@ describe("data display and contextual navigation", () => {
     overview.focus();
     await user.keyboard("{ArrowRight}");
 
-    expect(screen.getByRole("tab", { name: "Memberships" }).getAttribute("aria-selected")).toBe(
-      "true",
-    );
-    expect(screen.getByRole("tabpanel", { name: "Memberships" }).textContent).toContain(
-      "Three active Memberships",
-    );
+    expect(
+      screen
+        .getByRole("tab", { name: "Memberships" })
+        .getAttribute("aria-selected"),
+    ).toBe("true");
+    expect(
+      screen.getByRole("tabpanel", { name: "Memberships" }).textContent,
+    ).toContain("Three active Memberships");
   });
 });

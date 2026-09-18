@@ -26,10 +26,21 @@ interface MembershipRow {
 const membershipRows: MembershipRow[] = [
   { id: "membership_1", name: "Alex Morgan", role: "Owner", status: "Active" },
   { id: "membership_2", name: "Jordan Lee", role: "Admin", status: "Active" },
-  { id: "membership_3", name: "Taylor Rivera", role: "Member", status: "Suspended" },
+  {
+    id: "membership_3",
+    name: "Taylor Rivera",
+    role: "Member",
+    status: "Suspended",
+  },
 ];
 
-function MembershipTable({ empty = false, extreme = false }: { empty?: boolean; extreme?: boolean }) {
+function MembershipTable({
+  empty = false,
+  extreme = false,
+}: {
+  empty?: boolean;
+  extreme?: boolean;
+}) {
   const [navigation, setNavigation] = useState("No cursor requested.");
   const rows = empty
     ? []
@@ -53,7 +64,11 @@ function MembershipTable({ empty = false, extreme = false }: { empty?: boolean; 
           {
             cell: (row) => (
               <div className="flex min-w-64 items-center gap-3">
-                <Avatar fallback={row.name.slice(0, 2).toUpperCase()} name={row.name} size="sm" />
+                <Avatar
+                  fallback={row.name.slice(0, 2).toUpperCase()}
+                  name={row.name}
+                  size="sm"
+                />
                 <span className="font-bold">{row.name}</span>
               </div>
             ),
@@ -75,7 +90,8 @@ function MembershipTable({ empty = false, extreme = false }: { empty?: boolean; 
         getRowKey={(row) => row.id}
         pagination={{
           nextCursor: empty ? null : "opaque-next-cursor",
-          onNavigate: (_cursor, direction) => setNavigation(`Requested ${direction} results.`),
+          onNavigate: (_cursor, direction) =>
+            setNavigation(`Requested ${direction} results.`),
           previousCursor: null,
         }}
         rows={rows}
@@ -87,7 +103,13 @@ function MembershipTable({ empty = false, extreme = false }: { empty?: boolean; 
   );
 }
 
-function DataShowcase({ empty = false, extreme = false }: { empty?: boolean; extreme?: boolean }) {
+function DataShowcase({
+  empty = false,
+  extreme = false,
+}: {
+  empty?: boolean;
+  extreme?: boolean;
+}) {
   const summary = extreme
     ? "This intentionally long Organization summary demonstrates extensive data, contextual navigation, and controls without truncating essential information at narrow widths."
     : "Manage participation in the Active Organization.";
@@ -110,7 +132,11 @@ function DataShowcase({ empty = false, extreme = false }: { empty?: boolean; ext
           defaultValue="memberships"
           items={[
             {
-              content: <p className="text-muted">Organization profile and operational summary.</p>,
+              content: (
+                <p className="text-muted">
+                  Organization profile and operational summary.
+                </p>
+              ),
               label: "Overview",
               value: "overview",
             },
@@ -120,7 +146,11 @@ function DataShowcase({ empty = false, extreme = false }: { empty?: boolean; ext
               value: "memberships",
             },
             {
-              content: <p className="text-muted">Permission assignments are managed by Role.</p>,
+              content: (
+                <p className="text-muted">
+                  Permission assignments are managed by Role.
+                </p>
+              ),
               label: "Permissions",
               value: "permissions",
             },
@@ -153,7 +183,9 @@ function ProductStateShowcase({ extreme = false }: { extreme?: boolean }) {
         title="Unable to load Memberships"
       />
       <ForbiddenState
-        action={<Button variant="secondary">Choose another Organization</Button>}
+        action={
+          <Button variant="secondary">Choose another Organization</Button>
+        }
         description="Your Membership does not have Permission to view this area."
       />
       <ReadOnlyState

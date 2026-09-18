@@ -30,43 +30,46 @@ export const buttonVariants = cva(
 );
 
 export interface ButtonProps
-  extends Omit<ComponentProps<typeof BaseButton>, "className">,
+  extends
+    Omit<ComponentProps<typeof BaseButton>, "className">,
     VariantProps<typeof buttonVariants> {
   className?: string;
   loading?: boolean;
   loadingLabel?: string;
 }
 
-export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  {
-    children,
-    className,
-    disabled,
-    loading = false,
-    loadingLabel = "Loading",
-    size,
-    variant,
-    ...properties
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
+  function Button(
+    {
+      children,
+      className,
+      disabled,
+      loading = false,
+      loadingLabel = "Loading",
+      size,
+      variant,
+      ...properties
+    },
+    reference,
+  ) {
+    return (
+      <BaseButton
+        {...properties}
+        aria-busy={loading || undefined}
+        className={cn(buttonVariants({ size, variant }), className)}
+        disabled={disabled || loading}
+        ref={reference}
+      >
+        {loading ? (
+          <span
+            className="size-4 animate-spin rounded-full border-2 border-current border-r-transparent motion-reduce:animate-none"
+            aria-hidden="true"
+            data-slot="loading-indicator"
+          />
+        ) : null}
+        <span aria-hidden={loading || undefined}>{children}</span>
+        {loading ? <span className="sr-only">{loadingLabel}</span> : null}
+      </BaseButton>
+    );
   },
-  reference,
-) {
-  return (
-    <BaseButton
-      {...properties}
-      aria-busy={loading || undefined}
-      className={cn(buttonVariants({ size, variant }), className)}
-      disabled={disabled || loading}
-      ref={reference}
-    >
-      {loading ? (
-        <span
-          className="size-4 animate-spin rounded-full border-2 border-current border-r-transparent motion-reduce:animate-none"
-          aria-hidden="true"
-          data-slot="loading-indicator"
-        />
-      ) : null}
-      <span aria-hidden={loading || undefined}>{children}</span>
-      {loading ? <span className="sr-only">{loadingLabel}</span> : null}
-    </BaseButton>
-  );
-});
+);

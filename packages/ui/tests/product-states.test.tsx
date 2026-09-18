@@ -19,9 +19,13 @@ describe("product states", () => {
       />,
     );
 
-    const progress = screen.getByRole("progressbar", { name: "Loading Memberships" });
+    const progress = screen.getByRole("progressbar", {
+      name: "Loading Memberships",
+    });
     expect(progress.getAttribute("aria-valuenow")).toBeNull();
-    expect(screen.getByText("Retrieving Memberships for the Active Organization.")).toBeTruthy();
+    expect(
+      screen.getByText("Retrieving Memberships for the Active Organization."),
+    ).toBeTruthy();
   });
 
   it("keeps empty, forbidden and Read-only Organization actions discoverable", () => {
@@ -44,13 +48,25 @@ describe("product states", () => {
     );
 
     const empty = screen.getByRole("region", { name: "No Memberships found" });
-    expect(within(empty).getByRole("button", { name: "Invite User" })).toBeTruthy();
+    expect(
+      within(empty).getByRole("button", { name: "Invite User" }),
+    ).toBeTruthy();
 
-    const forbidden = screen.getByRole("region", { name: "Access unavailable" });
-    expect(within(forbidden).getByRole("link", { name: "Choose another Organization" })).toBeTruthy();
+    const forbidden = screen.getByRole("region", {
+      name: "Access unavailable",
+    });
+    expect(
+      within(forbidden).getByRole("link", {
+        name: "Choose another Organization",
+      }),
+    ).toBeTruthy();
 
-    const readOnly = screen.getByRole("status", { name: "Read-only Organization" });
-    expect(within(readOnly).getByRole("link", { name: "Resolve billing" })).toBeTruthy();
+    const readOnly = screen.getByRole("status", {
+      name: "Read-only Organization",
+    });
+    expect(
+      within(readOnly).getByRole("link", { name: "Resolve billing" }),
+    ).toBeTruthy();
   });
 
   it("announces a failed operation and exposes its recovery action", () => {
@@ -62,8 +78,14 @@ describe("product states", () => {
       />,
     );
 
-    const error = screen.getByRole("alert", { name: "Unable to load Memberships" });
-    expect(within(error).getByText("Memberships could not be loaded.")).toBeTruthy();
-    expect(within(error).getByRole("button", { name: "Try again" })).toBeTruthy();
+    const error = screen.getByRole("alert", {
+      name: "Unable to load Memberships",
+    });
+    expect(
+      within(error).getByText("Memberships could not be loaded."),
+    ).toBeTruthy();
+    expect(
+      within(error).getByRole("button", { name: "Try again" }),
+    ).toBeTruthy();
   });
 });

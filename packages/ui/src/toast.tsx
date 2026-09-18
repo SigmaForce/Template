@@ -75,7 +75,10 @@ export function ToastProvider({
     <BaseToast.Provider limit={limit} timeout={timeout}>
       {children}
       <BaseToast.Portal>
-        <BaseToast.Viewport className="fixed right-4 top-4 z-[60] flex max-h-[calc(100dvh-2rem)] flex-col gap-3 outline-none" aria-label="Notifications">
+        <BaseToast.Viewport
+          className="fixed right-4 top-4 z-[60] flex max-h-[calc(100dvh-2rem)] flex-col gap-3 outline-none"
+          aria-label="Notifications"
+        >
           <ToastList />
         </BaseToast.Viewport>
       </BaseToast.Portal>

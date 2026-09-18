@@ -19,8 +19,9 @@ const dropdownItemVariants = cva(
   },
 );
 
-export interface DropdownItem
-  extends VariantProps<typeof dropdownItemVariants> {
+export interface DropdownItem extends VariantProps<
+  typeof dropdownItemVariants
+> {
   disabled?: boolean;
   href?: string;
   label: string;

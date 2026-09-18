@@ -48,10 +48,17 @@ test("form pattern remains visually stable in the light theme", async () => {
       className="grid w-[44rem] gap-5 bg-canvas p-8 text-foreground"
       data-testid="form-pattern"
     >
-      <FormField description="Visible to every Membership." label="Organization name" required>
+      <FormField
+        description="Visible to every Membership."
+        label="Organization name"
+        required
+      >
         <Input defaultValue="Northstar Organization" required />
       </FormField>
-      <FormField error="Use at least three characters." label="Invalid description">
+      <FormField
+        error="Use at least three characters."
+        label="Invalid description"
+      >
         <Textarea aria-invalid defaultValue="N" />
       </FormField>
       <Select
@@ -99,9 +106,9 @@ test("overlay pattern remains visually stable in the dark theme", async () => {
     </div>,
   );
 
-  await expect(page.getByRole("dialog", { name: "Edit Organization" })).toMatchScreenshot(
-    "dialog-pattern-dark",
-  );
+  await expect(
+    page.getByRole("dialog", { name: "Edit Organization" }),
+  ).toMatchScreenshot("dialog-pattern-dark");
 });
 
 test("urgent feedback remains visually stable in the dark theme", async () => {
@@ -122,5 +129,7 @@ test("urgent feedback remains visually stable in the dark theme", async () => {
     throw new Error("The visible toast root was not rendered.");
   }
 
-  await expect(page.elementLocator(toast)).toMatchScreenshot("toast-pattern-dark");
+  await expect(page.elementLocator(toast)).toMatchScreenshot(
+    "toast-pattern-dark",
+  );
 });

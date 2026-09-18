@@ -65,7 +65,9 @@ describe("form controls", () => {
     admin.focus();
     await user.keyboard("{ArrowDown}");
     expect(
-      screen.getByRole("radio", { name: "Member" }).getAttribute("aria-checked"),
+      screen
+        .getByRole("radio", { name: "Member" })
+        .getAttribute("aria-checked"),
     ).toBe("true");
 
     const toggle = screen.getByRole("switch", {
@@ -97,9 +99,11 @@ describe("form controls", () => {
       </div>,
     );
 
-    expect(screen.getByRole("textbox", { name: "Reason" }).getAttribute("aria-invalid")).toBe(
-      "true",
-    );
+    expect(
+      screen
+        .getByRole("textbox", { name: "Reason" })
+        .getAttribute("aria-invalid"),
+    ).toBe("true");
 
     const link = screen.getByRole("link", { name: "Open billing" });
     expect(link.getAttribute("aria-disabled")).toBe("true");
@@ -140,22 +144,31 @@ describe("form controls", () => {
     );
 
     expect(
-      screen.getByRole("checkbox", { name: "Disabled alerts" }).getAttribute("aria-disabled"),
+      screen
+        .getByRole("checkbox", { name: "Disabled alerts" })
+        .getAttribute("aria-disabled"),
     ).toBe("true");
-    expect(screen.getByRole("radio", { name: "Member" }).getAttribute("aria-invalid")).toBe(
-      "true",
-    );
+    expect(
+      screen
+        .getByRole("radio", { name: "Member" })
+        .getAttribute("aria-invalid"),
+    ).toBe("true");
     expect(
       screen
         .getByRole("switch", { name: "Disabled authentication" })
         .getAttribute("aria-disabled"),
     ).toBe("true");
     expect(
-      screen.getByRole("combobox", { name: "Disabled locale" }).getAttribute("aria-invalid"),
+      screen
+        .getByRole("combobox", { name: "Disabled locale" })
+        .getAttribute("aria-invalid"),
     ).toBe("true");
     expect(
-      (screen.getByRole("textbox", { name: "Invalid description" }) as HTMLTextAreaElement)
-        .disabled,
+      (
+        screen.getByRole("textbox", {
+          name: "Invalid description",
+        }) as HTMLTextAreaElement
+      ).disabled,
     ).toBe(true);
   });
 });

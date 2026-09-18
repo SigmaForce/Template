@@ -20,7 +20,8 @@ export const badgeVariants = cva(
 );
 
 export interface BadgeProps
-  extends Omit<ComponentProps<"span">, "className">,
+  extends
+    Omit<ComponentProps<"span">, "className">,
     VariantProps<typeof badgeVariants> {
   className?: string;
 }

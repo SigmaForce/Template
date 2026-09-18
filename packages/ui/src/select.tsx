@@ -24,7 +24,9 @@ export interface SelectOption {
   value: string;
 }
 
-export interface SelectProps extends VariantProps<typeof selectTriggerVariants> {
+export interface SelectProps extends VariantProps<
+  typeof selectTriggerVariants
+> {
   className?: string;
   defaultValue?: string | null;
   disabled?: boolean;

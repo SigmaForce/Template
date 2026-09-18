@@ -50,14 +50,19 @@ function InteractionShowcase({ extreme = false }: { extreme?: boolean }) {
             title="Edit Organization"
             trigger={<Button>Open dialog</Button>}
           >
-            <Input aria-label="Organization name" defaultValue="Northstar Organization" />
+            <Input
+              aria-label="Organization name"
+              defaultValue="Northstar Organization"
+            />
           </Dialog>
           <Drawer
             description={description}
             title="Organization filters"
             trigger={<Button variant="secondary">Open drawer</Button>}
           >
-            <p className="leading-7 text-muted">{extreme ? description.repeat(5) : description}</p>
+            <p className="leading-7 text-muted">
+              {extreme ? description.repeat(5) : description}
+            </p>
           </Drawer>
           <Dropdown
             items={[
@@ -109,12 +114,18 @@ export const DialogKeyboardFlow: Story = {
     await userEvent.click(trigger);
 
     const page = within(canvasElement.ownerDocument.body);
-    const dialog = await page.findByRole("dialog", { name: "Edit Organization" });
-    await expect(dialog.contains(canvasElement.ownerDocument.activeElement)).toBe(true);
+    const dialog = await page.findByRole("dialog", {
+      name: "Edit Organization",
+    });
+    await expect(
+      dialog.contains(canvasElement.ownerDocument.activeElement),
+    ).toBe(true);
 
     await userEvent.keyboard("{Escape}");
     await waitFor(() =>
-      expect(page.queryByRole("dialog", { name: "Edit Organization" })).toBeNull(),
+      expect(
+        page.queryByRole("dialog", { name: "Edit Organization" }),
+      ).toBeNull(),
     );
     await expect(trigger).toHaveFocus();
   },

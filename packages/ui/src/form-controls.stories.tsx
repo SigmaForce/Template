@@ -13,7 +13,10 @@ function FormShowcase({ extreme = false }: { extreme?: boolean }) {
     "A deliberately long description explains how this value appears to every Membership in the Active Organization without clipping controls or hiding the recovery action.";
 
   return (
-    <form className="mx-auto grid max-w-3xl gap-8 p-5 sm:p-8" onSubmit={(event) => event.preventDefault()}>
+    <form
+      className="mx-auto grid max-w-3xl gap-8 p-5 sm:p-8"
+      onSubmit={(event) => event.preventDefault()}
+    >
       <div>
         <p className="text-xs font-black uppercase tracking-[0.16em] text-accent-strong">
           Form foundation
@@ -22,14 +25,17 @@ function FormShowcase({ extreme = false }: { extreme?: boolean }) {
           Organization settings
         </h1>
         <p className="mt-2 max-w-2xl leading-7 text-muted">
-          Normal, focused, disabled, invalid and loading states share one semantic system.
+          Normal, focused, disabled, invalid and loading states share one
+          semantic system.
         </p>
       </div>
 
       <div className="grid gap-6 sm:grid-cols-2">
         <FormField
           description={extreme ? longText : "Visible to every Membership."}
-          label={extreme ? `Organization name — ${longText}` : "Organization name"}
+          label={
+            extreme ? `Organization name — ${longText}` : "Organization name"
+          }
           required
         >
           <Input defaultValue="Northstar Organization" required />
@@ -56,10 +62,18 @@ function FormShowcase({ extreme = false }: { extreme?: boolean }) {
       </div>
 
       <FormField
-        description={extreme ? longText : "Give Members enough context to recognize it."}
+        description={
+          extreme ? longText : "Give Members enough context to recognize it."
+        }
         label="Description"
       >
-        <Textarea defaultValue={extreme ? longText.repeat(3) : "A focused home for modern B2B organizations."} />
+        <Textarea
+          defaultValue={
+            extreme
+              ? longText.repeat(3)
+              : "A focused home for modern B2B organizations."
+          }
+        />
       </FormField>
 
       <div className="grid gap-6 rounded-panel border border-border bg-surface p-5 sm:grid-cols-2">
@@ -72,7 +86,11 @@ function FormShowcase({ extreme = false }: { extreme?: boolean }) {
           options={[
             { label: "Admin", value: "admin" },
             { label: "Member", value: "member" },
-            { disabled: true, label: "Owner — assigned explicitly", value: "owner" },
+            {
+              disabled: true,
+              label: "Owner — assigned explicitly",
+              value: "owner",
+            },
           ]}
         />
       </div>
@@ -124,7 +142,10 @@ function ControlStateMatrix() {
         <FormField label="Unavailable description">
           <Textarea defaultValue="Managed by policy" disabled />
         </FormField>
-        <FormField error="Describe the Organization." label="Invalid description">
+        <FormField
+          error="Describe the Organization."
+          label="Invalid description"
+        >
           <Textarea aria-invalid defaultValue="N" />
         </FormField>
       </div>
@@ -133,7 +154,11 @@ function ControlStateMatrix() {
         <Checkbox aria-invalid label="Invalid alert choice" />
         <Switch disabled label="Unavailable authentication" />
         <Switch aria-invalid label="Invalid authentication choice" />
-        <RadioGroup aria-invalid className="sm:col-span-2" label="Invalid Membership Role">
+        <RadioGroup
+          aria-invalid
+          className="sm:col-span-2"
+          label="Invalid Membership Role"
+        >
           <Radio aria-invalid label="Member" value="member" />
         </RadioGroup>
       </div>
@@ -146,7 +171,10 @@ function FocusSequence() {
     <div className="mx-auto flex max-w-xl flex-col items-start gap-5 p-8">
       <Button>Begin</Button>
       <Checkbox label="Alerts" />
-      <RadioGroup label="Membership Role" options={[{ label: "Member", value: "member" }]} />
+      <RadioGroup
+        label="Membership Role"
+        options={[{ label: "Member", value: "member" }]}
+      />
       <Switch label="Authentication" />
       <Select label="Locale" options={[{ label: "English", value: "en" }]} />
       <Textarea aria-label="Description" />
@@ -180,7 +208,10 @@ export const AllControlStates: Story = {
 export const FocusedInput: Story = {
   render: () => (
     <div className="mx-auto max-w-lg p-8">
-      <FormField description="Focus remains visible in every theme." label="Focused input">
+      <FormField
+        description="Focus remains visible in every theme."
+        label="Focused input"
+      >
         <Input autoFocus defaultValue="Keyboard focus" />
       </FormField>
     </div>
@@ -214,7 +245,9 @@ export const ReducedMotionLoading: Story = {
       .querySelector<HTMLElement>('[data-slot="loading-indicator"]');
 
     await expect(indicator).not.toBeNull();
-    await expect(getComputedStyle(indicator!).animationIterationCount).toBe("1");
+    await expect(getComputedStyle(indicator!).animationIterationCount).toBe(
+      "1",
+    );
   },
 };
 

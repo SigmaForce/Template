@@ -37,7 +37,9 @@ export function CursorPagination({
       <div className="flex gap-2">
         <Button
           disabled={!previousCursor}
-          onClick={() => previousCursor && onNavigate(previousCursor, "previous")}
+          onClick={() =>
+            previousCursor && onNavigate(previousCursor, "previous")
+          }
           size="sm"
           variant="secondary"
         >
@@ -117,13 +119,18 @@ export function DataTable<Row>({
                 {column.header}
               </TableHead>
             ))}
-            {actions ? <TableHead className="text-right">{actionsLabel}</TableHead> : null}
+            {actions ? (
+              <TableHead className="text-right">{actionsLabel}</TableHead>
+            ) : null}
           </TableRow>
         </TableHeader>
         <TableBody>
           {rows.length === 0 ? (
             <TableRow>
-              <TableCell className="py-10 text-center text-muted" colSpan={columnCount}>
+              <TableCell
+                className="py-10 text-center text-muted"
+                colSpan={columnCount}
+              >
                 {emptyContent}
               </TableCell>
             </TableRow>
@@ -138,7 +145,9 @@ export function DataTable<Row>({
                     {column.cell(row)}
                   </TableCell>
                 ))}
-                {actions ? <TableCell className="text-right">{actions(row)}</TableCell> : null}
+                {actions ? (
+                  <TableCell className="text-right">{actions(row)}</TableCell>
+                ) : null}
               </TableRow>
             ))
           )}

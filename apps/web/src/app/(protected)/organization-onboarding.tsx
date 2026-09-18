@@ -298,10 +298,7 @@ export function OrganizationOnboarding({ apiUrl }: { apiUrl: string }) {
         }
         organization = accepted.organization;
         const checkpoint = { ...recovery, organization };
-        localStorage.setItem(
-          invitationRecoveryKey,
-          JSON.stringify(checkpoint),
-        );
+        localStorage.setItem(invitationRecoveryKey, JSON.stringify(checkpoint));
         setInvitationRecovery(checkpoint);
       }
       await setActive({ organization: organization.id });

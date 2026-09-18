@@ -8,7 +8,10 @@ export interface BreadcrumbItem {
   label: ReactNode;
 }
 
-export interface BreadcrumbProps extends Omit<ComponentProps<"nav">, "children"> {
+export interface BreadcrumbProps extends Omit<
+  ComponentProps<"nav">,
+  "children"
+> {
   items: BreadcrumbItem[];
   label?: string;
 }
@@ -26,7 +29,10 @@ export function Breadcrumb({
           const current = index === items.length - 1;
 
           return (
-            <li className="flex min-w-0 items-center gap-2" key={`${index}-${String(item.href)}`}>
+            <li
+              className="flex min-w-0 items-center gap-2"
+              key={`${index}-${String(item.href)}`}
+            >
               {index > 0 ? (
                 <span className="text-subtle" aria-hidden="true">
                   /
@@ -42,7 +48,10 @@ export function Breadcrumb({
               ) : (
                 <span
                   aria-current={current ? "page" : undefined}
-                  className={cn("truncate", current && "font-bold text-foreground")}
+                  className={cn(
+                    "truncate",
+                    current && "font-bold text-foreground",
+                  )}
                 >
                   {item.label}
                 </span>

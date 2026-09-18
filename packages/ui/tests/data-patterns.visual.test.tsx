@@ -45,15 +45,25 @@ test("data display pattern remains stable in the light theme", async () => {
               content: (
                 <DataTable
                   actions={(row) => (
-                    <Button aria-label={`Manage ${row.name}`} size="sm" variant="ghost">
+                    <Button
+                      aria-label={`Manage ${row.name}`}
+                      size="sm"
+                      variant="ghost"
+                    >
                       Manage
                     </Button>
                   )}
                   caption="Memberships"
                   columns={[
-                    { cell: (row) => row.name, header: "Membership", key: "name" },
                     {
-                      cell: (row) => <Badge tone="positive">{row.status}</Badge>,
+                      cell: (row) => row.name,
+                      header: "Membership",
+                      key: "name",
+                    },
+                    {
+                      cell: (row) => (
+                        <Badge tone="positive">{row.status}</Badge>
+                      ),
                       header: "Status",
                       key: "status",
                     },
@@ -65,8 +75,16 @@ test("data display pattern remains stable in the light theme", async () => {
                     previousCursor: null,
                   }}
                   rows={[
-                    { id: "membership_1", name: "Alex Morgan", status: "Active" },
-                    { id: "membership_2", name: "Jordan Lee", status: "Active" },
+                    {
+                      id: "membership_1",
+                      name: "Alex Morgan",
+                      status: "Active",
+                    },
+                    {
+                      id: "membership_2",
+                      name: "Jordan Lee",
+                      status: "Active",
+                    },
                   ]}
                 />
               ),

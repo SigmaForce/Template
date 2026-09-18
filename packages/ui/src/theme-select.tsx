@@ -6,7 +6,11 @@ import { useSyncExternalStore } from "react";
 const subscribe = () => () => undefined;
 
 export function ThemeSelect() {
-  const mounted = useSyncExternalStore(subscribe, () => true, () => false);
+  const mounted = useSyncExternalStore(
+    subscribe,
+    () => true,
+    () => false,
+  );
   const { setTheme, theme } = useTheme();
 
   return (
@@ -23,7 +27,10 @@ export function ThemeSelect() {
         <option value="light">Light</option>
         <option value="dark">Dark</option>
       </select>
-      <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-subtle" aria-hidden="true">
+      <span
+        className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-subtle"
+        aria-hidden="true"
+      >
         ▾
       </span>
     </label>

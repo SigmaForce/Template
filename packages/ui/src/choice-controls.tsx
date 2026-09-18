@@ -5,12 +5,7 @@ import { Radio as BaseRadio } from "@base-ui/react/radio";
 import { RadioGroup as BaseRadioGroup } from "@base-ui/react/radio-group";
 import { Switch as BaseSwitch } from "@base-ui/react/switch";
 import { cva, type VariantProps } from "class-variance-authority";
-import {
-  forwardRef,
-  useId,
-  type ComponentProps,
-  type ReactNode,
-} from "react";
+import { forwardRef, useId, type ComponentProps, type ReactNode } from "react";
 import { cn } from "./utils";
 
 const choiceIndicatorVariants = cva(
@@ -27,46 +22,57 @@ const choiceIndicatorVariants = cva(
 );
 
 export interface CheckboxProps
-  extends Omit<ComponentProps<typeof BaseCheckbox.Root>, "className">,
+  extends
+    Omit<ComponentProps<typeof BaseCheckbox.Root>, "className">,
     VariantProps<typeof choiceIndicatorVariants> {
   className?: string;
   description?: ReactNode;
   label: ReactNode;
 }
 
-export const Checkbox = forwardRef<HTMLElement, CheckboxProps>(function Checkbox(
-  { className, description, label, size, ...properties },
-  reference,
-) {
-  const labelId = useId();
-  const descriptionId = useId();
+export const Checkbox = forwardRef<HTMLElement, CheckboxProps>(
+  function Checkbox(
+    { className, description, label, size, ...properties },
+    reference,
+  ) {
+    const labelId = useId();
+    const descriptionId = useId();
 
-  return (
-    <label className={cn("flex items-start gap-3 text-sm text-foreground", className)}>
-      <BaseCheckbox.Root
-        {...properties}
-        aria-describedby={description ? descriptionId : undefined}
-        aria-labelledby={labelId}
-        className={cn(choiceIndicatorVariants({ size }), "mt-0.5 rounded-choice")}
-        ref={reference}
+    return (
+      <label
+        className={cn(
+          "flex items-start gap-3 text-sm text-foreground",
+          className,
+        )}
       >
-        <BaseCheckbox.Indicator className="text-xs font-black">
-          ✓
-        </BaseCheckbox.Indicator>
-      </BaseCheckbox.Root>
-      <span className="grid gap-1">
-        <span className="font-semibold" id={labelId}>
-          {label}
-        </span>
-        {description ? (
-          <span className="leading-5 text-muted" id={descriptionId}>
-            {description}
+        <BaseCheckbox.Root
+          {...properties}
+          aria-describedby={description ? descriptionId : undefined}
+          aria-labelledby={labelId}
+          className={cn(
+            choiceIndicatorVariants({ size }),
+            "mt-0.5 rounded-choice",
+          )}
+          ref={reference}
+        >
+          <BaseCheckbox.Indicator className="text-xs font-black">
+            ✓
+          </BaseCheckbox.Indicator>
+        </BaseCheckbox.Root>
+        <span className="grid gap-1">
+          <span className="font-semibold" id={labelId}>
+            {label}
           </span>
-        ) : null}
-      </span>
-    </label>
-  );
-});
+          {description ? (
+            <span className="leading-5 text-muted" id={descriptionId}>
+              {description}
+            </span>
+          ) : null}
+        </span>
+      </label>
+    );
+  },
+);
 
 export interface RadioOption {
   disabled?: boolean;
@@ -75,7 +81,8 @@ export interface RadioOption {
 }
 
 export interface RadioProps
-  extends Omit<ComponentProps<typeof BaseRadio.Root<string>>, "className">,
+  extends
+    Omit<ComponentProps<typeof BaseRadio.Root<string>>, "className">,
     VariantProps<typeof choiceIndicatorVariants> {
   className?: string;
   label: ReactNode;
@@ -88,7 +95,12 @@ export const Radio = forwardRef<HTMLElement, RadioProps>(function Radio(
   const labelId = useId();
 
   return (
-    <label className={cn("flex items-center gap-3 text-sm text-foreground", className)}>
+    <label
+      className={cn(
+        "flex items-center gap-3 text-sm text-foreground",
+        className,
+      )}
+    >
       <BaseRadio.Root
         {...properties}
         aria-labelledby={labelId}
@@ -106,8 +118,10 @@ export const Radio = forwardRef<HTMLElement, RadioProps>(function Radio(
   );
 });
 
-export interface RadioGroupProps
-  extends Omit<ComponentProps<typeof BaseRadioGroup>, "children"> {
+export interface RadioGroupProps extends Omit<
+  ComponentProps<typeof BaseRadioGroup>,
+  "children"
+> {
   children?: ReactNode;
   className?: string;
   label: ReactNode;
@@ -130,7 +144,11 @@ export function RadioGroup({
       <legend className="mb-1 text-sm font-bold text-foreground" id={labelId}>
         {label}
       </legend>
-      <BaseRadioGroup {...properties} aria-labelledby={labelId} className="grid gap-2">
+      <BaseRadioGroup
+        {...properties}
+        aria-labelledby={labelId}
+        className="grid gap-2"
+      >
         {children}
         {options?.map((option) => (
           <Radio
@@ -160,7 +178,8 @@ const switchVariants = cva(
 );
 
 export interface SwitchProps
-  extends Omit<ComponentProps<typeof BaseSwitch.Root>, "className">,
+  extends
+    Omit<ComponentProps<typeof BaseSwitch.Root>, "className">,
     VariantProps<typeof switchVariants> {
   className?: string;
   description?: ReactNode;
@@ -175,7 +194,12 @@ export const Switch = forwardRef<HTMLElement, SwitchProps>(function Switch(
   const descriptionId = useId();
 
   return (
-    <label className={cn("flex items-start justify-between gap-4 text-sm", className)}>
+    <label
+      className={cn(
+        "flex items-start justify-between gap-4 text-sm",
+        className,
+      )}
+    >
       <span className="grid gap-1">
         <span className="font-semibold text-foreground" id={labelId}>
           {label}
