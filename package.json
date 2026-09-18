@@ -8,6 +8,7 @@
     "node": ">=22.18.0"
   },
   "scripts": {
+    "bootstrap": "node scripts/bootstrap.mjs",
     "build": "turbo run build",
     "contract:check": "pnpm --filter @saas/api build && node scripts/generate-contract.mjs --check",
     "contract:generate": "pnpm --filter @saas/api build && node scripts/generate-contract.mjs",

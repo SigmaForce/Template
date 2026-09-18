@@ -16,11 +16,13 @@ Create the local environment file once:
 Copy-Item .env.example .env
 ```
 
-Install dependencies and start infrastructure plus every application:
+Install dependencies, bootstrap local infrastructure with synthetic data, and
+start every application:
 
 ```sh
 corepack pnpm install --frozen-lockfile
-corepack pnpm dev
+corepack pnpm bootstrap
+corepack pnpm dev:apps
 ```
 
 The web application runs at `http://localhost:3000`, the API at `http://localhost:4000`, and the worker health endpoint at `http://localhost:4001/health`.
@@ -35,6 +37,10 @@ corepack pnpm contract:check
 Never edit `openapi.json` or `src/generated/schema.ts` directly. Change the NestJS DTOs and decorators, then regenerate both artifacts.
 
 If configuration is absent or invalid, startup stops and reports each value that needs attention.
+
+Follow the complete first-clone setup, Organization journey, customization
+boundaries, troubleshooting, and future-phase limits in
+[`docs/development.md`](./docs/development.md).
 
 ## Authentication
 
