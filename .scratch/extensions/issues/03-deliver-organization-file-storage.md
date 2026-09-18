@@ -3,6 +3,8 @@
 **What to build:** managed-object-storage upload, download, metadata, and
 deletion lifecycle for Organization-owned files.
 
+**Decision:** ADR-0018.
+
 **Blocked by:** 01, 02.
 
 **Status:** ready-for-agent

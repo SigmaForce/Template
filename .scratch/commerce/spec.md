@@ -9,6 +9,13 @@ the financial authority; the application owns a versioned Plan-to-Capability
 catalog and an idempotent local Subscription projection. An Organization moves
 to read-only only after its seven-day Grace Period ends.
 
+## Governing decisions
+
+- ADR-0003: Stripe is financially authoritative; access is locally projected.
+- ADR-0004: durable work runs in BullMQ workers.
+- ADR-0008: inbound provider events use a durable inbox.
+- ADR-0012: Plan and Capability definitions are versioned in code.
+
 ## Boundaries
 
 - Stripe Checkout and Customer Portal are the only payment UI; card data never

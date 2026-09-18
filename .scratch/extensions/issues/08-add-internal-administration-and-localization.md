@@ -3,6 +3,9 @@
 **What to build:** separately authorized operational administration plus
 localization infrastructure for supported product copy and civil data.
 
+**Decision:** ADR-0019 for administration; localization remains undecided until
+supported locales are selected.
+
 **Blocked by:** 01, 02.
 
 **Status:** ready-for-agent

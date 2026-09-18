@@ -9,6 +9,14 @@ outbound Webhooks, notifications, internal administration, and localization.
 Each module has explicit ownership, authorization, operational behavior, and a
 documented removal recipe rather than a permanent runtime switch.
 
+## Governing decisions
+
+- ADR-0007: optional modules are removed by recipe.
+- ADR-0013: machine integrations are Organization owned.
+- ADR-0017: Audit Events are distinct from operational logs.
+- ADR-0018: Files use Railway Buckets with PostgreSQL metadata.
+- ADR-0019: Operators are separate from Organization Roles.
+
 ## Boundaries
 
 - API Keys and Webhook Endpoints belong to an Organization; a creator is audit

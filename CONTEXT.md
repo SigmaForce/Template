@@ -79,3 +79,12 @@ _Avoid_: Callback, integration URL
 **Webhook Delivery**:
 A recorded attempt to send one product event to a Webhook Endpoint.
 _Avoid_: Webhook, request
+
+**File**:
+Organization-owned object metadata and bytes stored through the Files extension.
+_Avoid_: Attachment, blob
+
+**Operator**:
+An internal staff identity authorized to perform operational administration; it
+is not a User Role or a Membership.
+_Avoid_: Admin, superuser

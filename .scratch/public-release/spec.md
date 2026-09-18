@@ -8,6 +8,12 @@ Publish the template safely as an MIT-licensed public repository with repeatable
 Vercel, Railway, and Neon deployments; coordinated preview environments;
 release documentation; recovery operations; and a final threat-model review.
 
+## Governing decisions
+
+- ADR-0007: releases are versioned and clones are not automatically updated.
+- ADR-0009: Neon provides pooled runtime and direct migration connections.
+- ADR-0010: previews coordinate Vercel, Railway, and short-lived Neon branches.
+
 ## Boundaries
 
 - Preview data is synthetic or anonymized, never production-derived by default.

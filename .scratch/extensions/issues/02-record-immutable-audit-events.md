@@ -3,6 +3,8 @@
 **What to build:** Organization-scoped Audit Events for security-sensitive and
 administrative actions, with authorized read access and no mutation endpoint.
 
+**Decision:** ADR-0017.
+
 **Blocked by:** 01.
 
 **Status:** ready-for-agent
