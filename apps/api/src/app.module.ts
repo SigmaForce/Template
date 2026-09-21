@@ -9,9 +9,14 @@ import {
   OrganizationsModule,
   type OrganizationModuleOptions,
 } from './organizations/organizations.module.js';
+import {
+  CommerceModule,
+  type CommerceModuleOptions,
+} from './commerce/commerce.module.js';
 
 export interface AppModuleOptions {
   authentication: AuthenticationOptions;
+  commerce: Omit<CommerceModuleOptions, 'repository'>;
   organizations: OrganizationModuleOptions;
 }
 
@@ -23,6 +28,10 @@ export class AppModule {
       imports: [
         AuthenticationModule.register(options.authentication),
         OrganizationsModule.register(options.organizations),
+        CommerceModule.register({
+          repository: options.organizations.repository,
+          ...options.commerce,
+        }),
       ],
       controllers: [
         AppController,

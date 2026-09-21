@@ -34,6 +34,18 @@ describe('AppController (e2e)', () => {
             jwtKey: authenticationPublicKey,
             ...(rateLimit ? { rateLimit } : {}),
           },
+          commerce: {
+            stripePlanMappings: {
+              launch: {
+                priceId: 'price_launchTest',
+                productId: 'prod_launchTest',
+              },
+              scale: {
+                priceId: 'price_scaleTest',
+                productId: 'prod_scaleTest',
+              },
+            },
+          },
           organizations: {
             directory,
             repository,
@@ -937,6 +949,132 @@ describe('AppController (e2e)', () => {
           'organization:delete',
         ]),
       );
+    });
+  });
+
+  describe('Plan catalog', () => {
+    const organization = {
+      id: 'org_catalog',
+      name: 'Catalog Labs',
+      slug: 'catalog-labs',
+      locale: 'en-US',
+      timeZone: 'UTC',
+      state: 'active' as const,
+    };
+
+    it('publishes one deterministic Organization-scoped catalog without treating Capabilities as Permissions', async () => {
+      await app.close();
+      app = await createApp(
+        [],
+        undefined,
+        new MemoryOrganizationRepository({
+          organizations: [organization],
+          memberships: [
+            {
+              organizationId: organization.id,
+              role: 'owner',
+              status: 'active',
+              userId: 'user_catalog_owner',
+            },
+            {
+              organizationId: organization.id,
+              role: 'admin',
+              status: 'active',
+              userId: 'user_catalog_admin',
+            },
+          ],
+        }),
+      );
+      const authorization = `Bearer ${createSessionToken({
+        organization,
+        organizationRole: 'owner',
+        userId: 'user_catalog_owner',
+      })}`;
+      const expectedCatalog = {
+        version: '2026-09-21',
+        capabilities: [
+          {
+            id: 'billing',
+            name: 'Billing',
+            description: 'View and manage the Organization Plan.',
+          },
+          {
+            id: 'organization-memberships',
+            name: 'Organization Memberships',
+            description: 'Invite and manage Organization Memberships.',
+          },
+          {
+            id: 'organization-settings',
+            name: 'Organization Settings',
+            description: 'View and manage Organization settings.',
+          },
+        ],
+        plans: [
+          {
+            id: 'launch',
+            name: 'Launch',
+            version: 1,
+            seatAllowance: 5,
+            capabilities: [
+              'billing',
+              'organization-memberships',
+              'organization-settings',
+            ],
+          },
+          {
+            id: 'scale',
+            name: 'Scale',
+            version: 1,
+            seatAllowance: 25,
+            capabilities: [
+              'billing',
+              'organization-memberships',
+              'organization-settings',
+            ],
+          },
+        ],
+      };
+
+      const [first, second, activeOrganization] = await Promise.all([
+        request(app.getHttpServer())
+          .get(`/v1/organizations/${organization.id}/billing/catalog`)
+          .set('authorization', authorization)
+          .expect(200),
+        request(app.getHttpServer())
+          .get(`/v1/organizations/${organization.id}/billing/catalog`)
+          .set('authorization', authorization)
+          .expect(200),
+        request(app.getHttpServer())
+          .get('/v1/organizations/active')
+          .set('authorization', authorization)
+          .expect(200),
+      ]);
+
+      expect(first.body).toEqual(expectedCatalog);
+      expect(second.body).toEqual(expectedCatalog);
+      const permissionIds = new Set(activeOrganization.body.permissions);
+      expect(
+        first.body.capabilities.filter((capability: { id: string }) =>
+          permissionIds.has(capability.id),
+        ),
+      ).toEqual([]);
+
+      await request(app.getHttpServer())
+        .get(`/v1/organizations/${organization.id}/billing/catalog`)
+        .set(
+          'authorization',
+          `Bearer ${createSessionToken({
+            organization,
+            organizationRole: 'admin',
+            userId: 'user_catalog_admin',
+          })}`,
+        )
+        .expect(403);
+
+      await request(app.getHttpServer())
+        .get('/v1/organizations/org_other/billing/catalog')
+        .set('authorization', authorization)
+        .expect(403);
     });
   });
 

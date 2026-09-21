@@ -33,6 +33,18 @@ describe.skipIf(!databaseUrl)('Organization onboarding with PostgreSQL', () => {
             authorizedParties: ['http://localhost:3000'],
             jwtKey: authenticationPublicKey,
           },
+          commerce: {
+            stripePlanMappings: {
+              launch: {
+                priceId: 'price_launchTest',
+                productId: 'prod_launchTest',
+              },
+              scale: {
+                priceId: 'price_scaleTest',
+                productId: 'prod_scaleTest',
+              },
+            },
+          },
           organizations: {
             directory: new MemoryOrganizationDirectory(),
             repository,

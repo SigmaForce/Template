@@ -47,6 +47,13 @@ type OrganizationSettings =
     }
   | { available: false };
 
+type BillingCatalog =
+  | {
+      available: true;
+      value: components["schemas"]["PlanCatalogDto"];
+    }
+  | { available: false };
+
 type OrganizationSlugResolution =
   | {
       available: true;
@@ -165,6 +172,31 @@ async function getOrganizationSettings(
     const { client, correlatedHeaders } = await createServerApiContext();
     const { data } = await client.GET(
       "/v1/organizations/{organizationId}/settings",
+      {
+        cache: "no-store",
+        headers: {
+          ...correlatedHeaders,
+          authorization: `Bearer ${token}`,
+        },
+        params: { path: { organizationId } },
+        signal: AbortSignal.timeout(3_000),
+      },
+    );
+
+    return data ? { available: true, value: data } : { available: false };
+  } catch {
+    return { available: false };
+  }
+}
+
+async function getBillingCatalog(
+  token: string,
+  organizationId: string,
+): Promise<BillingCatalog> {
+  try {
+    const { client, correlatedHeaders } = await createServerApiContext();
+    const { data } = await client.GET(
+      "/v1/organizations/{organizationId}/billing/catalog",
       {
         cache: "no-store",
         headers: {
@@ -337,9 +369,14 @@ export default async function Home({
   const canUpdateOrganizationSettings = activePermissions.includes(
     permission.organizationSettingsUpdate,
   );
-  const organizationSettings = activeOrganization.available
-    ? await getOrganizationSettings(token, activeOrganization.organization.id)
-    : { available: false as const };
+  const [organizationSettings, billingCatalog] = activeOrganization.available
+    ? await Promise.all([
+        getOrganizationSettings(token, activeOrganization.organization.id),
+        canManageBilling
+          ? getBillingCatalog(token, activeOrganization.organization.id)
+          : Promise.resolve({ available: false as const }),
+      ])
+    : [{ available: false as const }, { available: false as const }];
 
   return (
     <div className="dashboard-page" id="overview">
@@ -507,15 +544,35 @@ export default async function Home({
             aria-labelledby="billing-title"
           >
             <p className="eyebrow">Billing</p>
-            <h2 id="billing-title">Launch plan</h2>
-            <p>Next renewal on October 15 · 8 active seats</p>
-            {canManageBilling ? (
-              <a href="#billing">
-                Manage plan <span aria-hidden="true">↗</span>
-              </a>
+            <h2 id="billing-title">Plan catalog</h2>
+            {billingCatalog.available ? (
+              <>
+                <p>Catalog version {billingCatalog.value.version}</p>
+                <ul className="plan-catalog">
+                  {billingCatalog.value.plans.map((plan) => (
+                    <li key={`${plan.id}-v${plan.version}`}>
+                      <h3>
+                        {plan.name} v{plan.version}
+                      </h3>
+                      <p>{plan.seatAllowance} Seats included</p>
+                      <ul aria-label={`${plan.name} Capabilities`}>
+                        {plan.capabilities.map((capabilityId) => (
+                          <li key={capabilityId}>
+                            {billingCatalog.value.capabilities.find(
+                              (capability) => capability.id === capabilityId,
+                            )?.name ?? capabilityId}
+                          </li>
+                        ))}
+                      </ul>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : canManageBilling ? (
+              <p role="status">The Plan catalog is currently unavailable.</p>
             ) : (
               <p data-testid="billing-permission-required">
-                An Owner can manage this plan.
+                An Owner can view and manage Plans.
               </p>
             )}
           </section>

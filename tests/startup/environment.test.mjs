@@ -24,6 +24,10 @@ function apiEnvironment(authentication) {
     DATABASE_URL: "postgresql://saas:saas@localhost:5432/saas",
     REDIS_URL: "redis://localhost:6379",
     CLERK_AUTHORIZED_PARTIES: "http://localhost:3000",
+    STRIPE_LAUNCH_PRICE_ID: "price_launchTest",
+    STRIPE_LAUNCH_PRODUCT_ID: "prod_launchTest",
+    STRIPE_SCALE_PRICE_ID: "price_scaleTest",
+    STRIPE_SCALE_PRODUCT_ID: "prod_scaleTest",
     ...authentication,
   };
 }
@@ -192,6 +196,37 @@ test("API environment accepts a structurally valid RSA public key", () => {
   );
 });
 
+test("API environment validates server-only Stripe Plan mappings", () => {
+  const configuration = parseApiEnvironment(
+    apiEnvironment({
+      CLERK_SECRET_KEY: "sk_test_c3ludGhldGljLW5vdC1hLXJlYWwta2V5",
+    }),
+  );
+
+  assert.deepEqual(configuration.stripePlanMappings, {
+    launch: {
+      priceId: "price_launchTest",
+      productId: "prod_launchTest",
+    },
+    scale: {
+      priceId: "price_scaleTest",
+      productId: "prod_scaleTest",
+    },
+  });
+
+  assert.throws(
+    () =>
+      parseApiEnvironment({
+        ...apiEnvironment({
+          CLERK_SECRET_KEY: "sk_test_c3ludGhldGljLW5vdC1hLXJlYWwta2V5",
+        }),
+        STRIPE_LAUNCH_PRICE_ID: "launch-price",
+        STRIPE_SCALE_PRODUCT_ID: "",
+      }),
+    /STRIPE_LAUNCH_PRICE_ID must be a valid Stripe price ID[\s\S]*STRIPE_SCALE_PRODUCT_ID is required/,
+  );
+});
+
 test("API environment requires a Clerk secret even with a JWT public key", () => {
   const { publicKey } = generateKeyPairSync("rsa", {
     modulusLength: 2048,
@@ -240,6 +275,10 @@ test("startup reports invalid optional telemetry as degraded without exposing va
       "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_dGVzdC5jbGVyay5hY2NvdW50cy5kZXYk",
       "CLERK_SECRET_KEY=sk_test_c3ludGhldGljLW5vdC1hLXJlYWwta2V5",
       "CLERK_AUTHORIZED_PARTIES=http://localhost:3000",
+      "STRIPE_LAUNCH_PRODUCT_ID=prod_launchTest",
+      "STRIPE_LAUNCH_PRICE_ID=price_launchTest",
+      "STRIPE_SCALE_PRODUCT_ID=prod_scaleTest",
+      "STRIPE_SCALE_PRICE_ID=price_scaleTest",
       "POSTHOG_KEY=phc_private-looking-value",
       "POSTHOG_HOST=not-a-url",
       "SENTRY_DSN=https://known-person@example.invalid/not-a-dsn",

@@ -25,6 +25,13 @@ export interface ApiEnvironment extends RuntimeEnvironment {
     jwtKey?: string;
     secretKey?: string;
   };
+  stripePlanMappings: Record<
+    "launch" | "scale",
+    {
+      priceId: string;
+      productId: string;
+    }
+  >;
 }
 
 export interface WorkerEnvironment extends RuntimeEnvironment {

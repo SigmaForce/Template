@@ -1,6 +1,7 @@
 import type { OrganizationRole, PermissionId } from './permission.js';
 
 export const Capability = {
+  billing: 'billing',
   organizationMemberships: 'organization-memberships',
   organizationSettings: 'organization-settings',
 } as const;

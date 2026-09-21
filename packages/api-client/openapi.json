@@ -103,6 +103,33 @@
         ],
         "type": "object"
       },
+      "CapabilityDto": {
+        "properties": {
+          "description": {
+            "example": "View and manage the Organization Plan.",
+            "type": "string"
+          },
+          "id": {
+            "enum": [
+              "billing",
+              "organization-memberships",
+              "organization-settings"
+            ],
+            "example": "billing",
+            "type": "string"
+          },
+          "name": {
+            "example": "Billing",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description"
+        ],
+        "type": "object"
+      },
       "ContractExampleDto": {
         "properties": {
           "businessDate": {
@@ -532,6 +559,73 @@
         "required": [
           "hasNextPage",
           "nextCursor"
+        ],
+        "type": "object"
+      },
+      "PlanCatalogDto": {
+        "properties": {
+          "capabilities": {
+            "items": {
+              "$ref": "#/components/schemas/CapabilityDto"
+            },
+            "type": "array"
+          },
+          "plans": {
+            "items": {
+              "$ref": "#/components/schemas/PlanDto"
+            },
+            "type": "array"
+          },
+          "version": {
+            "example": "2026-09-21",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "capabilities",
+          "plans"
+        ],
+        "type": "object"
+      },
+      "PlanDto": {
+        "properties": {
+          "capabilities": {
+            "items": {
+              "enum": [
+                "billing",
+                "organization-memberships",
+                "organization-settings"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "id": {
+            "example": "launch",
+            "type": "string"
+          },
+          "name": {
+            "example": "Launch",
+            "type": "string"
+          },
+          "seatAllowance": {
+            "example": 5,
+            "minimum": 1,
+            "type": "number"
+          },
+          "version": {
+            "example": 1,
+            "minimum": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "version",
+          "seatAllowance",
+          "capabilities"
         ],
         "type": "object"
       },
@@ -1110,6 +1204,53 @@
         "summary": "",
         "tags": [
           "organizations"
+        ]
+      }
+    },
+    "/v1/organizations/{organizationId}/billing/catalog": {
+      "get": {
+        "operationId": "getPlanCatalog",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organizationId",
+            "required": true,
+            "schema": {
+              "example": "org_2abc",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanCatalogDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "clerk-session": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "commerce"
         ]
       }
     },

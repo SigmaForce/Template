@@ -350,6 +350,30 @@ h1 {
   margin: 0.6rem 0 1rem;
 }
 
+.plan-catalog,
+.plan-catalog ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.plan-catalog > li {
+  border-top: 1px solid var(--semantic-border);
+  padding: 1rem 0;
+}
+
+.plan-catalog h3,
+.plan-catalog p {
+  margin: 0 0 0.4rem;
+}
+
+.plan-catalog ul {
+  color: var(--semantic-muted);
+  display: grid;
+  font-size: 0.8rem;
+  gap: 0.25rem;
+}
+
 @media (max-width: 64rem) {
   .dashboard-grid {
     grid-template-columns: minmax(0, 1fr);

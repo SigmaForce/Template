@@ -247,6 +247,52 @@ function parseAuthentication(environment, errors) {
   return { secretKey, jwtKey, authorizedParties };
 }
 
+function parseStripeId(environment, name, prefix, errors) {
+  const value = environment[name]?.trim();
+  if (!value) {
+    errors.push(`${name} is required`);
+    return undefined;
+  }
+  if (!new RegExp(`^${prefix}_[A-Za-z0-9]+$`).test(value)) {
+    errors.push(`${name} must be a valid Stripe ${prefix} ID`);
+    return undefined;
+  }
+  return value;
+}
+
+function parseStripePlanMappings(environment, errors) {
+  return {
+    launch: {
+      priceId: parseStripeId(
+        environment,
+        "STRIPE_LAUNCH_PRICE_ID",
+        "price",
+        errors,
+      ),
+      productId: parseStripeId(
+        environment,
+        "STRIPE_LAUNCH_PRODUCT_ID",
+        "prod",
+        errors,
+      ),
+    },
+    scale: {
+      priceId: parseStripeId(
+        environment,
+        "STRIPE_SCALE_PRICE_ID",
+        "price",
+        errors,
+      ),
+      productId: parseStripeId(
+        environment,
+        "STRIPE_SCALE_PRODUCT_ID",
+        "prod",
+        errors,
+      ),
+    },
+  };
+}
+
 function parsePostHog(environment) {
   const key = environment.POSTHOG_KEY;
   const host = environment.POSTHOG_HOST;
@@ -349,12 +395,13 @@ export function parseApiEnvironment(environment) {
   }
 
   const authentication = parseAuthentication(environment, errors);
+  const stripePlanMappings = parseStripePlanMappings(environment, errors);
 
   if (errors.length > 0) {
     throw new Error(`Invalid api environment:\n- ${errors.join("\n- ")}`);
   }
 
-  return { ...runtime, authentication };
+  return { ...runtime, authentication, stripePlanMappings };
 }
 
 export function parseWorkerEnvironment(environment) {

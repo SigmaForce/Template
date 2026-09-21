@@ -7,6 +7,6 @@ and Seat allowances for the Active Organization without any runtime Plan editor.
 
 **Status:** ready-for-agent
 
-- [ ] Stable Plan and Capability definitions are exposed through an Organization-scoped API and accessible billing view.
-- [ ] Stripe product and price mappings come only from validated server configuration.
-- [ ] Tests prove the catalog is deterministic and does not confuse a Capability with a Permission.
+- [x] Stable Plan and Capability definitions are exposed through an Organization-scoped API and accessible billing view.
+- [x] Stripe product and price mappings come only from validated server configuration.
+- [x] Tests prove the catalog is deterministic and does not confuse a Capability with a Permission.

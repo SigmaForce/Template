@@ -131,6 +131,7 @@ export class AuthorizationService {
   }
 
   private capabilityForPermission(permission: PermissionId) {
+    if (permission === Permission.billingManage) return Capability.billing;
     if (
       permission === Permission.organizationMembershipsManage ||
       permission === Permission.organizationMembershipsLeave

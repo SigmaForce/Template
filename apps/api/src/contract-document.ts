@@ -14,6 +14,18 @@ export async function buildContractDocument() {
         authorizedParties: ['http://localhost:3000'],
         jwtKey: 'contract-generation-does-not-verify-tokens',
       },
+      commerce: {
+        stripePlanMappings: {
+          launch: {
+            priceId: 'price_launchContract',
+            productId: 'prod_launchContract',
+          },
+          scale: {
+            priceId: 'price_scaleContract',
+            productId: 'prod_scaleContract',
+          },
+        },
+      },
       organizations: {
         directory: new MemoryOrganizationDirectory(),
         repository: new MemoryOrganizationRepository(),
