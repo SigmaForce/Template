@@ -55,7 +55,8 @@ export class StripeWebhookVerifier {
     }
     if (
       !isRecord(payload) ||
-      payload.type !== 'customer.subscription.updated'
+      (payload.type !== 'customer.subscription.created' &&
+        payload.type !== 'customer.subscription.updated')
     ) {
       throw new InvalidStripeWebhookError();
     }

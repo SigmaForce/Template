@@ -31,6 +31,7 @@ function apiEnvironment(authentication) {
     STRIPE_LAUNCH_PRODUCT_ID: "prod_launchTest",
     STRIPE_SCALE_PRICE_ID: "price_scaleTest",
     STRIPE_SCALE_PRODUCT_ID: "prod_scaleTest",
+    STRIPE_SECRET_KEY: "sk_test_testStripeSecret",
     STRIPE_WEBHOOK_SECRET: "whsec_testWebhookSecret",
     ...authentication,
   };
@@ -119,6 +120,7 @@ test("startup accepts a configured local environment", () => {
       "replace-with-clerk-secret-key",
       "sk_test_c3ludGhldGljLW5vdC1hLXJlYWwta2V5",
     )
+    .replace("replace-with-stripe-secret-key", "sk_test_testStripeSecret")
     .replace("replace-with-stripe-webhook-secret", "whsec_testWebhookSecret");
 
   writeFileSync(environmentFile, configuredEnvironment);
@@ -218,6 +220,7 @@ test("API environment validates server-only Stripe Plan mappings", () => {
       productId: "prod_scaleTest",
     },
   });
+  assert.equal(configuration.stripeSecretKey, "sk_test_testStripeSecret");
 
   assert.throws(
     () =>
@@ -242,6 +245,16 @@ test("API and worker validate their server-only Stripe settings", () => {
         STRIPE_WEBHOOK_SECRET: "public-secret",
       }),
     /STRIPE_WEBHOOK_SECRET must be a valid Stripe webhook secret/,
+  );
+  assert.throws(
+    () =>
+      parseApiEnvironment({
+        ...apiEnvironment({
+          CLERK_SECRET_KEY: "sk_test_c3ludGhldGljLW5vdC1hLXJlYWwta2V5",
+        }),
+        STRIPE_SECRET_KEY: "pk_test_public",
+      }),
+    /STRIPE_SECRET_KEY must be a valid server-only Stripe key/,
   );
 
   const worker = parseWorkerEnvironment({
@@ -317,6 +330,7 @@ test("startup reports invalid optional telemetry as degraded without exposing va
       "STRIPE_LAUNCH_PRICE_ID=price_launchTest",
       "STRIPE_SCALE_PRODUCT_ID=prod_scaleTest",
       "STRIPE_SCALE_PRICE_ID=price_scaleTest",
+      "STRIPE_SECRET_KEY=sk_test_testStripeSecret",
       "STRIPE_WEBHOOK_SECRET=whsec_testWebhookSecret",
       "POSTHOG_KEY=phc_private-looking-value",
       "POSTHOG_HOST=not-a-url",

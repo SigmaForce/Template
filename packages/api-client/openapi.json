@@ -130,6 +130,18 @@
         ],
         "type": "object"
       },
+      "CheckoutSessionDto": {
+        "properties": {
+          "checkoutUrl": {
+            "example": "https://checkout.stripe.com/c/pay/cs_test_example",
+            "type": "string"
+          }
+        },
+        "required": [
+          "checkoutUrl"
+        ],
+        "type": "object"
+      },
       "ContractExampleDto": {
         "properties": {
           "businessDate": {
@@ -198,6 +210,32 @@
         "required": [
           "items",
           "pageInfo"
+        ],
+        "type": "object"
+      },
+      "CreateCheckoutSessionDto": {
+        "properties": {
+          "cancelUrl": {
+            "example": "https://app.example.com/settings/billing",
+            "type": "string"
+          },
+          "planId": {
+            "enum": [
+              "launch",
+              "scale"
+            ],
+            "example": "launch",
+            "type": "string"
+          },
+          "successUrl": {
+            "example": "https://app.example.com/settings/billing/success",
+            "type": "string"
+          }
+        },
+        "required": [
+          "planId",
+          "successUrl",
+          "cancelUrl"
         ],
         "type": "object"
       },
@@ -1308,6 +1346,73 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PlanCatalogDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "clerk-session": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
+    "/v1/organizations/{organizationId}/billing/checkout-sessions": {
+      "post": {
+        "operationId": "createCheckoutSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organizationId",
+            "required": true,
+            "schema": {
+              "example": "org_2abc",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCheckoutSessionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutSessionDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
                 }
               }
             },

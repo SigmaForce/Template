@@ -20,6 +20,10 @@ import {
   MemoryBillingProjectionQueue,
   MemoryBillingRepository,
 } from './../src/billing/memory-billing.js';
+import { MemoryBillingCheckoutGateway } from './../src/billing/checkout.js';
+import { SubscriptionProjector } from './../src/billing/subscription-projector.js';
+import { SubscriptionCapabilityPolicy } from './../src/billing/subscription-capability-policy.js';
+import type { CapabilityPolicy } from './../src/authorization/authorization.js';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication;
@@ -32,16 +36,31 @@ describe('AppController (e2e)', () => {
     rateLimit?: AuthenticationOptions['rateLimit'],
     billingRepository = new MemoryBillingRepository(),
     projectionQueue = new MemoryBillingProjectionQueue(),
+    checkoutGateway = new MemoryBillingCheckoutGateway(),
+    capabilityPolicy?: CapabilityPolicy,
   ) {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
         AppModule.register({
+          capabilityPolicy,
           authentication: {
             authorizedParties: ['http://localhost:3000'],
             jwtKey: authenticationPublicKey,
             ...(rateLimit ? { rateLimit } : {}),
           },
           billing: {
+            checkoutGateway,
+            checkoutReturnOrigins: ['http://localhost:3000'],
+            planMappings: {
+              launch: {
+                priceId: 'price_launchTest',
+                productId: 'prod_launchTest',
+              },
+              scale: {
+                priceId: 'price_scaleTest',
+                productId: 'prod_scaleTest',
+              },
+            },
             projectionQueue,
             repository: billingRepository,
             stripeWebhookSecret: 'whsec_testWebhookSecret',
@@ -267,6 +286,150 @@ describe('AppController (e2e)', () => {
       .get('/v1/organizations/org_other/billing/subscription')
       .set('authorization', authorization)
       .expect(403);
+  });
+
+  it('lets the Active Organization Owner start an allowlisted Checkout session', async () => {
+    await app.close();
+    const checkoutGateway = new MemoryBillingCheckoutGateway();
+    const billingRepository = new MemoryBillingRepository();
+    const organization = {
+      id: 'org_checkout',
+      locale: 'en-US',
+      name: 'Checkout Labs',
+      slug: 'checkout-labs',
+      state: 'active' as const,
+      timeZone: 'UTC',
+    };
+    app = await createApp(
+      [],
+      undefined,
+      new MemoryOrganizationRepository({
+        organizations: [organization],
+        memberships: [
+          {
+            organizationId: organization.id,
+            role: 'owner',
+            status: 'active',
+            userId: 'user_checkout_owner',
+          },
+          {
+            organizationId: organization.id,
+            role: 'admin',
+            status: 'active',
+            userId: 'user_checkout_admin',
+          },
+        ],
+      }),
+      new MemoryOrganizationDirectory(),
+      undefined,
+      billingRepository,
+      new MemoryBillingProjectionQueue(),
+      checkoutGateway,
+      new SubscriptionCapabilityPolicy(billingRepository),
+    );
+
+    const ownerAuthorization = `Bearer ${createSessionToken({
+      organization,
+      organizationRole: 'owner',
+      userId: 'user_checkout_owner',
+    })}`;
+    await request(app.getHttpServer())
+      .post(`/v1/organizations/${organization.id}/billing/checkout-sessions`)
+      .set('authorization', ownerAuthorization)
+      .send({
+        cancelUrl: 'http://localhost:3000/settings/billing',
+        planId: 'launch',
+        successUrl: 'http://localhost:3000/settings/billing/success',
+      })
+      .expect(201)
+      .expect({
+        checkoutUrl: 'https://checkout.stripe.com/c/pay/cs_test_checkout',
+      });
+
+    expect(checkoutGateway.sessions).toEqual([
+      {
+        cancelUrl: 'http://localhost:3000/settings/billing',
+        organizationId: organization.id,
+        priceId: 'price_launchTest',
+        successUrl: 'http://localhost:3000/settings/billing/success',
+      },
+    ]);
+    expect(JSON.stringify(checkoutGateway.sessions)).not.toMatch(
+      /card|secret|whsec|sk_test/i,
+    );
+
+    const body = {
+      cancelUrl: 'http://localhost:3000/settings/billing',
+      planId: 'launch',
+      successUrl: 'http://localhost:3000/settings/billing/success',
+    };
+    await request(app.getHttpServer())
+      .post(`/v1/organizations/${organization.id}/billing/checkout-sessions`)
+      .set(
+        'authorization',
+        `Bearer ${createSessionToken({
+          organization,
+          organizationRole: 'admin',
+          userId: 'user_checkout_admin',
+        })}`,
+      )
+      .send(body)
+      .expect(403);
+    await request(app.getHttpServer())
+      .post('/v1/organizations/org_other/billing/checkout-sessions')
+      .set('authorization', ownerAuthorization)
+      .send(body)
+      .expect(403);
+    await request(app.getHttpServer())
+      .post(`/v1/organizations/${organization.id}/billing/checkout-sessions`)
+      .set('authorization', ownerAuthorization)
+      .send({ ...body, successUrl: 'https://attacker.example/success' })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post(`/v1/organizations/${organization.id}/billing/checkout-sessions`)
+      .set('authorization', ownerAuthorization)
+      .send({ ...body, cardNumber: '4242424242424242' })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .get(`/v1/organizations/${organization.id}/settings`)
+      .set('authorization', ownerAuthorization)
+      .expect(403);
+
+    const payload = JSON.stringify({
+      id: 'evt_checkout_completed',
+      type: 'customer.subscription.created',
+      created: 1_789_473_600,
+      data: {
+        object: {
+          id: 'sub_checkout',
+          status: 'active',
+          current_period_end: 1_792_065_600,
+          metadata: { organizationId: organization.id },
+          items: { data: [{ price: { id: 'price_launchTest' } }] },
+        },
+      },
+    });
+    const timestamp = Math.floor(Date.now() / 1_000);
+    const signature = createHmac('sha256', 'whsec_testWebhookSecret')
+      .update(`${timestamp}.${payload}`)
+      .digest('hex');
+    await request(app.getHttpServer())
+      .post('/v1/billing/stripe/webhooks')
+      .set('content-type', 'application/json')
+      .set('stripe-signature', `t=${timestamp},v1=${signature}`)
+      .send(payload)
+      .expect(200);
+
+    await new SubscriptionProjector(billingRepository, {
+      launch: { priceId: 'price_launchTest', productId: 'prod_launchTest' },
+      scale: { priceId: 'price_scaleTest', productId: 'prod_scaleTest' },
+    }).process('evt_checkout_completed');
+
+    await request(app.getHttpServer())
+      .get(`/v1/organizations/${organization.id}/settings`)
+      .set('authorization', ownerAuthorization)
+      .expect(200);
   });
 
   it('exposes health inside the stable v1 boundary', () => {

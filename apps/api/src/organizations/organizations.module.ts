@@ -9,10 +9,12 @@ import { AuthorizationModule } from '../authorization/authorization.module.js';
 import { InvitationsController } from './invitations.controller.js';
 import { MembershipsController } from './memberships.controller.js';
 import { MembershipsService } from './memberships.service.js';
+import type { CapabilityPolicy } from '../authorization/authorization.js';
 
 export interface OrganizationModuleOptions {
   directory: OrganizationDirectory;
   repository: OrganizationRepository;
+  capabilityPolicy?: CapabilityPolicy;
 }
 
 @Module({})
@@ -21,7 +23,10 @@ export class OrganizationsModule {
     return {
       module: OrganizationsModule,
       imports: [
-        AuthorizationModule.register({ repository: options.repository }),
+        AuthorizationModule.register({
+          capabilityPolicy: options.capabilityPolicy,
+          repository: options.repository,
+        }),
       ],
       controllers: [
         InvitationsController,

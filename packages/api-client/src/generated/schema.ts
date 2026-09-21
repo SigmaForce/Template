@@ -179,6 +179,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/organizations/{organizationId}/billing/checkout-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createCheckoutSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/organizations/{organizationId}/billing/subscription": {
         parameters: {
             query?: never;
@@ -349,6 +365,10 @@ export interface components {
             /** @example Billing */
             name: string;
         };
+        CheckoutSessionDto: {
+            /** @example https://checkout.stripe.com/c/pay/cs_test_example */
+            checkoutUrl: string;
+        };
         ContractExampleDto: {
             /**
              * Format: date
@@ -385,6 +405,17 @@ export interface components {
         ContractExamplePageDto: {
             items: components["schemas"]["ContractExampleDto"][];
             pageInfo: components["schemas"]["PageInfoDto"];
+        };
+        CreateCheckoutSessionDto: {
+            /** @example https://app.example.com/settings/billing */
+            cancelUrl: string;
+            /**
+             * @example launch
+             * @enum {string}
+             */
+            planId: "launch" | "scale";
+            /** @example https://app.example.com/settings/billing/success */
+            successUrl: string;
         };
         CreateInvitationDto: {
             /** @example new.user@example.com */
@@ -917,6 +948,47 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlanCatalogDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
+    createCheckoutSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCheckoutSessionDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckoutSessionDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
                 };
             };
             403: {

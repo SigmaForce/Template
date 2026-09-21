@@ -8,6 +8,6 @@ available through the existing authorization pipeline.
 
 **Status:** ready-for-agent
 
-- [ ] Only the Owner billing Permission can create an allowlisted Checkout session.
-- [ ] Card data and Stripe secrets never pass through the web application or logs.
-- [ ] The end-to-end test proves checkout completion changes Organization access only after projection.
+- [x] Only the Owner billing Permission can create an allowlisted Checkout session.
+- [x] Card data and Stripe secrets never pass through the web application or logs.
+- [x] The end-to-end test proves checkout completion changes Organization access only after projection.

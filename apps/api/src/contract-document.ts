@@ -10,6 +10,7 @@ import {
   MemoryBillingProjectionQueue,
   MemoryBillingRepository,
 } from './billing/memory-billing.js';
+import { MemoryBillingCheckoutGateway } from './billing/checkout.js';
 
 export async function buildContractDocument() {
   const app = await NestFactory.create(
@@ -19,6 +20,12 @@ export async function buildContractDocument() {
         jwtKey: 'contract-generation-does-not-verify-tokens',
       },
       billing: {
+        checkoutGateway: new MemoryBillingCheckoutGateway(),
+        checkoutReturnOrigins: ['http://localhost:3000'],
+        planMappings: {
+          launch: { priceId: 'price_launchTest', productId: 'prod_launchTest' },
+          scale: { priceId: 'price_scaleTest', productId: 'prod_scaleTest' },
+        },
         projectionQueue: new MemoryBillingProjectionQueue(),
         repository: new MemoryBillingRepository(),
         stripeWebhookSecret: 'whsec_contractGeneration',

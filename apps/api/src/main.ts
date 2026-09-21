@@ -11,6 +11,8 @@ import { ClerkOrganizationDirectory } from './organizations/clerk-organization.d
 import { PrismaOrganizationRepository } from './organizations/prisma-organization.repository.js';
 import { PrismaBillingRepository } from './billing/prisma-billing.repository.js';
 import { BullMqBillingProjectionQueue } from './billing/bullmq-billing-projection.queue.js';
+import { StripeCheckoutGateway } from './billing/checkout.js';
+import { SubscriptionCapabilityPolicy } from './billing/subscription-capability-policy.js';
 
 async function bootstrap() {
   const config = parseApiEnvironment(process.env);
@@ -24,12 +26,19 @@ async function bootstrap() {
     environment: config.environment,
     level: config.logLevel,
   });
+  const billingRepository = new PrismaBillingRepository(
+    config.databaseUrl.toString(),
+  );
   const app = await NestFactory.create(
     AppModule.register({
       authentication: config.authentication,
+      capabilityPolicy: new SubscriptionCapabilityPolicy(billingRepository),
       billing: {
+        checkoutGateway: new StripeCheckoutGateway(config.stripeSecretKey),
+        checkoutReturnOrigins: config.authentication.authorizedParties,
+        planMappings: config.stripePlanMappings,
         projectionQueue: new BullMqBillingProjectionQueue(config.redisUrl),
-        repository: new PrismaBillingRepository(config.databaseUrl.toString()),
+        repository: billingRepository,
         stripeWebhookSecret: config.stripeWebhookSecret,
       },
       organizations: {

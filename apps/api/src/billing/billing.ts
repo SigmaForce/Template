@@ -17,7 +17,7 @@ export interface BillingInboxEvent {
   priceId: string;
   providerSubscriptionId: string;
   status: SubscriptionStatus;
-  type: 'customer.subscription.updated';
+  type: 'customer.subscription.created' | 'customer.subscription.updated';
 }
 
 export interface SubscriptionProjection {

@@ -1,10 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { AuthenticatedUser } from '../authentication/authentication.js';
 import { AuthorizationService } from '../authorization/authorization.service.js';
 import { Capability } from '../authorization/authorization.js';
 import { Permission } from '../authorization/permission.js';
 import { PublicProblemException } from '../http/problem-details.js';
 import { BillingProjectionQueue, BillingRepository } from './billing.js';
+import { BillingCheckoutGateway } from './checkout.js';
+import type { CreateCheckoutSessionDto } from './checkout.dto.js';
+import type { StripePlanMappings } from './subscription-projection.js';
 import {
   InvalidStripeWebhookError,
   StripeWebhookVerifier,
@@ -17,7 +20,34 @@ export class BillingService {
     private readonly repository: BillingRepository,
     private readonly queue: BillingProjectionQueue,
     private readonly webhooks: StripeWebhookVerifier,
+    private readonly checkout: BillingCheckoutGateway,
+    @Inject('CHECKOUT_RETURN_ORIGINS')
+    private readonly checkoutReturnOrigins: string[],
+    @Inject('STRIPE_PLAN_MAPPINGS')
+    private readonly planMappings: StripePlanMappings,
   ) {}
+
+  async createCheckoutSession(
+    user: AuthenticatedUser,
+    organizationId: string,
+    input: CreateCheckoutSessionDto,
+  ) {
+    const scope = await this.authorization.authorize({
+      capability: Capability.billing,
+      permission: Permission.billingManage,
+      targetOrganizationId: organizationId,
+      user,
+    });
+    const successUrl = this.allowlistedReturnUrl(input.successUrl);
+    const cancelUrl = this.allowlistedReturnUrl(input.cancelUrl);
+    const checkoutUrl = await this.checkout.createSession({
+      cancelUrl,
+      organizationId: scope.organizationId,
+      priceId: this.planMappings[input.planId].priceId,
+      successUrl,
+    });
+    return { checkoutUrl };
+  }
 
   async getSubscription(user: AuthenticatedUser, organizationId: string) {
     const scope = await this.authorization.authorize({
@@ -55,5 +85,22 @@ export class BillingService {
       }
       throw error;
     }
+  }
+
+  private allowlistedReturnUrl(value: string) {
+    const url = new URL(value);
+    if (
+      url.username ||
+      url.password ||
+      !this.checkoutReturnOrigins.includes(url.origin)
+    ) {
+      throw PublicProblemException.validation([
+        {
+          detail: 'URL origin is not allowed for Checkout returns.',
+          pointer: '#/body',
+        },
+      ]);
+    }
+    return url.toString();
   }
 }

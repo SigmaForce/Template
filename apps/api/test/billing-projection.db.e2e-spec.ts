@@ -7,6 +7,7 @@ import { AppModule } from '../src/app.module.js';
 import { configureApi } from '../src/configure-api.js';
 import { MemoryBillingProjectionQueue } from '../src/billing/memory-billing.js';
 import { PrismaBillingRepository } from '../src/billing/prisma-billing.repository.js';
+import { MemoryBillingCheckoutGateway } from '../src/billing/checkout.js';
 import {
   MemoryOrganizationDirectory,
   MemoryOrganizationRepository,
@@ -49,6 +50,9 @@ describe.skipIf(!databaseUrl)(
               jwtKey: authenticationPublicKey,
             },
             billing: {
+              checkoutGateway: new MemoryBillingCheckoutGateway(),
+              checkoutReturnOrigins: ['http://localhost:3000'],
+              planMappings,
               projectionQueue: queue,
               repository: new PrismaBillingRepository(databaseUrl!),
               stripeWebhookSecret: 'whsec_testWebhookSecret',

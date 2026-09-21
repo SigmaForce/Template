@@ -14,12 +14,19 @@ import type {
   BillingProjectionQueue,
   BillingRepository,
 } from './billing/billing.js';
+import type { BillingCheckoutGateway } from './billing/checkout.js';
+import type { StripePlanMappings } from './billing/subscription-projection.js';
+import type { CapabilityPolicy } from './authorization/authorization.js';
 
 export interface AppModuleOptions {
   authentication: AuthenticationOptions;
+  capabilityPolicy?: CapabilityPolicy;
   billing: {
     projectionQueue: BillingProjectionQueue;
     repository: BillingRepository;
+    checkoutGateway: BillingCheckoutGateway;
+    checkoutReturnOrigins: string[];
+    planMappings: StripePlanMappings;
     stripeWebhookSecret: string;
   };
   organizations: OrganizationModuleOptions;
@@ -32,11 +39,18 @@ export class AppModule {
       module: AppModule,
       imports: [
         AuthenticationModule.register(options.authentication),
-        OrganizationsModule.register(options.organizations),
+        OrganizationsModule.register({
+          ...options.organizations,
+          capabilityPolicy: options.capabilityPolicy,
+        }),
         BillingModule.register({
           repository: options.organizations.repository,
           billingRepository: options.billing.repository,
           projectionQueue: options.billing.projectionQueue,
+          checkoutGateway: options.billing.checkoutGateway,
+          checkoutReturnOrigins: options.billing.checkoutReturnOrigins,
+          planMappings: options.billing.planMappings,
+          capabilityPolicy: options.capabilityPolicy,
           stripeWebhookSecret: options.billing.stripeWebhookSecret,
         }),
       ],

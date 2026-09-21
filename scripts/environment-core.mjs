@@ -301,6 +301,14 @@ function parseStripeWebhookSecret(environment, errors) {
   return value;
 }
 
+function parseStripeSecretKey(environment, errors) {
+  const value = environment.STRIPE_SECRET_KEY?.trim();
+  if (!value || !/^sk_(?:test|live)_[A-Za-z0-9_]{8,}$/.test(value)) {
+    errors.push('STRIPE_SECRET_KEY must be a valid server-only Stripe key');
+  }
+  return value;
+}
+
 function parsePostHog(environment) {
   const key = environment.POSTHOG_KEY;
   const host = environment.POSTHOG_HOST;
@@ -404,6 +412,7 @@ export function parseApiEnvironment(environment) {
 
   const authentication = parseAuthentication(environment, errors);
   const stripePlanMappings = parseStripePlanMappings(environment, errors);
+  const stripeSecretKey = parseStripeSecretKey(environment, errors);
   const stripeWebhookSecret = parseStripeWebhookSecret(environment, errors);
 
   if (errors.length > 0) {
@@ -414,6 +423,7 @@ export function parseApiEnvironment(environment) {
     ...runtime,
     authentication,
     stripePlanMappings,
+    stripeSecretKey,
     stripeWebhookSecret,
   };
 }
