@@ -292,6 +292,7 @@ describe('AppController (e2e)', () => {
     await app.close();
     const checkoutGateway = new MemoryBillingCheckoutGateway();
     const billingRepository = new MemoryBillingRepository();
+    const projectionQueue = new MemoryBillingProjectionQueue();
     const organization = {
       id: 'org_checkout',
       locale: 'en-US',
@@ -323,7 +324,7 @@ describe('AppController (e2e)', () => {
       new MemoryOrganizationDirectory(),
       undefined,
       billingRepository,
-      new MemoryBillingProjectionQueue(),
+      projectionQueue,
       checkoutGateway,
       new SubscriptionCapabilityPolicy(billingRepository),
     );
@@ -333,22 +334,29 @@ describe('AppController (e2e)', () => {
       organizationRole: 'owner',
       userId: 'user_checkout_owner',
     })}`;
+    const body = {
+      cancelUrl: 'http://localhost:3000/settings/billing',
+      planId: 'launch',
+      successUrl: 'http://localhost:3000/settings/billing/success',
+    };
     await request(app.getHttpServer())
       .post(`/v1/organizations/${organization.id}/billing/checkout-sessions`)
       .set('authorization', ownerAuthorization)
-      .send({
-        cancelUrl: 'http://localhost:3000/settings/billing',
-        planId: 'launch',
-        successUrl: 'http://localhost:3000/settings/billing/success',
-      })
+      .send(body)
       .expect(201)
       .expect({
         checkoutUrl: 'https://checkout.stripe.com/c/pay/cs_test_checkout',
       });
+    await request(app.getHttpServer())
+      .post(`/v1/organizations/${organization.id}/billing/checkout-sessions`)
+      .set('authorization', ownerAuthorization)
+      .send(body)
+      .expect(201);
 
     expect(checkoutGateway.sessions).toEqual([
       {
         cancelUrl: 'http://localhost:3000/settings/billing',
+        idempotencyKey: 'checkout-session:org_checkout',
         organizationId: organization.id,
         priceId: 'price_launchTest',
         successUrl: 'http://localhost:3000/settings/billing/success',
@@ -358,11 +366,6 @@ describe('AppController (e2e)', () => {
       /card|secret|whsec|sk_test/i,
     );
 
-    const body = {
-      cancelUrl: 'http://localhost:3000/settings/billing',
-      planId: 'launch',
-      successUrl: 'http://localhost:3000/settings/billing/success',
-    };
     await request(app.getHttpServer())
       .post(`/v1/organizations/${organization.id}/billing/checkout-sessions`)
       .set(
@@ -421,15 +424,39 @@ describe('AppController (e2e)', () => {
       .send(payload)
       .expect(200);
 
+    await request(app.getHttpServer())
+      .get(`/v1/organizations/${organization.id}/settings`)
+      .set('authorization', ownerAuthorization)
+      .expect(403);
+    expect(projectionQueue.eventIds).toEqual(['evt_checkout_completed']);
+
     await new SubscriptionProjector(billingRepository, {
       launch: { priceId: 'price_launchTest', productId: 'prod_launchTest' },
       scale: { priceId: 'price_scaleTest', productId: 'prod_scaleTest' },
-    }).process('evt_checkout_completed');
+    }).process(projectionQueue.eventIds[0]);
 
     await request(app.getHttpServer())
       .get(`/v1/organizations/${organization.id}/settings`)
       .set('authorization', ownerAuthorization)
       .expect(200);
+    const projectedSubscription = billingRepository.subscriptions.get(
+      organization.id,
+    )!;
+    billingRepository.subscriptions.set(organization.id, {
+      ...projectedSubscription,
+      status: 'past_due',
+    });
+    await request(app.getHttpServer())
+      .get(`/v1/organizations/${organization.id}/settings`)
+      .set('authorization', ownerAuthorization)
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post(`/v1/organizations/${organization.id}/billing/checkout-sessions`)
+      .set('authorization', ownerAuthorization)
+      .send(body)
+      .expect(409);
+    expect(checkoutGateway.sessions).toHaveLength(1);
   });
 
   it('exposes health inside the stable v1 boundary', () => {

@@ -22,6 +22,7 @@ describe('StripeCheckoutGateway', () => {
     await expect(
       gateway.createSession({
         cancelUrl: 'https://app.example.com/settings/billing',
+        idempotencyKey: 'checkout-session:org_checkout',
         organizationId: 'org_checkout',
         priceId: 'price_launchTest',
         successUrl: 'https://app.example.com/settings/billing/success',
@@ -32,6 +33,7 @@ describe('StripeCheckoutGateway', () => {
     expect(options?.headers).toEqual({
       authorization: 'Bearer sk_test_serverOnlySecret',
       'content-type': 'application/x-www-form-urlencoded',
+      'idempotency-key': 'checkout-session:org_checkout',
     });
     const body = options?.body?.toString() ?? '';
     expect(body).toContain('mode=subscription');

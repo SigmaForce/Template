@@ -38,10 +38,20 @@ export class BillingService {
       targetOrganizationId: organizationId,
       user,
     });
+    const subscription = await this.repository.findSubscription(
+      scope.organizationId,
+    );
+    if (
+      subscription &&
+      !['canceled', 'incomplete_expired'].includes(subscription.status)
+    ) {
+      throw PublicProblemException.subscriptionAlreadyExists();
+    }
     const successUrl = this.allowlistedReturnUrl(input.successUrl);
     const cancelUrl = this.allowlistedReturnUrl(input.cancelUrl);
     const checkoutUrl = await this.checkout.createSession({
       cancelUrl,
+      idempotencyKey: `checkout-session:${scope.organizationId}`,
       organizationId: scope.organizationId,
       priceId: this.planMappings[input.planId].priceId,
       successUrl,

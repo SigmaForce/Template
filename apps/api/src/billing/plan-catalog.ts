@@ -4,7 +4,8 @@ import {
   type CapabilityId,
 } from '../authorization/authorization.js';
 
-export type PlanId = 'launch' | 'scale';
+export const planIds = ['launch', 'scale'] as const;
+export type PlanId = (typeof planIds)[number];
 
 export class CapabilityDto {
   @ApiProperty({ enum: Object.values(Capability), example: Capability.billing })

@@ -1,5 +1,6 @@
 export interface CreateCheckoutSession {
   cancelUrl: string;
+  idempotencyKey: string;
   organizationId: string;
   priceId: string;
   successUrl: string;
@@ -13,6 +14,13 @@ export class MemoryBillingCheckoutGateway extends BillingCheckoutGateway {
   readonly sessions: CreateCheckoutSession[] = [];
 
   async createSession(input: CreateCheckoutSession) {
+    if (
+      this.sessions.some(
+        ({ idempotencyKey }) => idempotencyKey === input.idempotencyKey,
+      )
+    ) {
+      return 'https://checkout.stripe.com/c/pay/cs_test_checkout';
+    }
     this.sessions.push(input);
     return 'https://checkout.stripe.com/c/pay/cs_test_checkout';
   }
@@ -44,6 +52,7 @@ export class StripeCheckoutGateway extends BillingCheckoutGateway {
         headers: {
           authorization: `Bearer ${this.secretKey}`,
           'content-type': 'application/x-www-form-urlencoded',
+          'idempotency-key': input.idempotencyKey,
         },
         method: 'POST',
       },

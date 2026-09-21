@@ -19,7 +19,7 @@ export class SubscriptionCapabilityPolicy extends CapabilityPolicy {
     );
     if (
       !subscription ||
-      !['active', 'trialing'].includes(subscription.status)
+      !['active', 'past_due', 'trialing'].includes(subscription.status)
     ) {
       return false;
     }

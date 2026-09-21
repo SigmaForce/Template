@@ -1,8 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsIn, IsUrl, MaxLength } from 'class-validator';
-import type { PlanId } from './plan-catalog.js';
-
-const planIds = ['launch', 'scale'] as const;
+import { planIds, type PlanId } from './plan-catalog.js';
 
 export class CreateCheckoutSessionDto {
   @ApiProperty({ enum: planIds, example: 'launch' })

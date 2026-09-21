@@ -108,6 +108,15 @@ export class PublicProblemException extends HttpException {
     });
   }
 
+  static subscriptionAlreadyExists() {
+    return new PublicProblemException({
+      type: 'urn:problem:next-nest-saas-starter:subscription-already-exists',
+      title: 'Subscription already exists',
+      status: 409,
+      detail: 'Manage the existing Organization Subscription instead.',
+    });
+  }
+
   static organizationSlugConflict() {
     return new PublicProblemException({
       type: 'urn:problem:next-nest-saas-starter:organization-slug-conflict',

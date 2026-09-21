@@ -56,6 +56,14 @@ export class BillingController {
       },
     },
   })
+  @ApiResponse({
+    status: 409,
+    content: {
+      'application/problem+json': {
+        schema: { $ref: getSchemaPath(ProblemDetailsDto) },
+      },
+    },
+  })
   createCheckoutSession(
     @CurrentUser() user: AuthenticatedUser,
     @Param('organizationId') organizationId: string,
