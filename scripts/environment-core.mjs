@@ -293,6 +293,14 @@ function parseStripePlanMappings(environment, errors) {
   };
 }
 
+function parseStripeWebhookSecret(environment, errors) {
+  const value = environment.STRIPE_WEBHOOK_SECRET?.trim();
+  if (!value || !/^whsec_[A-Za-z0-9_]{8,}$/.test(value)) {
+    errors.push("STRIPE_WEBHOOK_SECRET must be a valid Stripe webhook secret");
+  }
+  return value;
+}
+
 function parsePostHog(environment) {
   const key = environment.POSTHOG_KEY;
   const host = environment.POSTHOG_HOST;
@@ -396,16 +404,37 @@ export function parseApiEnvironment(environment) {
 
   const authentication = parseAuthentication(environment, errors);
   const stripePlanMappings = parseStripePlanMappings(environment, errors);
+  const stripeWebhookSecret = parseStripeWebhookSecret(environment, errors);
 
   if (errors.length > 0) {
     throw new Error(`Invalid api environment:\n- ${errors.join("\n- ")}`);
   }
 
-  return { ...runtime, authentication, stripePlanMappings };
+  return {
+    ...runtime,
+    authentication,
+    stripePlanMappings,
+    stripeWebhookSecret,
+  };
 }
 
 export function parseWorkerEnvironment(environment) {
-  return parseRuntime(environment, "worker");
+  const errors = [];
+  let runtime;
+
+  try {
+    runtime = parseRuntime(environment, "worker");
+  } catch (error) {
+    if (error instanceof Error)
+      errors.push(...error.message.split("\n").slice(1));
+  }
+
+  const stripePlanMappings = parseStripePlanMappings(environment, errors);
+  if (errors.length > 0) {
+    throw new Error(`Invalid worker environment:\n- ${errors.join("\n- ")}`);
+  }
+
+  return { ...runtime, stripePlanMappings };
 }
 
 export function parseWebEnvironment(environment) {

@@ -10,6 +10,10 @@ import {
   authenticationPublicKey,
   createSessionToken,
 } from './session-token.js';
+import {
+  MemoryBillingProjectionQueue,
+  MemoryBillingRepository,
+} from '../src/billing/memory-billing.js';
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
 
@@ -33,6 +37,11 @@ describe.skipIf(!databaseUrl)('Organization onboarding with PostgreSQL', () => {
             authorizedParties: ['http://localhost:3000'],
             jwtKey: authenticationPublicKey,
           },
+          billing: {
+            projectionQueue: new MemoryBillingProjectionQueue(),
+            repository: new MemoryBillingRepository(),
+            stripeWebhookSecret: 'whsec_testWebhookSecret',
+          },
           organizations: {
             directory: new MemoryOrganizationDirectory(),
             repository,
@@ -41,7 +50,7 @@ describe.skipIf(!databaseUrl)('Organization onboarding with PostgreSQL', () => {
       ],
     }).compile();
 
-    app = moduleFixture.createNestApplication();
+    app = moduleFixture.createNestApplication({ rawBody: true });
     configureApi(app);
     await app.init();
   });

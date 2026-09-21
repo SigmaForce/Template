@@ -8,6 +8,6 @@ Subscription state.
 
 **Status:** ready-for-agent
 
-- [ ] The API verifies the original request body, persists one deduplicated inbox record, and acknowledges safely.
-- [ ] The worker projects the Subscription idempotently with bounded retry and safe observability.
-- [ ] Tests prove invalid signatures, duplicate events, and cross-Organization reads are denied.
+- [x] The API verifies the original request body, persists one deduplicated inbox record, and acknowledges safely.
+- [x] The worker projects the Subscription idempotently with bounded retry and safe observability.
+- [x] Tests prove invalid signatures, duplicate events, and cross-Organization reads are denied.

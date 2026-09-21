@@ -10,6 +10,10 @@
     "typecheck": "tsc --noEmit"
   },
   "exports": {
+    "./billing-queue": {
+      "types": "./src/billing-queue.d.mts",
+      "default": "./src/billing-queue.mjs"
+    },
     "./http": {
       "types": "./src/http.d.mts",
       "default": "./src/http.mjs"

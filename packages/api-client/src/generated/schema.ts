@@ -19,6 +19,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/billing/stripe/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["receiveStripeWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/contract-examples": {
         parameters: {
             query?: never;
@@ -155,6 +171,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["getPlanCatalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/organizations/{organizationId}/billing/subscription": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getSubscription"];
         put?: never;
         post?: never;
         delete?: never;
@@ -524,6 +556,27 @@ export interface components {
             /** @enum {string} */
             status: "ready" | "degraded" | "unready";
         };
+        SubscriptionDto: {
+            /**
+             * Format: date-time
+             * @example 2026-10-20T12:00:00.000Z
+             */
+            currentPeriodEndsAt: string;
+            /**
+             * @example launch
+             * @enum {string}
+             */
+            planId: "launch" | "scale";
+            /** @example 1 */
+            planVersion: number;
+            /** @example sub_2abc */
+            providerSubscriptionId: string;
+            /**
+             * @example active
+             * @enum {string}
+             */
+            status: "active" | "canceled" | "incomplete" | "incomplete_expired" | "past_due" | "paused" | "trialing" | "unpaid";
+        };
         UpdateMembershipDto: {
             /** @enum {string} */
             role?: "admin" | "member" | "owner";
@@ -579,6 +632,34 @@ export interface operations {
             };
             /** @description A valid Clerk session token is required. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
+    receiveStripeWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description The Stripe signature is invalid. */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -839,6 +920,43 @@ export interface operations {
                 };
             };
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
+    getSubscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -54,8 +54,45 @@ model Organization {
   invitations       Invitation[]
   slugs             OrganizationSlug[]
   onboardingRequest OrganizationOnboardingRequest?
+  billingInboxEvents BillingInboxEvent[]
+  subscription       Subscription?
 
   @@map("organizations")
+}
+
+model BillingInboxEvent {
+  eventId                String    @id @map("event_id") @db.VarChar(255)
+  organizationId         String    @map("organization_id") @db.VarChar(64)
+  type                   String    @db.VarChar(100)
+  providerSubscriptionId String    @map("provider_subscription_id") @db.VarChar(255)
+  priceId                String    @map("price_id") @db.VarChar(255)
+  subscriptionStatus     String    @map("subscription_status") @db.VarChar(32)
+  currentPeriodEndsAt    DateTime  @map("current_period_ends_at")
+  providerCreatedAt      DateTime  @map("provider_created_at")
+  payload                Json
+  receivedAt             DateTime  @default(now()) @map("received_at")
+  processedAt            DateTime? @map("processed_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, providerCreatedAt])
+  @@map("billing_inbox_events")
+}
+
+model Subscription {
+  organizationId         String   @id @map("organization_id") @db.VarChar(64)
+  providerSubscriptionId String   @unique @map("provider_subscription_id") @db.VarChar(255)
+  planId                 String   @map("plan_id") @db.VarChar(32)
+  planVersion            Int      @map("plan_version")
+  status                 String   @db.VarChar(32)
+  currentPeriodEndsAt    DateTime @map("current_period_ends_at")
+  providerEventCreatedAt DateTime @map("provider_event_created_at")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
 }
 
 model OrganizationSlug {

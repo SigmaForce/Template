@@ -54,6 +54,13 @@ type BillingCatalog =
     }
   | { available: false };
 
+type BillingSubscription =
+  | {
+      available: true;
+      value: components["schemas"]["SubscriptionDto"];
+    }
+  | { available: false };
+
 type OrganizationSlugResolution =
   | {
       available: true;
@@ -197,6 +204,31 @@ async function getBillingCatalog(
     const { client, correlatedHeaders } = await createServerApiContext();
     const { data } = await client.GET(
       "/v1/organizations/{organizationId}/billing/catalog",
+      {
+        cache: "no-store",
+        headers: {
+          ...correlatedHeaders,
+          authorization: `Bearer ${token}`,
+        },
+        params: { path: { organizationId } },
+        signal: AbortSignal.timeout(3_000),
+      },
+    );
+
+    return data ? { available: true, value: data } : { available: false };
+  } catch {
+    return { available: false };
+  }
+}
+
+async function getBillingSubscription(
+  token: string,
+  organizationId: string,
+): Promise<BillingSubscription> {
+  try {
+    const { client, correlatedHeaders } = await createServerApiContext();
+    const { data } = await client.GET(
+      "/v1/organizations/{organizationId}/billing/subscription",
       {
         cache: "no-store",
         headers: {
@@ -369,14 +401,22 @@ export default async function Home({
   const canUpdateOrganizationSettings = activePermissions.includes(
     permission.organizationSettingsUpdate,
   );
-  const [organizationSettings, billingCatalog] = activeOrganization.available
-    ? await Promise.all([
-        getOrganizationSettings(token, activeOrganization.organization.id),
-        canManageBilling
-          ? getBillingCatalog(token, activeOrganization.organization.id)
-          : Promise.resolve({ available: false as const }),
-      ])
-    : [{ available: false as const }, { available: false as const }];
+  const [organizationSettings, billingCatalog, billingSubscription] =
+    activeOrganization.available
+      ? await Promise.all([
+          getOrganizationSettings(token, activeOrganization.organization.id),
+          canManageBilling
+            ? getBillingCatalog(token, activeOrganization.organization.id)
+            : Promise.resolve({ available: false as const }),
+          canManageBilling
+            ? getBillingSubscription(token, activeOrganization.organization.id)
+            : Promise.resolve({ available: false as const }),
+        ])
+      : [
+          { available: false as const },
+          { available: false as const },
+          { available: false as const },
+        ];
 
   return (
     <div className="dashboard-page" id="overview">
@@ -545,6 +585,16 @@ export default async function Home({
           >
             <p className="eyebrow">Billing</p>
             <h2 id="billing-title">Plan catalog</h2>
+            {billingSubscription.available ? (
+              <div className="contract-example">
+                <span>Active Subscription</span>
+                <span data-testid="active-subscription">
+                  {billingSubscription.value.planId} v
+                  {billingSubscription.value.planVersion} ·{" "}
+                  {billingSubscription.value.status}
+                </span>
+              </div>
+            ) : null}
             {billingCatalog.available ? (
               <>
                 <p>Catalog version {billingCatalog.value.version}</p>

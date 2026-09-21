@@ -5,7 +5,10 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
-import { parseApiEnvironment } from "../../scripts/environment-core.mjs";
+import {
+  parseApiEnvironment,
+  parseWorkerEnvironment,
+} from "../../scripts/environment-core.mjs";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
 const command = path.join(root, "scripts", "check-environment.mjs");
@@ -28,6 +31,7 @@ function apiEnvironment(authentication) {
     STRIPE_LAUNCH_PRODUCT_ID: "prod_launchTest",
     STRIPE_SCALE_PRICE_ID: "price_scaleTest",
     STRIPE_SCALE_PRODUCT_ID: "prod_scaleTest",
+    STRIPE_WEBHOOK_SECRET: "whsec_testWebhookSecret",
     ...authentication,
   };
 }
@@ -114,7 +118,8 @@ test("startup accepts a configured local environment", () => {
     .replace(
       "replace-with-clerk-secret-key",
       "sk_test_c3ludGhldGljLW5vdC1hLXJlYWwta2V5",
-    );
+    )
+    .replace("replace-with-stripe-webhook-secret", "whsec_testWebhookSecret");
 
   writeFileSync(environmentFile, configuredEnvironment);
 
@@ -227,6 +232,39 @@ test("API environment validates server-only Stripe Plan mappings", () => {
   );
 });
 
+test("API and worker validate their server-only Stripe settings", () => {
+  assert.throws(
+    () =>
+      parseApiEnvironment({
+        ...apiEnvironment({
+          CLERK_SECRET_KEY: "sk_test_c3ludGhldGljLW5vdC1hLXJlYWwta2V5",
+        }),
+        STRIPE_WEBHOOK_SECRET: "public-secret",
+      }),
+    /STRIPE_WEBHOOK_SECRET must be a valid Stripe webhook secret/,
+  );
+
+  const worker = parseWorkerEnvironment({
+    WORKER_PORT: "4001",
+    DATABASE_URL: "postgresql://saas:saas@localhost:5432/saas",
+    REDIS_URL: "redis://localhost:6379",
+    STRIPE_LAUNCH_PRICE_ID: "price_launchTest",
+    STRIPE_LAUNCH_PRODUCT_ID: "prod_launchTest",
+    STRIPE_SCALE_PRICE_ID: "price_scaleTest",
+    STRIPE_SCALE_PRODUCT_ID: "prod_scaleTest",
+  });
+  assert.deepEqual(worker.stripePlanMappings, {
+    launch: {
+      priceId: "price_launchTest",
+      productId: "prod_launchTest",
+    },
+    scale: {
+      priceId: "price_scaleTest",
+      productId: "prod_scaleTest",
+    },
+  });
+});
+
 test("API environment requires a Clerk secret even with a JWT public key", () => {
   const { publicKey } = generateKeyPairSync("rsa", {
     modulusLength: 2048,
@@ -279,6 +317,7 @@ test("startup reports invalid optional telemetry as degraded without exposing va
       "STRIPE_LAUNCH_PRICE_ID=price_launchTest",
       "STRIPE_SCALE_PRODUCT_ID=prod_scaleTest",
       "STRIPE_SCALE_PRICE_ID=price_scaleTest",
+      "STRIPE_WEBHOOK_SECRET=whsec_testWebhookSecret",
       "POSTHOG_KEY=phc_private-looking-value",
       "POSTHOG_HOST=not-a-url",
       "SENTRY_DSN=https://known-person@example.invalid/not-a-dsn",

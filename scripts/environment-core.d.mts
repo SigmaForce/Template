@@ -32,10 +32,12 @@ export interface ApiEnvironment extends RuntimeEnvironment {
       productId: string;
     }
   >;
+  stripeWebhookSecret: string;
 }
 
 export interface WorkerEnvironment extends RuntimeEnvironment {
   service: "worker";
+  stripePlanMappings: ApiEnvironment["stripePlanMappings"];
 }
 
 export interface WebEnvironment {

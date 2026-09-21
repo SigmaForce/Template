@@ -6,6 +6,12 @@
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
+  "exports": {
+    "./billing-worker": {
+      "types": "./billing-worker.d.ts",
+      "default": "./dist/billing/billing-worker.js"
+    }
+  },
   "scripts": {
     "build": "prisma generate && nest build",
     "db:generate": "prisma generate",
@@ -25,8 +31,8 @@
     "test:cov": "vitest run --coverage",
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
-    "test:db": "prisma migrate deploy && pnpm test:db:verified",
-    "test:db:verified": "vitest run --config ./vitest.config.e2e.ts test/organization-onboarding.db.e2e-spec.ts"
+    "test:db": "prisma migrate deploy && pnpm test:db:verified && pnpm --filter @saas/worker test:db:verified",
+    "test:db:verified": "vitest run --config ./vitest.config.e2e.ts test/organization-onboarding.db.e2e-spec.ts test/billing-projection.db.e2e-spec.ts"
   },
   "dependencies": {
     "@clerk/backend": "3.17.2",
@@ -34,9 +40,10 @@
     "@nestjs/core": "^12.0.1",
     "@nestjs/platform-express": "^12.0.1",
     "@nestjs/swagger": "12.0.1",
-    "@saas/tooling-config": "workspace:*",
     "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "7.10.0",
+    "@saas/tooling-config": "workspace:*",
+    "bullmq": "6.3.8",
     "class-transformer": "0.5.1",
     "class-validator": "0.15.1",
     "pg": "8.16.3",

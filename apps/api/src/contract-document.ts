@@ -6,6 +6,10 @@ import {
   MemoryOrganizationDirectory,
   MemoryOrganizationRepository,
 } from './organizations/memory-organizations.js';
+import {
+  MemoryBillingProjectionQueue,
+  MemoryBillingRepository,
+} from './billing/memory-billing.js';
 
 export async function buildContractDocument() {
   const app = await NestFactory.create(
@@ -14,12 +18,17 @@ export async function buildContractDocument() {
         authorizedParties: ['http://localhost:3000'],
         jwtKey: 'contract-generation-does-not-verify-tokens',
       },
+      billing: {
+        projectionQueue: new MemoryBillingProjectionQueue(),
+        repository: new MemoryBillingRepository(),
+        stripeWebhookSecret: 'whsec_contractGeneration',
+      },
       organizations: {
         directory: new MemoryOrganizationDirectory(),
         repository: new MemoryOrganizationRepository(),
       },
     }),
-    { logger: false },
+    { logger: false, rawBody: true },
   );
 
   try {

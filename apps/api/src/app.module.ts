@@ -10,9 +10,18 @@ import {
   type OrganizationModuleOptions,
 } from './organizations/organizations.module.js';
 import { BillingModule } from './billing/billing.module.js';
+import type {
+  BillingProjectionQueue,
+  BillingRepository,
+} from './billing/billing.js';
 
 export interface AppModuleOptions {
   authentication: AuthenticationOptions;
+  billing: {
+    projectionQueue: BillingProjectionQueue;
+    repository: BillingRepository;
+    stripeWebhookSecret: string;
+  };
   organizations: OrganizationModuleOptions;
 }
 
@@ -26,6 +35,9 @@ export class AppModule {
         OrganizationsModule.register(options.organizations),
         BillingModule.register({
           repository: options.organizations.repository,
+          billingRepository: options.billing.repository,
+          projectionQueue: options.billing.projectionQueue,
+          stripeWebhookSecret: options.billing.stripeWebhookSecret,
         }),
       ],
       controllers: [

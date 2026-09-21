@@ -90,6 +90,24 @@ export class PublicProblemException extends HttpException {
     });
   }
 
+  static invalidWebhookSignature() {
+    return new PublicProblemException({
+      type: 'urn:problem:next-nest-saas-starter:invalid-webhook-signature',
+      title: 'Invalid webhook signature',
+      status: 400,
+      detail: 'The webhook signature could not be verified.',
+    });
+  }
+
+  static subscriptionUnavailable() {
+    return new PublicProblemException({
+      type: 'urn:problem:next-nest-saas-starter:subscription-unavailable',
+      title: 'Subscription unavailable',
+      status: 404,
+      detail: 'No projected Subscription is available for this Organization.',
+    });
+  }
+
   static organizationSlugConflict() {
     return new PublicProblemException({
       type: 'urn:problem:next-nest-saas-starter:organization-slug-conflict',

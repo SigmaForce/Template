@@ -9,6 +9,8 @@ import {
 } from '@saas/tooling-config/readiness';
 import { ClerkOrganizationDirectory } from './organizations/clerk-organization.directory.js';
 import { PrismaOrganizationRepository } from './organizations/prisma-organization.repository.js';
+import { PrismaBillingRepository } from './billing/prisma-billing.repository.js';
+import { BullMqBillingProjectionQueue } from './billing/bullmq-billing-projection.queue.js';
 
 async function bootstrap() {
   const config = parseApiEnvironment(process.env);
@@ -25,6 +27,11 @@ async function bootstrap() {
   const app = await NestFactory.create(
     AppModule.register({
       authentication: config.authentication,
+      billing: {
+        projectionQueue: new BullMqBillingProjectionQueue(config.redisUrl),
+        repository: new PrismaBillingRepository(config.databaseUrl.toString()),
+        stripeWebhookSecret: config.stripeWebhookSecret,
+      },
       organizations: {
         directory: new ClerkOrganizationDirectory(
           config.authentication.secretKey,
@@ -34,7 +41,7 @@ async function bootstrap() {
         ),
       },
     }),
-    { logger },
+    { logger, rawBody: true },
   );
 
   configureApi(app, {

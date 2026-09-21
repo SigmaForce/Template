@@ -6,6 +6,7 @@ import { configureApi } from './../src/configure-api.js';
 import type { AuthenticationOptions } from './../src/authentication/authentication.js';
 import type { ReadinessCheck } from '@saas/tooling-config/readiness';
 import { JsonLogger } from '@saas/tooling-config/logging';
+import { createHmac } from 'node:crypto';
 import {
   MemoryOrganizationDirectory,
   MemoryOrganizationRepository,
@@ -15,6 +16,10 @@ import {
   authenticationPublicKey,
   createSessionToken,
 } from './session-token.js';
+import {
+  MemoryBillingProjectionQueue,
+  MemoryBillingRepository,
+} from './../src/billing/memory-billing.js';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication;
@@ -25,6 +30,8 @@ describe('AppController (e2e)', () => {
     repository = new MemoryOrganizationRepository(),
     directory = new MemoryOrganizationDirectory(),
     rateLimit?: AuthenticationOptions['rateLimit'],
+    billingRepository = new MemoryBillingRepository(),
+    projectionQueue = new MemoryBillingProjectionQueue(),
   ) {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
@@ -34,6 +41,11 @@ describe('AppController (e2e)', () => {
             jwtKey: authenticationPublicKey,
             ...(rateLimit ? { rateLimit } : {}),
           },
+          billing: {
+            projectionQueue,
+            repository: billingRepository,
+            stripeWebhookSecret: 'whsec_testWebhookSecret',
+          },
           organizations: {
             directory,
             repository,
@@ -42,7 +54,7 @@ describe('AppController (e2e)', () => {
       ],
     }).compile();
 
-    const testApp = moduleFixture.createNestApplication();
+    const testApp = moduleFixture.createNestApplication({ rawBody: true });
     configureApi(testApp, { readinessChecks, logger });
     await testApp.init();
 
@@ -51,6 +63,210 @@ describe('AppController (e2e)', () => {
 
   beforeEach(async () => {
     app = await createApp();
+  });
+
+  it('accepts a signed Stripe Subscription event from the original request body', async () => {
+    const payload = JSON.stringify({
+      id: 'evt_subscription_active',
+      type: 'customer.subscription.updated',
+      created: 1_789_473_600,
+      data: {
+        object: {
+          id: 'sub_northstar',
+          status: 'active',
+          current_period_end: 1_792_065_600,
+          metadata: { organizationId: 'org_northstar' },
+          items: { data: [{ price: { id: 'price_launchTest' } }] },
+        },
+      },
+    });
+    const timestamp = Math.floor(Date.now() / 1_000);
+    const signature = createHmac('sha256', 'whsec_testWebhookSecret')
+      .update(`${timestamp}.${payload}`)
+      .digest('hex');
+
+    await request(app.getHttpServer())
+      .post('/v1/billing/stripe/webhooks')
+      .set('content-type', 'application/json')
+      .set('stripe-signature', `t=${timestamp},v1=${signature}`)
+      .send(payload)
+      .expect(200)
+      .expect({ received: true });
+  });
+
+  it('rejects an invalid Stripe signature and deduplicates provider retries', async () => {
+    await app.close();
+    const billingRepository = new MemoryBillingRepository();
+    const projectionQueue = new MemoryBillingProjectionQueue();
+    app = await createApp(
+      [],
+      undefined,
+      new MemoryOrganizationRepository(),
+      new MemoryOrganizationDirectory(),
+      undefined,
+      billingRepository,
+      projectionQueue,
+    );
+    const payload = JSON.stringify({
+      id: 'evt_subscription_retry',
+      type: 'customer.subscription.updated',
+      created: 1_789_473_600,
+      data: {
+        object: {
+          id: 'sub_retry',
+          status: 'active',
+          current_period_end: 1_792_065_600,
+          metadata: { organizationId: 'org_retry' },
+          items: { data: [{ price: { id: 'price_launchTest' } }] },
+        },
+      },
+    });
+    const timestamp = Math.floor(Date.now() / 1_000);
+    const signature = createHmac('sha256', 'whsec_testWebhookSecret')
+      .update(`${timestamp}.${payload}`)
+      .digest('hex');
+
+    const invalid = await request(app.getHttpServer())
+      .post('/v1/billing/stripe/webhooks')
+      .set('content-type', 'application/json')
+      .set('stripe-signature', `t=${timestamp},v1=invalid`)
+      .send(payload)
+      .expect('content-type', /application\/problem\+json/)
+      .expect(400);
+    expect(invalid.body).toMatchObject({
+      type: 'urn:problem:next-nest-saas-starter:invalid-webhook-signature',
+      title: 'Invalid webhook signature',
+      status: 400,
+    });
+
+    for (let delivery = 0; delivery < 2; delivery += 1) {
+      await request(app.getHttpServer())
+        .post('/v1/billing/stripe/webhooks')
+        .set('content-type', 'application/json')
+        .set('stripe-signature', `t=${timestamp},v1=${signature}`)
+        .send(payload)
+        .expect(200);
+    }
+
+    expect(billingRepository.events.size).toBe(1);
+    expect(projectionQueue.eventIds).toEqual(['evt_subscription_retry']);
+  });
+
+  it('re-enqueues a duplicate inbox event after a queue outage', async () => {
+    class RecoveringQueue extends MemoryBillingProjectionQueue {
+      attempts = 0;
+
+      override async enqueue(eventId: string) {
+        this.attempts += 1;
+        if (this.attempts === 1) throw new Error('queue unavailable');
+        await super.enqueue(eventId);
+      }
+    }
+
+    await app.close();
+    const billingRepository = new MemoryBillingRepository();
+    const projectionQueue = new RecoveringQueue();
+    app = await createApp(
+      [],
+      undefined,
+      new MemoryOrganizationRepository(),
+      new MemoryOrganizationDirectory(),
+      undefined,
+      billingRepository,
+      projectionQueue,
+    );
+    const payload = JSON.stringify({
+      id: 'evt_queue_recovery',
+      type: 'customer.subscription.updated',
+      created: 1_789_473_600,
+      data: {
+        object: {
+          id: 'sub_queue_recovery',
+          status: 'active',
+          current_period_end: 1_792_065_600,
+          metadata: { organizationId: 'org_queue_recovery' },
+          items: { data: [{ price: { id: 'price_launchTest' } }] },
+        },
+      },
+    });
+    const timestamp = Math.floor(Date.now() / 1_000);
+    const signature = createHmac('sha256', 'whsec_testWebhookSecret')
+      .update(`${timestamp}.${payload}`)
+      .digest('hex');
+    const send = () =>
+      request(app.getHttpServer())
+        .post('/v1/billing/stripe/webhooks')
+        .set('content-type', 'application/json')
+        .set('stripe-signature', `t=${timestamp},v1=${signature}`)
+        .send(payload);
+
+    await send().expect(500);
+    await send().expect(200);
+
+    expect(billingRepository.events.size).toBe(1);
+    expect(projectionQueue.eventIds).toEqual(['evt_queue_recovery']);
+  });
+
+  it('returns projected Subscription state only for the Active Organization', async () => {
+    await app.close();
+    const billingRepository = new MemoryBillingRepository();
+    billingRepository.subscriptions.set('org_subscription', {
+      currentPeriodEndsAt: new Date('2026-10-20T12:00:00.000Z'),
+      organizationId: 'org_subscription',
+      planId: 'launch',
+      planVersion: 1,
+      providerEventCreatedAt: new Date('2026-09-20T12:00:00.000Z'),
+      providerSubscriptionId: 'sub_northstar',
+      status: 'active',
+    });
+    const organization = {
+      id: 'org_subscription',
+      locale: 'en-US',
+      name: 'Subscription Labs',
+      slug: 'subscription-labs',
+      state: 'active' as const,
+      timeZone: 'UTC',
+    };
+    app = await createApp(
+      [],
+      undefined,
+      new MemoryOrganizationRepository({
+        organizations: [organization],
+        memberships: [
+          {
+            organizationId: organization.id,
+            role: 'owner',
+            status: 'active',
+            userId: 'user_subscription_owner',
+          },
+        ],
+      }),
+      new MemoryOrganizationDirectory(),
+      undefined,
+      billingRepository,
+    );
+    const authorization = `Bearer ${createSessionToken({
+      organization,
+      organizationRole: 'owner',
+      userId: 'user_subscription_owner',
+    })}`;
+
+    await request(app.getHttpServer())
+      .get(`/v1/organizations/${organization.id}/billing/subscription`)
+      .set('authorization', authorization)
+      .expect(200)
+      .expect({
+        currentPeriodEndsAt: '2026-10-20T12:00:00.000Z',
+        planId: 'launch',
+        planVersion: 1,
+        providerSubscriptionId: 'sub_northstar',
+        status: 'active',
+      });
+
+    await request(app.getHttpServer())
+      .get('/v1/organizations/org_other/billing/subscription')
+      .set('authorization', authorization)
+      .expect(403);
   });
 
   it('exposes health inside the stable v1 boundary', () => {

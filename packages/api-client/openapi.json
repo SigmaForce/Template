@@ -719,6 +719,53 @@
         ],
         "type": "object"
       },
+      "SubscriptionDto": {
+        "properties": {
+          "currentPeriodEndsAt": {
+            "example": "2026-10-20T12:00:00.000Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "planId": {
+            "enum": [
+              "launch",
+              "scale"
+            ],
+            "example": "launch",
+            "type": "string"
+          },
+          "planVersion": {
+            "example": 1,
+            "type": "number"
+          },
+          "providerSubscriptionId": {
+            "example": "sub_2abc",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "canceled",
+              "incomplete",
+              "incomplete_expired",
+              "past_due",
+              "paused",
+              "trialing",
+              "unpaid"
+            ],
+            "example": "active",
+            "type": "string"
+          }
+        },
+        "required": [
+          "providerSubscriptionId",
+          "planId",
+          "planVersion",
+          "status",
+          "currentPeriodEndsAt"
+        ],
+        "type": "object"
+      },
       "UpdateMembershipDto": {
         "properties": {
           "role": {
@@ -830,6 +877,40 @@
         "summary": "",
         "tags": [
           "Authentication"
+        ]
+      }
+    },
+    "/v1/billing/stripe/webhooks": {
+      "post": {
+        "operationId": "receiveStripeWebhook",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "received": true
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": "The Stripe signature is invalid."
+          }
+        },
+        "summary": "",
+        "tags": [
+          "billing"
         ]
       }
     },
@@ -1233,6 +1314,63 @@
             "description": ""
           },
           "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "clerk-session": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
+    "/v1/organizations/{organizationId}/billing/subscription": {
+      "get": {
+        "operationId": "getSubscription",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organizationId",
+            "required": true,
+            "schema": {
+              "example": "org_2abc",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscriptionDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
             "content": {
               "application/problem+json": {
                 "schema": {
