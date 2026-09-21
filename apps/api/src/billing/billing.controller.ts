@@ -17,17 +17,14 @@ import {
   type AuthenticatedUser,
 } from '../authentication/authentication.js';
 import { ProblemDetailsDto } from '../http/problem-details.js';
-import { PlanCatalog, PlanCatalogDto } from './plan-catalog.js';
+import { PlanCatalogDto, planCatalog } from './plan-catalog.js';
 
-@ApiTags('commerce')
+@ApiTags('billing')
 @ApiExtraModels(ProblemDetailsDto)
 @ApiBearerAuth('clerk-session')
 @Controller('organizations/:organizationId/billing')
-export class CommerceController {
-  constructor(
-    private readonly authorization: AuthorizationService,
-    private readonly plans: PlanCatalog,
-  ) {}
+export class BillingController {
+  constructor(private readonly authorization: AuthorizationService) {}
 
   @Get('catalog')
   @ApiOperation({ operationId: 'getPlanCatalog' })
@@ -52,6 +49,6 @@ export class CommerceController {
       user,
     });
 
-    return this.plans.getPublicCatalog();
+    return planCatalog;
   }
 }

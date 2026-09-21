@@ -25,7 +25,6 @@ async function bootstrap() {
   const app = await NestFactory.create(
     AppModule.register({
       authentication: config.authentication,
-      commerce: { stripePlanMappings: config.stripePlanMappings },
       organizations: {
         directory: new ClerkOrganizationDirectory(
           config.authentication.secretKey,

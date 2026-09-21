@@ -5,10 +5,6 @@ import {
 } from '../authorization/authorization.js';
 
 export type PlanId = 'launch' | 'scale';
-export type StripePlanMappings = Record<
-  PlanId,
-  { priceId: string; productId: string }
->;
 
 export class CapabilityDto {
   @ApiProperty({ enum: Object.values(Capability), example: Capability.billing })
@@ -91,15 +87,3 @@ export const planCatalog = {
     },
   ],
 } as const;
-
-export class PlanCatalog {
-  constructor(private readonly stripePlanMappings: StripePlanMappings) {}
-
-  getPublicCatalog() {
-    return planCatalog;
-  }
-
-  getStripeMapping(planId: PlanId) {
-    return this.stripePlanMappings[planId];
-  }
-}

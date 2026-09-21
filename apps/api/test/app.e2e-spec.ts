@@ -34,18 +34,6 @@ describe('AppController (e2e)', () => {
             jwtKey: authenticationPublicKey,
             ...(rateLimit ? { rateLimit } : {}),
           },
-          commerce: {
-            stripePlanMappings: {
-              launch: {
-                priceId: 'price_launchTest',
-                productId: 'prod_launchTest',
-              },
-              scale: {
-                priceId: 'price_scaleTest',
-                productId: 'prod_scaleTest',
-              },
-            },
-          },
           organizations: {
             directory,
             repository,
