@@ -121,6 +121,16 @@ export class BillingService {
       const event = this.webhooks.verify(rawBody, signature);
       await this.repository.storeEvent(event);
       await this.queue.enqueue(event.id);
+      if (event.organizationId) {
+        const pendingEventIds = await this.repository.findUnscopedEventIds(
+          event.providerSubscriptionId,
+        );
+        await Promise.all(
+          pendingEventIds.map((eventId) =>
+            this.queue.enqueue(eventId, event.id),
+          ),
+        );
+      }
       return { received: true };
     } catch (error) {
       if (error instanceof InvalidStripeWebhookError) {

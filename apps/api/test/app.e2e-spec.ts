@@ -680,6 +680,11 @@ describe('AppController (e2e)', () => {
         },
       },
     });
+    expect(projectionQueue.eventIds).toEqual([
+      'evt_portal_scheduled_downgrade',
+      'evt_portal_subscription_created',
+      'evt_portal_scheduled_downgrade',
+    ]);
     await projector.process('evt_portal_subscription_created');
 
     await request(app.getHttpServer())

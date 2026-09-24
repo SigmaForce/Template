@@ -49,8 +49,11 @@ export abstract class BillingRepository {
   abstract findSubscription(
     organizationId: string,
   ): Promise<SubscriptionProjection | undefined>;
+  abstract findUnscopedEventIds(
+    providerSubscriptionId: string,
+  ): Promise<string[]>;
 }
 
 export abstract class BillingProjectionQueue {
-  abstract enqueue(eventId: string): Promise<void>;
+  abstract enqueue(eventId: string, wakeEventId?: string): Promise<void>;
 }

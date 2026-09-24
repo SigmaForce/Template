@@ -3,7 +3,7 @@
 import { useAuth } from "@clerk/nextjs";
 import { createApiClient } from "@saas/api-client";
 import { Button } from "@saas/ui";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 type PortalState = "idle" | "pending" | "unavailable" | "unauthorized";
 
@@ -17,6 +17,7 @@ export function BillingPortalButton({
   organizationId: string;
 }) {
   const { getToken } = useAuth();
+  const idempotencyKey = useRef<string | null>(null);
   const [state, setState] = useState<PortalState>("idle");
 
   if (!canManage || state === "unauthorized") {
@@ -34,13 +35,14 @@ export function BillingPortalButton({
       if (!token) throw new Error("Authentication is required.");
       const returnUrl = new URL(window.location.href);
       returnUrl.hash = "billing";
+      idempotencyKey.current ??= crypto.randomUUID();
       const { data, response } = await createApiClient(apiUrl).POST(
         "/v1/organizations/{organizationId}/billing/portal-sessions",
         {
           body: { returnUrl: returnUrl.toString() },
           headers: { authorization: `Bearer ${token}` },
           params: {
-            header: { "Idempotency-Key": crypto.randomUUID() },
+            header: { "Idempotency-Key": idempotencyKey.current },
             path: { organizationId },
           },
         },

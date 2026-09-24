@@ -24,6 +24,17 @@ export class MemoryBillingRepository extends BillingRepository {
     return this.subscriptions.get(organizationId);
   }
 
+  async findUnscopedEventIds(providerSubscriptionId: string) {
+    return [...this.events.values()]
+      .filter(
+        (event) =>
+          !event.organizationId &&
+          event.providerSubscriptionId === providerSubscriptionId &&
+          !this.processedEventIds.has(event.id),
+      )
+      .map((event) => event.id);
+  }
+
   async project(eventId: string, planMappings: StripePlanMappings) {
     const event = this.events.get(eventId);
     if (!event) throw new Error('Billing event was not found.');
@@ -67,8 +78,8 @@ export class MemoryBillingRepository extends BillingRepository {
 export class MemoryBillingProjectionQueue extends BillingProjectionQueue {
   readonly eventIds: string[] = [];
 
-  async enqueue(eventId: string) {
-    if (this.eventIds.includes(eventId)) return;
+  async enqueue(eventId: string, wakeEventId?: string) {
+    if (!wakeEventId && this.eventIds.includes(eventId)) return;
     this.eventIds.push(eventId);
   }
 }

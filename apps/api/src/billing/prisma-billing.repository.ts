@@ -77,6 +77,18 @@ export class PrismaBillingRepository
     };
   }
 
+  async findUnscopedEventIds(providerSubscriptionId: string) {
+    const events = await this.client.billingInboxEvent.findMany({
+      select: { eventId: true },
+      where: {
+        organizationId: null,
+        processedAt: null,
+        providerSubscriptionId,
+      },
+    });
+    return events.map((event) => event.eventId);
+  }
+
   async onModuleDestroy() {
     await this.client.$disconnect();
   }

@@ -22,11 +22,13 @@ export class BullMqBillingProjectionQueue
     });
   }
 
-  async enqueue(eventId: string) {
+  async enqueue(eventId: string, wakeEventId?: string) {
     await this.queue.add(
       projectStripeSubscriptionJobName,
       { eventId },
-      { jobId: `stripe-${eventId}` },
+      {
+        jobId: `stripe-${eventId}${wakeEventId ? `-after-${wakeEventId}` : ''}`,
+      },
     );
   }
 
