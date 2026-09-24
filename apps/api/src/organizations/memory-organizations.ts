@@ -231,8 +231,6 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
       currentMembership?.status,
       input.seatAllowance,
     );
-    invitation.status = 'accepted';
-    invitation.acceptedByUserId = input.userId;
     this.memberships.set(this.membershipKey(input), {
       organizationId: input.organizationId,
       role: input.role,
@@ -240,6 +238,8 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
       status: seatAllowanceExceeded ? 'suspended' : 'active',
     });
     if (seatAllowanceExceeded) throw new SeatAllowanceExceededError();
+    invitation.status = 'accepted';
+    invitation.acceptedByUserId = input.userId;
     return {
       organization: { id: organization.id, slug: organization.slug },
       membership: { role: input.role },

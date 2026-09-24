@@ -267,6 +267,15 @@ export class PrismaOrganizationRepository
             : MembershipStatus.ACTIVE,
         },
       });
+      if (seatAllowanceExceeded) {
+        await transaction.invitation.update({
+          where: { id: input.invitationId },
+          data: {
+            acceptedByUserId: null,
+            status: InvitationStatus.PENDING,
+          },
+        });
+      }
       const organization = await transaction.organization.findUniqueOrThrow({
         where: { id: input.organizationId },
         select: { id: true, slug: true },

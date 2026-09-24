@@ -596,13 +596,39 @@ describe.skipIf(!databaseUrl)('Organization onboarding with PostgreSQL', () => {
         `Bearer ${createSessionToken({ userId: 'user_postgres_waiting' })}`,
       )
       .expect(409);
-    const waiting = await pool.query<{ status: string }>(
-      `SELECT status
-       FROM memberships
-       WHERE organization_id = $1 AND user_id = 'user_postgres_waiting'`,
-      [organization.id],
+    const waiting = await pool.query<{
+      invitation_status: string;
+      membership_status: string;
+    }>(
+      `SELECT i.status AS invitation_status, m.status AS membership_status
+       FROM invitations i
+       JOIN memberships m ON m.organization_id = i.organization_id
+       WHERE i.external_id = $1 AND m.user_id = 'user_postgres_waiting'`,
+      [externalId],
     );
-    expect(waiting.rows[0]?.status).toBe('SUSPENDED');
+    expect(waiting.rows[0]).toEqual({
+      invitation_status: 'PENDING',
+      membership_status: 'SUSPENDED',
+    });
+    await request(app.getHttpServer())
+      .patch(
+        `/v1/organizations/${organization.id}/memberships/user_active_three`,
+      )
+      .set('authorization', authorization)
+      .send({ status: 'suspended' })
+      .expect(200);
+    await request(app.getHttpServer())
+      .post(`/v1/invitations/${externalId}/accept`)
+      .set(
+        'authorization',
+        `Bearer ${createSessionToken({ userId: 'user_postgres_waiting' })}`,
+      )
+      .expect(200);
+    const accepted = await pool.query<{ status: string }>(
+      'SELECT status FROM invitations WHERE external_id = $1',
+      [externalId],
+    );
+    expect(accepted.rows[0]?.status).toBe('ACCEPTED');
   });
 
   afterEach(async () => {

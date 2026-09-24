@@ -8,7 +8,8 @@ export class SubscriptionSeatAllowancePolicy extends SeatAllowancePolicy {
   }
 
   async findAllowance(organizationId: string) {
-    const subscription = await this.subscriptions.findSubscription(organizationId);
+    const subscription =
+      await this.subscriptions.findSubscription(organizationId);
     return subscription
       ? findPlan(subscription.planId, subscription.planVersion)?.seatAllowance
       : undefined;
