@@ -8,6 +8,26 @@ export type SubscriptionStatus =
   | 'trialing'
   | 'unpaid';
 
+const subscriptionStatuses = new Set<SubscriptionStatus>([
+  'active',
+  'canceled',
+  'incomplete',
+  'incomplete_expired',
+  'past_due',
+  'paused',
+  'trialing',
+  'unpaid',
+]);
+
+export function isSubscriptionStatus(
+  status: unknown,
+): status is SubscriptionStatus {
+  return (
+    typeof status === 'string' &&
+    subscriptionStatuses.has(status as SubscriptionStatus)
+  );
+}
+
 export function isDelinquentSubscriptionStatus(
   status: SubscriptionStatus,
 ): status is 'past_due' | 'unpaid' {

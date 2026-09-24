@@ -92,7 +92,10 @@ export function nextSubscriptionProjection(
   };
 }
 
-function planIdForPrice(priceId: string, planMappings: StripePlanMappings) {
+export function planIdForPrice(
+  priceId: string,
+  planMappings: StripePlanMappings,
+) {
   const plan = Object.entries(planMappings).find(
     ([, mapping]) => mapping.priceId === priceId,
   )?.[0] as 'launch' | 'scale' | undefined;

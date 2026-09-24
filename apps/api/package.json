@@ -32,7 +32,7 @@
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
     "test:db": "prisma migrate deploy && pnpm test:db:verified && pnpm --filter @saas/worker test:db:verified",
-    "test:db:verified": "vitest run --config ./vitest.config.e2e.ts test/organization-onboarding.db.e2e-spec.ts test/billing-projection.db.e2e-spec.ts"
+    "test:db:verified": "vitest run --config ./vitest.config.e2e.ts --no-file-parallelism test/organization-onboarding.db.e2e-spec.ts test/billing-projection.db.e2e-spec.ts"
   },
   "dependencies": {
     "@clerk/backend": "3.17.2",

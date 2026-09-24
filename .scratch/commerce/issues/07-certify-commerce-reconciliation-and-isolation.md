@@ -8,6 +8,6 @@ Commerce journey cannot cross Organization boundaries.
 
 **Status:** ready-for-agent
 
-- [ ] Reconciliation identifies drift without granting access from untrusted local state.
-- [ ] Replay and repair are idempotent, authorized, and produce an Audit Event when that Extension is enabled.
-- [ ] CI covers synthetic checkout, webhook, worker, Capability, Seat, Grace Period, and cross-Organization denial paths.
+- [x] Reconciliation identifies drift without granting access from untrusted local state.
+- [x] Replay and repair are idempotent, authorized, and produce an Audit Event when that Extension is enabled.
+- [x] CI covers synthetic checkout, webhook, worker, Capability, Seat, Grace Period, and cross-Organization denial paths.

@@ -40,6 +40,7 @@ jobs:
       - run: pnpm test
       - run: pnpm test:startup
       - run: pnpm --filter @saas/api test:e2e
+      - run: pnpm --filter @saas/worker test:e2e
       - run: pnpm --filter @saas/ui test:storybook
       - run: pnpm storybook:build
       - run: pnpm build
@@ -77,6 +78,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @saas/api db:migrate:deploy
       - run: pnpm --filter @saas/api test:db:verified
+      - run: pnpm --filter @saas/api build
+      - run: pnpm --filter @saas/worker test:db:verified
 
   smoke:
     needs: [quality, database]

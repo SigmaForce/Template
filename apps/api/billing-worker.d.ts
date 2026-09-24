@@ -80,6 +80,14 @@ export class PostgresBillingProjectionRepository extends BillingProjectionReposi
   findSubscription(
     organizationId: string,
   ): Promise<SubscriptionProjection | undefined>;
+  findReplaySubscription(
+    input: { organizationId: string; providerSubscriptionId: string },
+    planMappings: StripePlanMappings,
+  ): Promise<SubscriptionProjection | undefined>;
+  rebuildSubscription(
+    input: { organizationId: string; providerSubscriptionId: string },
+    planMappings: StripePlanMappings,
+  ): Promise<SubscriptionProjection | undefined>;
   close(): Promise<void>;
 }
 

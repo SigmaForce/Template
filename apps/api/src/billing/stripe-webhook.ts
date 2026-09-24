@@ -1,16 +1,27 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import type { BillingInboxEvent, SubscriptionStatus } from './billing.js';
+import { isSubscriptionStatus, type BillingInboxEvent } from './billing.js';
 
-const subscriptionStatuses = new Set<SubscriptionStatus>([
-  'active',
-  'canceled',
-  'incomplete',
-  'incomplete_expired',
-  'past_due',
-  'paused',
-  'trialing',
-  'unpaid',
-]);
+export function scheduledPriceIdFromStripeSchedule(schedule: unknown) {
+  if (!isRecord(schedule)) return undefined;
+  const currentPhase = schedule.current_phase;
+  const phases = schedule.phases;
+  const currentPeriodEnd = isRecord(currentPhase)
+    ? currentPhase.end_date
+    : undefined;
+  const nextPhase = Array.isArray(phases)
+    ? phases.find(
+        (phase) => isRecord(phase) && phase.start_date === currentPeriodEnd,
+      )
+    : undefined;
+  const items = isRecord(nextPhase) ? nextPhase.items : undefined;
+  const firstItem = Array.isArray(items) ? items[0] : undefined;
+  const price = isRecord(firstItem) ? firstItem.price : undefined;
+  return typeof price === 'string'
+    ? price
+    : isRecord(price) && typeof price.id === 'string'
+      ? price.id
+      : undefined;
+}
 
 export class InvalidStripeWebhookError extends Error {}
 
@@ -101,8 +112,7 @@ export class StripeWebhookVerifier {
       !isRecord(price) ||
       typeof price.id !== 'string' ||
       !/^price_[A-Za-z0-9]+$/.test(price.id) ||
-      typeof status !== 'string' ||
-      !subscriptionStatuses.has(status as SubscriptionStatus) ||
+      !isSubscriptionStatus(status) ||
       (customer !== undefined &&
         (typeof customer !== 'string' ||
           !/^cus_[A-Za-z0-9_]+$/.test(customer))) ||
@@ -122,7 +132,7 @@ export class StripeWebhookVerifier {
       priceId: price.id,
       ...(typeof customer === 'string' && { providerCustomerId: customer }),
       providerSubscriptionId: subscription.id,
-      status: status as SubscriptionStatus,
+      status,
       type: payload.type,
     };
   }
@@ -133,27 +143,7 @@ export class StripeWebhookVerifier {
   ): BillingInboxEvent {
     const data = payload.data;
     const schedule = isRecord(data) ? data.object : undefined;
-    const currentPhase = isRecord(schedule)
-      ? schedule.current_phase
-      : undefined;
-    const phases = isRecord(schedule) ? schedule.phases : undefined;
-    const currentPeriodEnd = isRecord(currentPhase)
-      ? currentPhase.end_date
-      : undefined;
-    const nextPhase = Array.isArray(phases)
-      ? phases.find(
-          (phase) => isRecord(phase) && phase.start_date === currentPeriodEnd,
-        )
-      : undefined;
-    const items = isRecord(nextPhase) ? nextPhase.items : undefined;
-    const firstItem = Array.isArray(items) ? items[0] : undefined;
-    const price = isRecord(firstItem) ? firstItem.price : undefined;
-    const scheduledPriceId =
-      typeof price === 'string'
-        ? price
-        : isRecord(price) && typeof price.id === 'string'
-          ? price.id
-          : undefined;
+    const scheduledPriceId = scheduledPriceIdFromStripeSchedule(schedule);
     const customer = isRecord(schedule) ? schedule.customer : undefined;
     const subscription = isRecord(schedule) ? schedule.subscription : undefined;
     if (
