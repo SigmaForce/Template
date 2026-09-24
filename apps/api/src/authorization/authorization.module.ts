@@ -3,11 +3,13 @@ import {
   AuthorizationRepository,
   CapabilityPolicy,
   FoundationCapabilityPolicy,
+  OrganizationStatePolicy,
 } from './authorization.js';
 import { AuthorizationService } from './authorization.service.js';
 
 export interface AuthorizationModuleOptions {
   capabilityPolicy?: CapabilityPolicy;
+  organizationStatePolicy: OrganizationStatePolicy;
   repository: AuthorizationRepository;
 }
 
@@ -23,6 +25,10 @@ export class AuthorizationModule {
           provide: CapabilityPolicy,
           useValue:
             options.capabilityPolicy ?? new FoundationCapabilityPolicy(),
+        },
+        {
+          provide: OrganizationStatePolicy,
+          useValue: options.organizationStatePolicy,
         },
       ],
       exports: [AuthorizationService],

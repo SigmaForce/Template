@@ -479,6 +479,17 @@ export class OrganizationsService {
     return this.repository.getSettings(scope.organizationId);
   }
 
+  async exportData(user: AuthenticatedUser, organizationId: string) {
+    const scope = await this.authorization.authorize({
+      user,
+      targetOrganizationId: organizationId,
+      capability: Capability.organizationSettings,
+      permission: Permission.organizationDataExport,
+    });
+
+    return this.repository.getSettings(scope.organizationId);
+  }
+
   async resolveSlug(user: AuthenticatedUser, slug: string) {
     const organization = await this.repository.resolveSlug(slug);
     if (!organization) throw PublicProblemException.permissionDenied();

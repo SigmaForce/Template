@@ -4,6 +4,7 @@ import {
   AuthorizationRepository,
   Capability,
   CapabilityPolicy,
+  OrganizationStatePolicy,
   type AuthorizeOrganizationOperation,
   type AuthorizedOrganizationScope,
   type CapabilityId,
@@ -28,6 +29,7 @@ export class AuthorizationService {
   constructor(
     private readonly repository: AuthorizationRepository,
     private readonly capabilities: CapabilityPolicy,
+    private readonly organizationStates: OrganizationStatePolicy,
   ) {}
 
   async authorize(
@@ -138,6 +140,9 @@ export class AuthorizationService {
     ) {
       return Capability.organizationMemberships;
     }
+    if (permission === Permission.organizationDataExport) {
+      return Capability.organizationSettings;
+    }
     return permission === Permission.organizationSettingsRead ||
       permission === Permission.organizationSettingsUpdate
       ? Capability.organizationSettings
@@ -189,8 +194,16 @@ export class AuthorizationService {
     }
     const role = membership.role ?? assertedRole;
     if (!role) return undefined;
-    const organization = await this.repository.findOrganization(organizationId);
-    if (!organization) return undefined;
+    const storedOrganization =
+      await this.repository.findOrganization(organizationId);
+    if (!storedOrganization) return undefined;
+    const organization = {
+      ...storedOrganization,
+      state: await this.organizationStates.resolve({
+        organizationId,
+        state: storedOrganization.state,
+      }),
+    };
     return {
       organizationId,
       organization,

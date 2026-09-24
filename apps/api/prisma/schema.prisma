@@ -92,6 +92,7 @@ model Subscription {
   status                         String    @db.VarChar(32)
   cancelAtPeriodEnd              Boolean   @default(false) @map("cancel_at_period_end")
   currentPeriodEndsAt            DateTime  @map("current_period_ends_at")
+  pastDueAt                      DateTime? @map("past_due_at")
   providerEventCreatedAt         DateTime  @map("provider_event_created_at")
   providerScheduleEventCreatedAt DateTime? @map("provider_schedule_event_created_at")
   createdAt                      DateTime  @default(now()) @map("created_at")

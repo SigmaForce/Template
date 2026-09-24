@@ -39,7 +39,7 @@ describe.skipIf(!databaseUrl)('Subscription projection with PostgreSQL', () => {
           subscription_status, current_period_ends_at, provider_created_at, payload)
        VALUES
          ('evt_worker_newer', $1, 'customer.subscription.updated', 'sub_worker',
-          'price_launchTest', 'active', '2026-11-01T00:00:00Z',
+          'price_launchTest', 'past_due', '2026-11-01T00:00:00Z',
           '2026-09-21T12:00:00Z', '{}'),
          ('evt_worker_older', $1, 'customer.subscription.updated', 'sub_worker',
           'price_scaleTest', 'canceled', '2026-10-01T00:00:00Z',
@@ -58,9 +58,10 @@ describe.skipIf(!databaseUrl)('Subscription projection with PostgreSQL', () => {
 
     expect(await repository.findSubscription(organizationId)).toMatchObject({
       organizationId,
+      pastDueAt: new Date('2026-09-21T12:00:00.000'),
       planId: 'launch',
       scheduledPlanId: 'scale',
-      status: 'active',
+      status: 'past_due',
     });
     const processed = await pool.query<{ count: string }>(
       'SELECT COUNT(*)::text AS count FROM billing_inbox_events WHERE processed_at IS NOT NULL',

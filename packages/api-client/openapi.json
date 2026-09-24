@@ -64,7 +64,8 @@
                 "organization:memberships:leave",
                 "billing:manage",
                 "organization:ownership:manage",
-                "organization:delete"
+                "organization:delete",
+                "organization:data:export"
               ],
               "type": "string"
             },
@@ -792,6 +793,12 @@
             "format": "date-time",
             "type": "string"
           },
+          "pastDueAt": {
+            "example": "2026-09-20T12:00:00.000Z",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
           "planId": {
             "enum": [
               "launch",
@@ -837,6 +844,7 @@
           "providerSubscriptionId",
           "planId",
           "planVersion",
+          "pastDueAt",
           "scheduledPlanId",
           "status",
           "currentPeriodEndsAt"
@@ -1628,6 +1636,53 @@
         "summary": "",
         "tags": [
           "billing"
+        ]
+      }
+    },
+    "/v1/organizations/{organizationId}/export": {
+      "get": {
+        "operationId": "exportOrganizationData",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organizationId",
+            "required": true,
+            "schema": {
+              "example": "org_2abc",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "clerk-session": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "organizations"
         ]
       }
     },

@@ -1,4 +1,8 @@
-import type { BillingInboxEvent, SubscriptionProjection } from './billing.js';
+import {
+  isDelinquentSubscriptionStatus,
+  type BillingInboxEvent,
+  type SubscriptionProjection,
+} from './billing.js';
 
 export type StripePlanMappings = Record<
   'launch' | 'scale',
@@ -68,6 +72,9 @@ export function nextSubscriptionProjection(
     cancelAtPeriodEnd: event.cancelAtPeriodEnd,
     currentPeriodEndsAt: event.currentPeriodEndsAt,
     organizationId: event.organizationId,
+    ...(isDelinquentSubscriptionStatus(event.status) && {
+      pastDueAt: current?.pastDueAt ?? event.createdAt,
+    }),
     planId: plan,
     planVersion: 1,
     providerEventCreatedAt: event.createdAt,

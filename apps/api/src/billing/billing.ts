@@ -8,6 +8,12 @@ export type SubscriptionStatus =
   | 'trialing'
   | 'unpaid';
 
+export function isDelinquentSubscriptionStatus(
+  status: SubscriptionStatus,
+): status is 'past_due' | 'unpaid' {
+  return status === 'past_due' || status === 'unpaid';
+}
+
 export interface BillingInboxEvent {
   cancelAtPeriodEnd: boolean;
   createdAt: Date;
@@ -32,6 +38,7 @@ export interface SubscriptionProjection {
   cancelAtPeriodEnd?: boolean;
   currentPeriodEndsAt: Date;
   organizationId: string;
+  pastDueAt?: Date;
   planId: 'launch' | 'scale';
   planVersion: number;
   providerEventCreatedAt: Date;

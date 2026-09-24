@@ -227,6 +227,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/organizations/{organizationId}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["exportOrganizationData"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/organizations/{organizationId}/invitations": {
         parameters: {
             query?: never;
@@ -360,7 +376,7 @@ export interface components {
         ActiveOrganizationDto: {
             /** @example org_2abc */
             id: string;
-            permissions: ("organization:settings:read" | "organization:settings:update" | "organization:memberships:manage" | "organization:memberships:leave" | "billing:manage" | "organization:ownership:manage" | "organization:delete")[];
+            permissions: ("organization:settings:read" | "organization:settings:update" | "organization:memberships:manage" | "organization:memberships:leave" | "billing:manage" | "organization:ownership:manage" | "organization:delete" | "organization:data:export")[];
             /** @enum {string} */
             role: "admin" | "member" | "owner";
             /** @example northstar-labs */
@@ -619,6 +635,11 @@ export interface components {
              * @example 2026-10-20T12:00:00.000Z
              */
             currentPeriodEndsAt: string;
+            /**
+             * Format: date-time
+             * @example 2026-09-20T12:00:00.000Z
+             */
+            pastDueAt: string | null;
             /**
              * @example launch
              * @enum {string}
@@ -1119,6 +1140,35 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
+    exportOrganizationData: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationDto"];
+                };
+            };
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

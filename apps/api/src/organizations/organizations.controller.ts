@@ -182,6 +182,18 @@ export class OrganizationsController {
     return this.organizations.getSettings(user, organizationId);
   }
 
+  @Get(':organizationId/export')
+  @ApiOperation({ operationId: 'exportOrganizationData' })
+  @ApiParam({ name: 'organizationId', example: 'org_2abc' })
+  @ApiOkResponse({ type: OrganizationDto })
+  @ApiResponse({ status: 403, content: problemContent })
+  exportData(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('organizationId') organizationId: string,
+  ) {
+    return this.organizations.exportData(user, organizationId);
+  }
+
   @Post()
   @ApiOperation({ operationId: 'createFirstOrganization' })
   @ApiHeader({ name: 'Idempotency-Key', required: true })

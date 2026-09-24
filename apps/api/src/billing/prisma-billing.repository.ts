@@ -59,6 +59,7 @@ export class PrismaBillingRepository
       cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
       currentPeriodEndsAt: subscription.currentPeriodEndsAt,
       organizationId: subscription.organizationId,
+      ...(subscription.pastDueAt && { pastDueAt: subscription.pastDueAt }),
       planId: subscription.planId as 'launch' | 'scale',
       planVersion: subscription.planVersion,
       providerEventCreatedAt: subscription.providerEventCreatedAt,

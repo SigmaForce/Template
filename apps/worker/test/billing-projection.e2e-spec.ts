@@ -3,6 +3,86 @@ import { SubscriptionProjector } from '@saas/api/billing-worker';
 import { MemoryBillingProjectionRepository } from './memory-billing-projection.repository.js';
 
 describe('Stripe Subscription projection', () => {
+  it('projects the first past-due instant until payment recovers', async () => {
+    const repository = new MemoryBillingProjectionRepository([
+      {
+        cancelAtPeriodEnd: false,
+        createdAt: new Date('2026-09-20T12:00:00.000Z'),
+        currentPeriodEndsAt: new Date('2026-10-20T12:00:00.000Z'),
+        id: 'evt_past_due',
+        organizationId: 'org_grace_period',
+        priceId: 'price_launchTest',
+        providerSubscriptionId: 'sub_grace_period',
+        status: 'past_due',
+        type: 'customer.subscription.updated',
+      },
+      {
+        cancelAtPeriodEnd: false,
+        createdAt: new Date('2026-09-22T12:00:00.000Z'),
+        currentPeriodEndsAt: new Date('2026-10-20T12:00:00.000Z'),
+        id: 'evt_still_past_due',
+        organizationId: 'org_grace_period',
+        priceId: 'price_launchTest',
+        providerSubscriptionId: 'sub_grace_period',
+        status: 'past_due',
+        type: 'customer.subscription.updated',
+      },
+      {
+        cancelAtPeriodEnd: false,
+        createdAt: new Date('2026-09-23T12:00:00.000Z'),
+        currentPeriodEndsAt: new Date('2026-10-20T12:00:00.000Z'),
+        id: 'evt_unpaid',
+        organizationId: 'org_grace_period',
+        priceId: 'price_launchTest',
+        providerSubscriptionId: 'sub_grace_period',
+        status: 'unpaid',
+        type: 'customer.subscription.updated',
+      },
+      {
+        cancelAtPeriodEnd: false,
+        createdAt: new Date('2026-09-24T12:00:00.000Z'),
+        currentPeriodEndsAt: new Date('2026-10-20T12:00:00.000Z'),
+        id: 'evt_payment_recovered',
+        organizationId: 'org_grace_period',
+        priceId: 'price_launchTest',
+        providerSubscriptionId: 'sub_grace_period',
+        status: 'active',
+        type: 'customer.subscription.updated',
+      },
+    ]);
+    const projector = new SubscriptionProjector(repository, {
+      launch: {
+        priceId: 'price_launchTest',
+        productId: 'prod_launchTest',
+      },
+      scale: {
+        priceId: 'price_scaleTest',
+        productId: 'prod_scaleTest',
+      },
+    });
+
+    await projector.process('evt_past_due');
+    expect(
+      (await repository.findSubscription('org_grace_period'))?.pastDueAt,
+    ).toEqual(new Date('2026-09-20T12:00:00.000Z'));
+
+    await projector.process('evt_still_past_due');
+    expect(
+      (await repository.findSubscription('org_grace_period'))?.pastDueAt,
+    ).toEqual(new Date('2026-09-20T12:00:00.000Z'));
+
+    await projector.process('evt_unpaid');
+    expect(
+      (await repository.findSubscription('org_grace_period'))?.pastDueAt,
+    ).toEqual(new Date('2026-09-20T12:00:00.000Z'));
+
+    await projector.process('evt_payment_recovered');
+    await projector.process('evt_payment_recovered');
+    expect(
+      (await repository.findSubscription('org_grace_period'))?.pastDueAt,
+    ).toBeUndefined();
+  });
+
   it('is idempotent, ignores delayed state, and logs no provider payload', async () => {
     const repository = new MemoryBillingProjectionRepository([
       {

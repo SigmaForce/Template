@@ -280,6 +280,7 @@ describe('AppController (e2e)', () => {
       .expect({
         cancelAtPeriodEnd: false,
         currentPeriodEndsAt: '2026-10-20T12:00:00.000Z',
+        pastDueAt: null,
         planId: 'launch',
         planVersion: 1,
         providerSubscriptionId: 'sub_northstar',
@@ -694,6 +695,7 @@ describe('AppController (e2e)', () => {
       .expect({
         cancelAtPeriodEnd: false,
         currentPeriodEndsAt: '2026-10-15T12:00:00.000Z',
+        pastDueAt: null,
         planId: 'launch',
         planVersion: 1,
         providerSubscriptionId: 'sub_portal_projection',
@@ -733,6 +735,7 @@ describe('AppController (e2e)', () => {
       .expect({
         cancelAtPeriodEnd: false,
         currentPeriodEndsAt: '2026-10-15T12:00:00.000Z',
+        pastDueAt: null,
         planId: 'scale',
         planVersion: 1,
         providerSubscriptionId: 'sub_portal_projection',
@@ -752,6 +755,7 @@ describe('AppController (e2e)', () => {
       .expect({
         cancelAtPeriodEnd: false,
         currentPeriodEndsAt: '2026-10-15T12:00:00.000Z',
+        pastDueAt: null,
         planId: 'scale',
         planVersion: 1,
         providerSubscriptionId: 'sub_portal_projection',
@@ -787,6 +791,7 @@ describe('AppController (e2e)', () => {
       .expect({
         cancelAtPeriodEnd: true,
         currentPeriodEndsAt: '2026-10-15T12:00:00.000Z',
+        pastDueAt: null,
         planId: 'scale',
         planVersion: 1,
         providerSubscriptionId: 'sub_portal_projection',
@@ -1534,6 +1539,7 @@ describe('AppController (e2e)', () => {
       expect(active.body.permissions).toEqual([
         'organization:settings:read',
         'organization:memberships:leave',
+        'organization:data:export',
       ]);
 
       const response = await request(app.getHttpServer())
@@ -1624,6 +1630,7 @@ describe('AppController (e2e)', () => {
         'organization:memberships:leave',
         'billing:manage',
         'organization:ownership:manage',
+        'organization:data:export',
       ]);
 
       await request(app.getHttpServer())
@@ -1635,6 +1642,129 @@ describe('AppController (e2e)', () => {
         .set('authorization', authorization)
         .send({ locale: 'en-US', timeZone: 'UTC' })
         .expect(403);
+    });
+
+    it('uses the projected Grace Period boundary and restores writes after payment recovery', async () => {
+      vi.useFakeTimers();
+      try {
+        await app.close();
+        const billingRepository = new MemoryBillingRepository();
+        const portalGateway = new MemoryBillingPortalGateway();
+        billingRepository.subscriptions.set(organization.id, {
+          currentPeriodEndsAt: new Date('2026-10-20T12:00:00.000Z'),
+          organizationId: organization.id,
+          pastDueAt: new Date('2026-09-20T12:00:00.000Z'),
+          planId: 'launch',
+          planVersion: 1,
+          providerCustomerId: 'cus_grace_period',
+          providerEventCreatedAt: new Date('2026-09-20T12:00:00.000Z'),
+          providerSubscriptionId: 'sub_grace_period',
+          status: 'past_due',
+        });
+        app = await createApp(
+          [],
+          undefined,
+          new MemoryOrganizationRepository({
+            organizations: [organization],
+            memberships: [
+              {
+                organizationId: organization.id,
+                role: 'owner',
+                status: 'active',
+                userId: 'user_grace_owner',
+              },
+              {
+                organizationId: organization.id,
+                role: 'member',
+                status: 'active',
+                userId: 'user_grace_member',
+              },
+            ],
+          }),
+          new MemoryOrganizationDirectory(),
+          undefined,
+          billingRepository,
+          new MemoryBillingProjectionQueue(),
+          new MemoryBillingCheckoutGateway(),
+          new SubscriptionCapabilityPolicy(billingRepository),
+          portalGateway,
+        );
+        vi.setSystemTime(new Date('2026-09-27T11:59:59.999Z'));
+        const ownerAuthorization = tokenFor('user_grace_owner', 'owner');
+        await request(app.getHttpServer())
+          .patch(`/v1/organizations/${organization.id}/settings`)
+          .set('authorization', ownerAuthorization)
+          .send({ locale: 'pt-BR', timeZone: 'America/Cuiaba' })
+          .expect(200);
+
+        vi.setSystemTime(new Date('2026-09-27T12:00:00.000Z'));
+        await request(app.getHttpServer())
+          .get(`/v1/organizations/${organization.id}/settings`)
+          .set('authorization', ownerAuthorization)
+          .expect(200);
+        await request(app.getHttpServer())
+          .get(`/v1/organizations/${organization.id}/export`)
+          .set('authorization', ownerAuthorization)
+          .expect(200)
+          .expect((response) => {
+            expect(response.body).toEqual(
+              expect.objectContaining({
+                id: organization.id,
+                slug: organization.slug,
+              }),
+            );
+          });
+        await request(app.getHttpServer())
+          .get(`/v1/organizations/${organization.id}/billing/subscription`)
+          .set('authorization', ownerAuthorization)
+          .expect(200)
+          .expect((response) => {
+            expect(response.body).toEqual(
+              expect.objectContaining({
+                pastDueAt: '2026-09-20T12:00:00.000Z',
+                status: 'past_due',
+              }),
+            );
+          });
+        await request(app.getHttpServer())
+          .patch(`/v1/organizations/${organization.id}/settings`)
+          .set('authorization', ownerAuthorization)
+          .send({ locale: 'en-US', timeZone: 'UTC' })
+          .expect(403);
+
+        billingRepository.subscriptions.set(organization.id, {
+          ...billingRepository.subscriptions.get(organization.id)!,
+          status: 'unpaid',
+        });
+        await request(app.getHttpServer())
+          .get(`/v1/organizations/${organization.id}/settings`)
+          .set('authorization', ownerAuthorization)
+          .expect(200);
+        await request(app.getHttpServer())
+          .post(`/v1/organizations/${organization.id}/billing/portal-sessions`)
+          .set('authorization', ownerAuthorization)
+          .set('idempotency-key', 'grace-recovery-1')
+          .send({ returnUrl: 'http://localhost:3000/settings/billing' })
+          .expect(201);
+        await request(app.getHttpServer())
+          .delete(
+            `/v1/organizations/${organization.id}/memberships/user_grace_member`,
+          )
+          .set('authorization', tokenFor('user_grace_member', 'member'))
+          .expect(200);
+
+        billingRepository.subscriptions.set(organization.id, {
+          ...billingRepository.subscriptions.get(organization.id)!,
+          status: 'active',
+        });
+        await request(app.getHttpServer())
+          .patch(`/v1/organizations/${organization.id}/settings`)
+          .set('authorization', ownerAuthorization)
+          .send({ locale: 'en-US', timeZone: 'UTC' })
+          .expect(200);
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it('keeps billing, ownership and deletion exclusive to Owner', async () => {
@@ -1664,6 +1794,7 @@ describe('AppController (e2e)', () => {
         'organization:settings:update',
         'organization:memberships:manage',
         'organization:memberships:leave',
+        'organization:data:export',
       ]);
       expect(admin.body.permissions).not.toEqual(
         expect.arrayContaining([
@@ -2155,6 +2286,7 @@ describe('AppController (e2e)', () => {
       expect(active.body.permissions).toEqual([
         'organization:settings:read',
         'organization:memberships:leave',
+        'organization:data:export',
       ]);
 
       await request(app.getHttpServer())

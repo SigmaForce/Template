@@ -103,6 +103,7 @@ export class BillingService {
     return {
       cancelAtPeriodEnd: subscription.cancelAtPeriodEnd ?? false,
       currentPeriodEndsAt: subscription.currentPeriodEndsAt.toISOString(),
+      pastDueAt: subscription.pastDueAt?.toISOString() ?? null,
       planId: subscription.planId,
       planVersion: subscription.planVersion,
       providerSubscriptionId: subscription.providerSubscriptionId,

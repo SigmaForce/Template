@@ -48,6 +48,13 @@ export class FoundationCapabilityPolicy extends CapabilityPolicy {
   }
 }
 
+export abstract class OrganizationStatePolicy {
+  abstract resolve(input: {
+    organizationId: string;
+    state: OrganizationAccessState;
+  }): Promise<OrganizationAccessState>;
+}
+
 export interface AuthorizeOrganizationOperation {
   capability: CapabilityId;
   permission: PermissionId;

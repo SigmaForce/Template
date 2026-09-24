@@ -38,6 +38,7 @@ export interface SubscriptionProjection {
   cancelAtPeriodEnd?: boolean;
   currentPeriodEndsAt: Date;
   organizationId: string;
+  pastDueAt?: Date;
   planId: 'launch' | 'scale';
   planVersion: number;
   providerEventCreatedAt: Date;

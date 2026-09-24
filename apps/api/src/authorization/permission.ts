@@ -6,6 +6,7 @@ export const Permission = {
   billingManage: 'billing:manage',
   organizationOwnershipManage: 'organization:ownership:manage',
   organizationDelete: 'organization:delete',
+  organizationDataExport: 'organization:data:export',
 } as const;
 
 export type PermissionId = (typeof Permission)[keyof typeof Permission];
@@ -19,10 +20,12 @@ const rolePermissions = {
     Permission.organizationSettingsUpdate,
     Permission.organizationMembershipsManage,
     Permission.organizationMembershipsLeave,
+    Permission.organizationDataExport,
   ],
   member: [
     Permission.organizationSettingsRead,
     Permission.organizationMembershipsLeave,
+    Permission.organizationDataExport,
   ],
 } as const satisfies Record<OrganizationRole, readonly PermissionId[]>;
 
@@ -63,6 +66,7 @@ export function organizationStateAllows(
     permission === Permission.organizationMembershipsManage ||
     permission === Permission.organizationMembershipsLeave ||
     permission === Permission.billingManage ||
+    permission === Permission.organizationDataExport ||
     permission === Permission.organizationOwnershipManage
   );
 }

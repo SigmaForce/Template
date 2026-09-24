@@ -8,6 +8,6 @@ security operations remain available.
 
 **Status:** ready-for-agent
 
-- [ ] The projected past-due timestamp, not browser time or a request field, controls the Grace Period.
-- [ ] Mutation is denied centrally after Grace Period while documented read, export, billing recovery, and leave paths remain available.
-- [ ] Payment recovery restores normal access idempotently and boundary tests avoid wall-clock flakes.
+- [x] The projected past-due timestamp, not browser time or a request field, controls the Grace Period.
+- [x] Mutation is denied centrally after Grace Period while documented read, export, billing recovery, and leave paths remain available.
+- [x] Payment recovery restores normal access idempotently and boundary tests avoid wall-clock flakes.

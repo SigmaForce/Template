@@ -19,6 +19,7 @@ import type { StripePlanMappings } from './billing/subscription-projection.js';
 import type { CapabilityPolicy } from './authorization/authorization.js';
 import type { BillingPortalGateway } from './billing/portal.js';
 import { SubscriptionSeatAllowancePolicy } from './billing/subscription-seat-allowance-policy.js';
+import { SubscriptionOrganizationStatePolicy } from './billing/subscription-organization-state-policy.js';
 
 export interface AppModuleOptions {
   authentication: AuthenticationOptions;
@@ -32,12 +33,18 @@ export interface AppModuleOptions {
     portalGateway: BillingPortalGateway;
     stripeWebhookSecret: string;
   };
-  organizations: Omit<OrganizationModuleOptions, 'seatAllowancePolicy'>;
+  organizations: Omit<
+    OrganizationModuleOptions,
+    'organizationStatePolicy' | 'seatAllowancePolicy'
+  >;
 }
 
 @Module({})
 export class AppModule {
   static register(options: AppModuleOptions): DynamicModule {
+    const organizationStatePolicy = new SubscriptionOrganizationStatePolicy(
+      options.billing.repository,
+    );
     return {
       module: AppModule,
       imports: [
@@ -45,6 +52,7 @@ export class AppModule {
         OrganizationsModule.register({
           ...options.organizations,
           capabilityPolicy: options.capabilityPolicy,
+          organizationStatePolicy,
           seatAllowancePolicy: new SubscriptionSeatAllowancePolicy(
             options.billing.repository,
           ),
@@ -58,6 +66,7 @@ export class AppModule {
           planMappings: options.billing.planMappings,
           portalGateway: options.billing.portalGateway,
           capabilityPolicy: options.capabilityPolicy,
+          organizationStatePolicy,
           stripeWebhookSecret: options.billing.stripeWebhookSecret,
         }),
       ],

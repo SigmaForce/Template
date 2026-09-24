@@ -28,6 +28,7 @@ type SubscriptionRow = {
   cancel_at_period_end: boolean;
   current_period_ends_at: Date;
   organization_id: string;
+  past_due_at: Date | null;
   plan_id: 'launch' | 'scale';
   plan_version: number;
   provider_event_created_at: Date;
@@ -96,7 +97,8 @@ export class PostgresBillingProjectionRepository extends BillingProjectionReposi
         `SELECT organization_id, provider_subscription_id, provider_customer_id,
                 plan_id, plan_version, scheduled_plan_id, status,
                 cancel_at_period_end, current_period_ends_at,
-                provider_event_created_at, provider_schedule_event_created_at
+                past_due_at, provider_event_created_at,
+                provider_schedule_event_created_at
            FROM subscriptions WHERE organization_id = $1`,
         [organizationId],
       );
@@ -115,8 +117,8 @@ export class PostgresBillingProjectionRepository extends BillingProjectionReposi
              (organization_id, provider_subscription_id, provider_customer_id,
               plan_id, plan_version, scheduled_plan_id, status, cancel_at_period_end,
               current_period_ends_at, provider_event_created_at,
-              provider_schedule_event_created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)
+              provider_schedule_event_created_at, past_due_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP)
            ON CONFLICT (organization_id) DO UPDATE SET
              provider_subscription_id = EXCLUDED.provider_subscription_id,
              provider_customer_id = EXCLUDED.provider_customer_id,
@@ -128,6 +130,7 @@ export class PostgresBillingProjectionRepository extends BillingProjectionReposi
              current_period_ends_at = EXCLUDED.current_period_ends_at,
              provider_event_created_at = EXCLUDED.provider_event_created_at,
              provider_schedule_event_created_at = EXCLUDED.provider_schedule_event_created_at,
+             past_due_at = EXCLUDED.past_due_at,
              updated_at = CURRENT_TIMESTAMP`,
           [
             next.organizationId,
@@ -141,6 +144,7 @@ export class PostgresBillingProjectionRepository extends BillingProjectionReposi
             next.currentPeriodEndsAt,
             next.providerEventCreatedAt,
             next.providerScheduleEventCreatedAt ?? null,
+            next.pastDueAt ?? null,
           ],
         );
       }
@@ -166,7 +170,8 @@ export class PostgresBillingProjectionRepository extends BillingProjectionReposi
       `SELECT organization_id, provider_subscription_id, provider_customer_id,
               plan_id, plan_version, scheduled_plan_id, status,
               cancel_at_period_end, current_period_ends_at,
-              provider_event_created_at, provider_schedule_event_created_at
+              past_due_at, provider_event_created_at,
+              provider_schedule_event_created_at
          FROM subscriptions WHERE organization_id = $1`,
       [organizationId],
     );
@@ -207,6 +212,7 @@ export class PostgresBillingProjectionRepository extends BillingProjectionReposi
       cancelAtPeriodEnd: row.cancel_at_period_end,
       currentPeriodEndsAt: row.current_period_ends_at,
       organizationId: row.organization_id,
+      ...(row.past_due_at && { pastDueAt: row.past_due_at }),
       planId: row.plan_id,
       planVersion: row.plan_version,
       providerEventCreatedAt: row.provider_event_created_at,

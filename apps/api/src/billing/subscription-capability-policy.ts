@@ -4,6 +4,7 @@ import {
   type CapabilityId,
 } from '../authorization/authorization.js';
 import { BillingRepository } from './billing.js';
+import { isDelinquentSubscriptionStatus } from './billing.js';
 import { findPlan } from './plan-catalog.js';
 
 export class SubscriptionCapabilityPolicy extends CapabilityPolicy {
@@ -19,7 +20,8 @@ export class SubscriptionCapabilityPolicy extends CapabilityPolicy {
     );
     if (
       !subscription ||
-      !['active', 'past_due', 'trialing'].includes(subscription.status)
+      (!['active', 'trialing'].includes(subscription.status) &&
+        !isDelinquentSubscriptionStatus(subscription.status))
     ) {
       return false;
     }

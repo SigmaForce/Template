@@ -2,6 +2,7 @@ import { type DynamicModule, Module } from '@nestjs/common';
 import {
   AuthorizationRepository,
   type CapabilityPolicy,
+  type OrganizationStatePolicy,
 } from '../authorization/authorization.js';
 import { AuthorizationModule } from '../authorization/authorization.module.js';
 import { BillingController } from './billing.controller.js';
@@ -22,6 +23,7 @@ export interface BillingModuleOptions {
   planMappings: StripePlanMappings;
   portalGateway: BillingPortalGateway;
   capabilityPolicy?: CapabilityPolicy;
+  organizationStatePolicy: OrganizationStatePolicy;
   stripeWebhookSecret: string;
 }
 
@@ -33,6 +35,7 @@ export class BillingModule {
       imports: [
         AuthorizationModule.register({
           capabilityPolicy: options.capabilityPolicy,
+          organizationStatePolicy: options.organizationStatePolicy,
           repository: options.repository,
         }),
       ],
