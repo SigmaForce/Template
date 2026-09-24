@@ -9,6 +9,8 @@ import {
   InvitationStateConflictError,
   type OrganizationOnboardingResult,
   OrganizationSlugConflictError,
+  SeatAllowanceExceededError,
+  SeatAllowancePolicy,
 } from './organization.js';
 import { AuthorizationService } from '../authorization/authorization.service.js';
 import { Capability } from '../authorization/authorization.js';
@@ -16,9 +18,6 @@ import { Permission } from '../authorization/permission.js';
 import type { UpdateOrganizationSettingsDto } from './update-organization-settings.dto.js';
 import type { CreateInvitationDto } from './create-invitation.dto.js';
 import type { OrganizationInvitation } from './organization.js';
-import { BillingRepository } from '../billing/billing.js';
-import { findPlan } from '../billing/plan-catalog.js';
-import { SeatAllowanceExceededError } from './organization.js';
 
 @Injectable()
 export class OrganizationsService {
@@ -26,7 +25,7 @@ export class OrganizationsService {
     private readonly repository: OrganizationRepository,
     private readonly directory: OrganizationDirectory,
     private readonly authorization: AuthorizationService,
-    private readonly billing: BillingRepository,
+    private readonly seats: SeatAllowancePolicy,
   ) {}
 
   async createFirstOrganization(
@@ -310,17 +309,13 @@ export class OrganizationsService {
     }
 
     try {
-      const subscription = await this.billing.findSubscription(
-        invitation.organizationId,
-      );
       return await this.repository.acceptInvitation({
         invitationId: invitation.id,
         organizationId: invitation.organizationId,
         role: membership.role,
-        seatAllowance: subscription
-          ? findPlan(subscription.planId, subscription.planVersion)
-              ?.seatAllowance
-          : undefined,
+        seatAllowance: await this.seats.findAllowance(
+          invitation.organizationId,
+        ),
         userId: user.id,
       });
     } catch (error) {

@@ -18,6 +18,7 @@ import type { BillingCheckoutGateway } from './billing/checkout.js';
 import type { StripePlanMappings } from './billing/subscription-projection.js';
 import type { CapabilityPolicy } from './authorization/authorization.js';
 import type { BillingPortalGateway } from './billing/portal.js';
+import { SubscriptionSeatAllowancePolicy } from './billing/subscription-seat-allowance-policy.js';
 
 export interface AppModuleOptions {
   authentication: AuthenticationOptions;
@@ -31,7 +32,7 @@ export interface AppModuleOptions {
     portalGateway: BillingPortalGateway;
     stripeWebhookSecret: string;
   };
-  organizations: Omit<OrganizationModuleOptions, 'billingRepository'>;
+  organizations: Omit<OrganizationModuleOptions, 'seatAllowancePolicy'>;
 }
 
 @Module({})
@@ -43,8 +44,10 @@ export class AppModule {
         AuthenticationModule.register(options.authentication),
         OrganizationsModule.register({
           ...options.organizations,
-          billingRepository: options.billing.repository,
           capabilityPolicy: options.capabilityPolicy,
+          seatAllowancePolicy: new SubscriptionSeatAllowancePolicy(
+            options.billing.repository,
+          ),
         }),
         BillingModule.register({
           repository: options.organizations.repository,

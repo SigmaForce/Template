@@ -2241,14 +2241,27 @@ describe('AppController (e2e)', () => {
           });
         });
       await request(app.getHttpServer())
+        .get(`/v1/organizations/${organization.id}/memberships`)
+        .set('authorization', ownerAuthorization)
+        .expect(200)
+        .expect((response) => {
+          expect(response.body.items).toContainEqual({
+            userId: 'user_waiting',
+            role: 'member',
+            status: 'suspended',
+          });
+        });
+      await request(app.getHttpServer())
         .patch(`/v1/organizations/${organization.id}/memberships/user_four`)
         .set('authorization', ownerAuthorization)
         .send({ status: 'suspended' })
         .expect(200);
       await request(app.getHttpServer())
-        .post(`/v1/invitations/${externalId}/accept`)
-        .set('authorization', invitedAuthorization)
-        .expect(200);
+        .patch(`/v1/organizations/${organization.id}/memberships/user_waiting`)
+        .set('authorization', ownerAuthorization)
+        .send({ status: 'active' })
+        .expect(200)
+        .expect({ userId: 'user_waiting', role: 'member', status: 'active' });
     });
 
     it('rejects an Invitation for another identity or an invalid state', async () => {

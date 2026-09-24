@@ -148,6 +148,10 @@ export abstract class OrganizationRepository extends AuthorizationRepository {
   }): Promise<OrganizationProfile>;
 }
 
+export abstract class SeatAllowancePolicy {
+  abstract findAllowance(organizationId: string): Promise<number | undefined>;
+}
+
 export interface OrganizationRecord extends OrganizationProfile {
   state: OrganizationAccessState;
 }

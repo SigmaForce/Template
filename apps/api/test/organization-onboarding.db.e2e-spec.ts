@@ -27,6 +27,7 @@ const databaseUrl = process.env.TEST_DATABASE_URL;
 describe.skipIf(!databaseUrl)('Organization onboarding with PostgreSQL', () => {
   let app: INestApplication;
   let billingRepository: MemoryBillingRepository;
+  let directory: MemoryOrganizationDirectory;
   let pool: Pool;
 
   beforeAll(() => {
@@ -39,6 +40,7 @@ describe.skipIf(!databaseUrl)('Organization onboarding with PostgreSQL', () => {
     );
     const repository = new PrismaOrganizationRepository(databaseUrl!);
     billingRepository = new MemoryBillingRepository();
+    directory = new MemoryOrganizationDirectory();
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
         AppModule.register({
@@ -56,7 +58,7 @@ describe.skipIf(!databaseUrl)('Organization onboarding with PostgreSQL', () => {
             stripeWebhookSecret: 'whsec_testWebhookSecret',
           },
           organizations: {
-            directory: new MemoryOrganizationDirectory(),
+            directory,
             repository,
           },
         }),
@@ -577,6 +579,30 @@ describe.skipIf(!databaseUrl)('Organization onboarding with PostgreSQL', () => {
       [organization.id],
     );
     expect(active.rows[0]?.count).toBe('5');
+
+    await request(app.getHttpServer())
+      .post(`/v1/organizations/${organization.id}/invitations`)
+      .set('authorization', authorization)
+      .send({ emailAddress: 'postgres-waiting@example.com', role: 'member' })
+      .expect(201);
+    const externalId = directory.acceptInvitation({
+      emailAddress: 'postgres-waiting@example.com',
+      userId: 'user_postgres_waiting',
+    });
+    await request(app.getHttpServer())
+      .post(`/v1/invitations/${externalId}/accept`)
+      .set(
+        'authorization',
+        `Bearer ${createSessionToken({ userId: 'user_postgres_waiting' })}`,
+      )
+      .expect(409);
+    const waiting = await pool.query<{ status: string }>(
+      `SELECT status
+       FROM memberships
+       WHERE organization_id = $1 AND user_id = 'user_postgres_waiting'`,
+      [organization.id],
+    );
+    expect(waiting.rows[0]?.status).toBe('SUSPENDED');
   });
 
   afterEach(async () => {

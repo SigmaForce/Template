@@ -100,15 +100,13 @@ export class PrismaOrganizationRepository
               }[input.status]
             : membership.status;
           if (
-            membership.status !== MembershipStatus.ACTIVE &&
             status === MembershipStatus.ACTIVE &&
-            input.seatAllowance !== undefined &&
-            (await transaction.membership.count({
-              where: {
-                organizationId: input.organizationId,
-                status: MembershipStatus.ACTIVE,
-              },
-            })) >= input.seatAllowance
+            (await this.seatAllowanceExceeded(
+              transaction,
+              input.organizationId,
+              membership.status,
+              input.seatAllowance,
+            ))
           ) {
             throw new SeatAllowanceExceededError();
           }
@@ -217,28 +215,8 @@ export class PrismaOrganizationRepository
     seatAllowance?: number;
     userId: string;
   }) {
-    return this.client.$transaction(async (transaction) => {
+    const outcome = await this.client.$transaction(async (transaction) => {
       await this.lockSeatAllocation(transaction, input.organizationId);
-      const currentMembership = await transaction.membership.findUnique({
-        where: {
-          organizationId_userId: {
-            organizationId: input.organizationId,
-            userId: input.userId,
-          },
-        },
-      });
-      if (
-        currentMembership?.status !== MembershipStatus.ACTIVE &&
-        input.seatAllowance !== undefined &&
-        (await transaction.membership.count({
-          where: {
-            organizationId: input.organizationId,
-            status: MembershipStatus.ACTIVE,
-          },
-        })) >= input.seatAllowance
-      ) {
-        throw new SeatAllowanceExceededError();
-      }
       const accepted = await transaction.invitation.updateMany({
         where: {
           id: input.invitationId,
@@ -253,6 +231,20 @@ export class PrismaOrganizationRepository
       });
       if (accepted.count !== 1) throw new InvitationStateConflictError();
 
+      const currentMembership = await transaction.membership.findUnique({
+        where: {
+          organizationId_userId: {
+            organizationId: input.organizationId,
+            userId: input.userId,
+          },
+        },
+      });
+      const seatAllowanceExceeded = await this.seatAllowanceExceeded(
+        transaction,
+        input.organizationId,
+        currentMembership?.status,
+        input.seatAllowance,
+      );
       await transaction.membership.upsert({
         where: {
           organizationId_userId: {
@@ -264,19 +256,34 @@ export class PrismaOrganizationRepository
           organizationId: input.organizationId,
           userId: input.userId,
           role: this.membershipRole(input.role),
-          status: MembershipStatus.ACTIVE,
+          status: seatAllowanceExceeded
+            ? MembershipStatus.SUSPENDED
+            : MembershipStatus.ACTIVE,
         },
         update: {
           role: this.membershipRole(input.role),
-          status: MembershipStatus.ACTIVE,
+          status: seatAllowanceExceeded
+            ? MembershipStatus.SUSPENDED
+            : MembershipStatus.ACTIVE,
         },
       });
       const organization = await transaction.organization.findUniqueOrThrow({
         where: { id: input.organizationId },
         select: { id: true, slug: true },
       });
-      return { organization, membership: { role: input.role } };
+      return {
+        organization,
+        membership: { role: input.role },
+        seatAllowanceExceeded,
+      };
     });
+    if (outcome.seatAllowanceExceeded) {
+      throw new SeatAllowanceExceededError();
+    }
+    return {
+      organization: outcome.organization,
+      membership: outcome.membership,
+    };
   }
 
   async listInvitations(organizationId: string) {
@@ -602,6 +609,24 @@ export class PrismaOrganizationRepository
     await transaction.$queryRaw`
       SELECT id FROM organizations WHERE id = ${organizationId} FOR UPDATE
     `;
+  }
+
+  private async seatAllowanceExceeded(
+    transaction: Prisma.TransactionClient,
+    organizationId: string,
+    currentStatus: MembershipStatus | undefined,
+    seatAllowance: number | undefined,
+  ) {
+    return (
+      currentStatus !== MembershipStatus.ACTIVE &&
+      seatAllowance !== undefined &&
+      (await transaction.membership.count({
+        where: {
+          organizationId,
+          status: MembershipStatus.ACTIVE,
+        },
+      })) >= seatAllowance
+    );
   }
 
   private membershipRole(role: 'admin' | 'member' | 'owner') {

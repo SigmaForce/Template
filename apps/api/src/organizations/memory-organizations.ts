@@ -110,14 +110,12 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
     const role = input.role ?? membership.role;
     const status = input.status ?? membership.status;
     if (
-      membership.status !== 'active' &&
       status === 'active' &&
-      input.seatAllowance !== undefined &&
-      [...this.memberships.values()].filter(
-        (candidate) =>
-          candidate.organizationId === input.organizationId &&
-          candidate.status === 'active',
-      ).length >= input.seatAllowance
+      this.seatAllowanceExceeded(
+        input.organizationId,
+        membership.status,
+        input.seatAllowance,
+      )
     ) {
       throw new SeatAllowanceExceededError();
     }
@@ -228,25 +226,20 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
       throw new InvitationStateConflictError();
     }
     const currentMembership = await this.findMembershipRecord(input);
-    if (
-      currentMembership?.status !== 'active' &&
-      input.seatAllowance !== undefined &&
-      [...this.memberships.values()].filter(
-        (candidate) =>
-          candidate.organizationId === input.organizationId &&
-          candidate.status === 'active',
-      ).length >= input.seatAllowance
-    ) {
-      throw new SeatAllowanceExceededError();
-    }
+    const seatAllowanceExceeded = this.seatAllowanceExceeded(
+      input.organizationId,
+      currentMembership?.status,
+      input.seatAllowance,
+    );
     invitation.status = 'accepted';
     invitation.acceptedByUserId = input.userId;
     this.memberships.set(this.membershipKey(input), {
       organizationId: input.organizationId,
       role: input.role,
       userId: input.userId,
-      status: 'active',
+      status: seatAllowanceExceeded ? 'suspended' : 'active',
     });
+    if (seatAllowanceExceeded) throw new SeatAllowanceExceededError();
     return {
       organization: { id: organization.id, slug: organization.slug },
       membership: { role: input.role },
@@ -398,6 +391,22 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
 
   private membershipKey(input: MembershipIdentity) {
     return `${input.organizationId}\u0000${input.userId}`;
+  }
+
+  private seatAllowanceExceeded(
+    organizationId: string,
+    currentStatus: MembershipAccessStatus | undefined,
+    seatAllowance: number | undefined,
+  ) {
+    return (
+      currentStatus !== 'active' &&
+      seatAllowance !== undefined &&
+      [...this.memberships.values()].filter(
+        (membership) =>
+          membership.organizationId === organizationId &&
+          membership.status === 'active',
+      ).length >= seatAllowance
+    );
   }
 }
 
