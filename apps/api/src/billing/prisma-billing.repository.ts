@@ -28,8 +28,11 @@ export class PrismaBillingRepository
           organizationId: event.organizationId,
           type: event.type,
           providerSubscriptionId: event.providerSubscriptionId,
+          providerCustomerId: event.providerCustomerId,
           priceId: event.priceId,
+          scheduledPriceId: event.scheduledPriceId,
           subscriptionStatus: event.status,
+          cancelAtPeriodEnd: event.cancelAtPeriodEnd,
           currentPeriodEndsAt: event.currentPeriodEndsAt,
           providerCreatedAt: event.createdAt,
           payload: event.payload as Prisma.InputJsonValue,
@@ -53,8 +56,42 @@ export class PrismaBillingRepository
     });
     if (!subscription) return undefined;
     return {
-      ...subscription,
+      cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+      currentPeriodEndsAt: subscription.currentPeriodEndsAt,
+      organizationId: subscription.organizationId,
       planId: subscription.planId as 'launch' | 'scale',
+      planVersion: subscription.planVersion,
+      providerEventCreatedAt: subscription.providerEventCreatedAt,
+      ...(subscription.providerCustomerId && {
+        providerCustomerId: subscription.providerCustomerId,
+      }),
+      providerSubscriptionId: subscription.providerSubscriptionId,
+      ...(subscription.scheduledPlanId && {
+        scheduledPlanId: subscription.scheduledPlanId as 'launch' | 'scale',
+      }),
+      status: subscription.status as SubscriptionStatus,
+    };
+  }
+
+  async findSubscriptionByProviderId(providerSubscriptionId: string) {
+    const subscription = await this.client.subscription.findUnique({
+      where: { providerSubscriptionId },
+    });
+    if (!subscription) return undefined;
+    return {
+      cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+      currentPeriodEndsAt: subscription.currentPeriodEndsAt,
+      organizationId: subscription.organizationId,
+      planId: subscription.planId as 'launch' | 'scale',
+      planVersion: subscription.planVersion,
+      providerEventCreatedAt: subscription.providerEventCreatedAt,
+      ...(subscription.providerCustomerId && {
+        providerCustomerId: subscription.providerCustomerId,
+      }),
+      providerSubscriptionId: subscription.providerSubscriptionId,
+      ...(subscription.scheduledPlanId && {
+        scheduledPlanId: subscription.scheduledPlanId as 'launch' | 'scale',
+      }),
       status: subscription.status as SubscriptionStatus,
     };
   }

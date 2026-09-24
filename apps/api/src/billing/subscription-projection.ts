@@ -5,7 +5,7 @@ export type StripePlanMappings = Record<
   { priceId: string; productId: string }
 >;
 
-export type BillingInboxRecord = Omit<BillingInboxEvent, 'payload' | 'type'>;
+export type BillingInboxRecord = Omit<BillingInboxEvent, 'payload'>;
 export type { SubscriptionProjection } from './billing.js';
 
 export abstract class BillingProjectionRepository {
@@ -33,18 +33,49 @@ export function nextSubscriptionProjection(
   ) {
     return undefined;
   }
-  const plan = Object.entries(planMappings).find(
-    ([, mapping]) => mapping.priceId === event.priceId,
-  )?.[0] as 'launch' | 'scale' | undefined;
-  if (!plan) throw new Error('Stripe price is not mapped to a Plan.');
+  if (event.type.startsWith('subscription_schedule.')) {
+    if (
+      !current ||
+      current.providerSubscriptionId !== event.providerSubscriptionId
+    ) {
+      throw new Error('Subscription schedule has no projected Subscription.');
+    }
+    const scheduledPlanId = event.scheduledPriceId
+      ? planIdForPrice(event.scheduledPriceId, planMappings)
+      : undefined;
+    return {
+      ...current,
+      providerEventCreatedAt: event.createdAt,
+      ...(event.providerCustomerId && {
+        providerCustomerId: event.providerCustomerId,
+      }),
+      scheduledPlanId,
+    };
+  }
+  if (!event.priceId || !event.currentPeriodEndsAt || !event.status) {
+    throw new Error('Stripe Subscription event is incomplete.');
+  }
+  const plan = planIdForPrice(event.priceId, planMappings);
 
   return {
+    cancelAtPeriodEnd: event.cancelAtPeriodEnd,
     currentPeriodEndsAt: event.currentPeriodEndsAt,
     organizationId: event.organizationId,
     planId: plan,
     planVersion: 1,
     providerEventCreatedAt: event.createdAt,
+    ...(event.providerCustomerId && {
+      providerCustomerId: event.providerCustomerId,
+    }),
     providerSubscriptionId: event.providerSubscriptionId,
     status: event.status,
   };
+}
+
+function planIdForPrice(priceId: string, planMappings: StripePlanMappings) {
+  const plan = Object.entries(planMappings).find(
+    ([, mapping]) => mapping.priceId === priceId,
+  )?.[0] as 'launch' | 'scale' | undefined;
+  if (!plan) throw new Error('Stripe price is not mapped to a Plan.');
+  return plan;
 }

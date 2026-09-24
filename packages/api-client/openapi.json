@@ -301,6 +301,18 @@
         ],
         "type": "object"
       },
+      "CreatePortalSessionDto": {
+        "properties": {
+          "returnUrl": {
+            "example": "https://app.example.com/organizations/northstar",
+            "type": "string"
+          }
+        },
+        "required": [
+          "returnUrl"
+        ],
+        "type": "object"
+      },
       "DependencyReadinessDto": {
         "properties": {
           "critical": {
@@ -667,6 +679,18 @@
         ],
         "type": "object"
       },
+      "PortalSessionDto": {
+        "properties": {
+          "portalUrl": {
+            "example": "https://billing.stripe.com/p/session/test_example",
+            "type": "string"
+          }
+        },
+        "required": [
+          "portalUrl"
+        ],
+        "type": "object"
+      },
       "ProblemDetailsDto": {
         "properties": {
           "correlationId": {
@@ -759,6 +783,10 @@
       },
       "SubscriptionDto": {
         "properties": {
+          "cancelAtPeriodEnd": {
+            "example": false,
+            "type": "boolean"
+          },
           "currentPeriodEndsAt": {
             "example": "2026-10-20T12:00:00.000Z",
             "format": "date-time",
@@ -780,6 +808,15 @@
             "example": "sub_2abc",
             "type": "string"
           },
+          "scheduledPlanId": {
+            "enum": [
+              "launch",
+              "scale"
+            ],
+            "example": "launch",
+            "nullable": true,
+            "type": "string"
+          },
           "status": {
             "enum": [
               "active",
@@ -796,9 +833,11 @@
           }
         },
         "required": [
+          "cancelAtPeriodEnd",
           "providerSubscriptionId",
           "planId",
           "planVersion",
+          "scheduledPlanId",
           "status",
           "currentPeriodEndsAt"
         ],
@@ -1429,6 +1468,83 @@
             "description": ""
           },
           "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "clerk-session": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
+    "/v1/organizations/{organizationId}/billing/portal-sessions": {
+      "post": {
+        "operationId": "createPortalSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organizationId",
+            "required": true,
+            "schema": {
+              "example": "org_2abc",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePortalSessionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortalSessionDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
             "content": {
               "application/problem+json": {
                 "schema": {

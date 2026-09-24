@@ -11,6 +11,7 @@ import {
   MemoryBillingRepository,
 } from './billing/memory-billing.js';
 import { MemoryBillingCheckoutGateway } from './billing/checkout.js';
+import { MemoryBillingPortalGateway } from './billing/portal.js';
 
 export async function buildContractDocument() {
   const app = await NestFactory.create(
@@ -26,6 +27,7 @@ export async function buildContractDocument() {
           launch: { priceId: 'price_launchTest', productId: 'prod_launchTest' },
           scale: { priceId: 'price_scaleTest', productId: 'prod_scaleTest' },
         },
+        portalGateway: new MemoryBillingPortalGateway(),
         projectionQueue: new MemoryBillingProjectionQueue(),
         repository: new MemoryBillingRepository(),
         stripeWebhookSecret: 'whsec_contractGeneration',

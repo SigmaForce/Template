@@ -24,6 +24,13 @@ export class MemoryBillingRepository extends BillingRepository {
     return this.subscriptions.get(organizationId);
   }
 
+  async findSubscriptionByProviderId(providerSubscriptionId: string) {
+    return [...this.subscriptions.values()].find(
+      (subscription) =>
+        subscription.providerSubscriptionId === providerSubscriptionId,
+    );
+  }
+
   async project(eventId: string, planMappings: StripePlanMappings) {
     const event = this.events.get(eventId);
     if (!event) throw new Error('Billing event was not found.');

@@ -7,25 +7,33 @@ import {
   type SubscriptionProjection,
 } from './subscription-projection.js';
 import type { SubscriptionStatus } from './billing.js';
+import type { BillingInboxEvent } from './billing.js';
 
 type InboxRow = {
   created_at: Date;
-  current_period_ends_at: Date;
+  cancel_at_period_end: boolean;
+  current_period_ends_at: Date | null;
   event_id: string;
   organization_id: string;
-  price_id: string;
+  price_id: string | null;
   processed_at: Date | null;
+  provider_customer_id: string | null;
   provider_subscription_id: string;
-  subscription_status: SubscriptionStatus;
+  scheduled_price_id: string | null;
+  subscription_status: SubscriptionStatus | null;
+  type: BillingInboxEvent['type'];
 };
 
 type SubscriptionRow = {
+  cancel_at_period_end: boolean;
   current_period_ends_at: Date;
   organization_id: string;
   plan_id: 'launch' | 'scale';
   plan_version: number;
   provider_event_created_at: Date;
+  provider_customer_id: string | null;
   provider_subscription_id: string;
+  scheduled_plan_id: 'launch' | 'scale' | null;
   status: SubscriptionStatus;
 };
 
@@ -42,9 +50,10 @@ export class PostgresBillingProjectionRepository extends BillingProjectionReposi
     try {
       await client.query('BEGIN');
       const eventResult = await client.query<InboxRow>(
-        `SELECT event_id, organization_id, provider_subscription_id, price_id,
-                subscription_status, current_period_ends_at, provider_created_at AS created_at,
-                processed_at
+        `SELECT event_id, organization_id, type, provider_subscription_id,
+                provider_customer_id, price_id, scheduled_price_id,
+                subscription_status, cancel_at_period_end, current_period_ends_at,
+                provider_created_at AS created_at, processed_at
            FROM billing_inbox_events
           WHERE event_id = $1
           FOR UPDATE`,
@@ -65,8 +74,9 @@ export class PostgresBillingProjectionRepository extends BillingProjectionReposi
         [row.organization_id],
       );
       const currentResult = await client.query<SubscriptionRow>(
-        `SELECT organization_id, provider_subscription_id, plan_id, plan_version,
-                status, current_period_ends_at, provider_event_created_at
+        `SELECT organization_id, provider_subscription_id, provider_customer_id,
+                plan_id, plan_version, scheduled_plan_id, status,
+                cancel_at_period_end, current_period_ends_at, provider_event_created_at
            FROM subscriptions WHERE organization_id = $1`,
         [row.organization_id],
       );
@@ -82,23 +92,30 @@ export class PostgresBillingProjectionRepository extends BillingProjectionReposi
       if (next) {
         await client.query(
           `INSERT INTO subscriptions
-             (organization_id, provider_subscription_id, plan_id, plan_version, status,
+             (organization_id, provider_subscription_id, provider_customer_id,
+              plan_id, plan_version, scheduled_plan_id, status, cancel_at_period_end,
               current_period_ends_at, provider_event_created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP)
            ON CONFLICT (organization_id) DO UPDATE SET
              provider_subscription_id = EXCLUDED.provider_subscription_id,
+             provider_customer_id = EXCLUDED.provider_customer_id,
              plan_id = EXCLUDED.plan_id,
              plan_version = EXCLUDED.plan_version,
+             scheduled_plan_id = EXCLUDED.scheduled_plan_id,
              status = EXCLUDED.status,
+             cancel_at_period_end = EXCLUDED.cancel_at_period_end,
              current_period_ends_at = EXCLUDED.current_period_ends_at,
              provider_event_created_at = EXCLUDED.provider_event_created_at,
              updated_at = CURRENT_TIMESTAMP`,
           [
             next.organizationId,
             next.providerSubscriptionId,
+            next.providerCustomerId ?? null,
             next.planId,
             next.planVersion,
+            next.scheduledPlanId ?? null,
             next.status,
+            next.cancelAtPeriodEnd ?? false,
             next.currentPeriodEndsAt,
             next.providerEventCreatedAt,
           ],
@@ -123,10 +140,22 @@ export class PostgresBillingProjectionRepository extends BillingProjectionReposi
 
   async findSubscription(organizationId: string) {
     const result = await this.pool.query<SubscriptionRow>(
-      `SELECT organization_id, provider_subscription_id, plan_id, plan_version,
-              status, current_period_ends_at, provider_event_created_at
+      `SELECT organization_id, provider_subscription_id, provider_customer_id,
+              plan_id, plan_version, scheduled_plan_id, status,
+              cancel_at_period_end, current_period_ends_at, provider_event_created_at
          FROM subscriptions WHERE organization_id = $1`,
       [organizationId],
+    );
+    return result.rows[0] ? this.toSubscription(result.rows[0]) : undefined;
+  }
+
+  async findSubscriptionByProviderId(providerSubscriptionId: string) {
+    const result = await this.pool.query<SubscriptionRow>(
+      `SELECT organization_id, provider_subscription_id, provider_customer_id,
+              plan_id, plan_version, scheduled_plan_id, status,
+              cancel_at_period_end, current_period_ends_at, provider_event_created_at
+         FROM subscriptions WHERE provider_subscription_id = $1`,
+      [providerSubscriptionId],
     );
     return result.rows[0] ? this.toSubscription(result.rows[0]) : undefined;
   }
@@ -137,24 +166,41 @@ export class PostgresBillingProjectionRepository extends BillingProjectionReposi
 
   private toEvent(row: InboxRow): BillingInboxRecord {
     return {
+      cancelAtPeriodEnd: row.cancel_at_period_end,
       createdAt: row.created_at,
-      currentPeriodEndsAt: row.current_period_ends_at,
+      ...(row.current_period_ends_at && {
+        currentPeriodEndsAt: row.current_period_ends_at,
+      }),
       id: row.event_id,
       organizationId: row.organization_id,
-      priceId: row.price_id,
+      ...(row.price_id && { priceId: row.price_id }),
+      ...(row.provider_customer_id && {
+        providerCustomerId: row.provider_customer_id,
+      }),
       providerSubscriptionId: row.provider_subscription_id,
-      status: row.subscription_status,
+      ...(row.scheduled_price_id && {
+        scheduledPriceId: row.scheduled_price_id,
+      }),
+      ...(row.subscription_status && { status: row.subscription_status }),
+      type: row.type,
     };
   }
 
   private toSubscription(row: SubscriptionRow): SubscriptionProjection {
     return {
+      cancelAtPeriodEnd: row.cancel_at_period_end,
       currentPeriodEndsAt: row.current_period_ends_at,
       organizationId: row.organization_id,
       planId: row.plan_id,
       planVersion: row.plan_version,
       providerEventCreatedAt: row.provider_event_created_at,
+      ...(row.provider_customer_id && {
+        providerCustomerId: row.provider_customer_id,
+      }),
       providerSubscriptionId: row.provider_subscription_id,
+      ...(row.scheduled_plan_id && {
+        scheduledPlanId: row.scheduled_plan_id,
+      }),
       status: row.status,
     };
   }

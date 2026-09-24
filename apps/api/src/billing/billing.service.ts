@@ -8,6 +8,8 @@ import { BillingProjectionQueue, BillingRepository } from './billing.js';
 import { BillingCheckoutGateway } from './checkout.js';
 import type { CreateCheckoutSessionDto } from './checkout.dto.js';
 import type { StripePlanMappings } from './subscription-projection.js';
+import { BillingPortalGateway } from './portal.js';
+import type { CreatePortalSessionDto } from './portal.dto.js';
 import {
   InvalidStripeWebhookError,
   StripeWebhookVerifier,
@@ -21,11 +23,36 @@ export class BillingService {
     private readonly queue: BillingProjectionQueue,
     private readonly webhooks: StripeWebhookVerifier,
     private readonly checkout: BillingCheckoutGateway,
+    private readonly portal: BillingPortalGateway,
     @Inject('CHECKOUT_RETURN_ORIGINS')
     private readonly checkoutReturnOrigins: string[],
     @Inject('STRIPE_PLAN_MAPPINGS')
     private readonly planMappings: StripePlanMappings,
   ) {}
+
+  async createPortalSession(
+    user: AuthenticatedUser,
+    organizationId: string,
+    input: CreatePortalSessionDto,
+  ) {
+    const scope = await this.authorization.authorize({
+      capability: Capability.billing,
+      permission: Permission.billingManage,
+      targetOrganizationId: organizationId,
+      user,
+    });
+    const subscription = await this.repository.findSubscription(
+      scope.organizationId,
+    );
+    if (!subscription?.providerCustomerId) {
+      throw PublicProblemException.billingPortalUnavailable();
+    }
+    const portalUrl = await this.portal.createSession({
+      customerId: subscription.providerCustomerId,
+      returnUrl: this.allowlistedReturnUrl(input.returnUrl),
+    });
+    return { portalUrl };
+  }
 
   async createCheckoutSession(
     user: AuthenticatedUser,
@@ -72,10 +99,12 @@ export class BillingService {
     if (!subscription) throw PublicProblemException.subscriptionUnavailable();
 
     return {
+      cancelAtPeriodEnd: subscription.cancelAtPeriodEnd ?? false,
       currentPeriodEndsAt: subscription.currentPeriodEndsAt.toISOString(),
       planId: subscription.planId,
       planVersion: subscription.planVersion,
       providerSubscriptionId: subscription.providerSubscriptionId,
+      scheduledPlanId: subscription.scheduledPlanId ?? null,
       status: subscription.status,
     };
   }
@@ -86,7 +115,17 @@ export class BillingService {
   ) {
     try {
       const event = this.webhooks.verify(rawBody, signature);
-      await this.repository.storeEvent(event);
+      const organizationId =
+        event.organizationId ??
+        (
+          await this.repository.findSubscriptionByProviderId(
+            event.providerSubscriptionId,
+          )
+        )?.organizationId;
+      if (!organizationId) {
+        throw new Error('Stripe event Subscription is unavailable.');
+      }
+      await this.repository.storeEvent({ ...event, organizationId });
       await this.queue.enqueue(event.id);
       return { received: true };
     } catch (error) {

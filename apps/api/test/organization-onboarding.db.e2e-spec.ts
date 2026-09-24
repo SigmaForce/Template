@@ -15,6 +15,7 @@ import {
   MemoryBillingRepository,
 } from '../src/billing/memory-billing.js';
 import { MemoryBillingCheckoutGateway } from '../src/billing/checkout.js';
+import { MemoryBillingPortalGateway } from '../src/billing/portal.js';
 
 const planMappings = {
   launch: { priceId: 'price_launchTest', productId: 'prod_launchTest' },
@@ -47,6 +48,7 @@ describe.skipIf(!databaseUrl)('Organization onboarding with PostgreSQL', () => {
             checkoutGateway: new MemoryBillingCheckoutGateway(),
             checkoutReturnOrigins: ['http://localhost:3000'],
             planMappings,
+            portalGateway: new MemoryBillingPortalGateway(),
             projectionQueue: new MemoryBillingProjectionQueue(),
             repository: new MemoryBillingRepository(),
             stripeWebhookSecret: 'whsec_testWebhookSecret',

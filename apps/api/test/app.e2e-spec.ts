@@ -24,6 +24,7 @@ import { MemoryBillingCheckoutGateway } from './../src/billing/checkout.js';
 import { SubscriptionProjector } from './../src/billing/subscription-projector.js';
 import { SubscriptionCapabilityPolicy } from './../src/billing/subscription-capability-policy.js';
 import type { CapabilityPolicy } from './../src/authorization/authorization.js';
+import { MemoryBillingPortalGateway } from './../src/billing/portal.js';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication;
@@ -38,6 +39,7 @@ describe('AppController (e2e)', () => {
     projectionQueue = new MemoryBillingProjectionQueue(),
     checkoutGateway = new MemoryBillingCheckoutGateway(),
     capabilityPolicy?: CapabilityPolicy,
+    portalGateway = new MemoryBillingPortalGateway(),
   ) {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
@@ -61,6 +63,7 @@ describe('AppController (e2e)', () => {
                 productId: 'prod_scaleTest',
               },
             },
+            portalGateway,
             projectionQueue,
             repository: billingRepository,
             stripeWebhookSecret: 'whsec_testWebhookSecret',
@@ -275,10 +278,12 @@ describe('AppController (e2e)', () => {
       .set('authorization', authorization)
       .expect(200)
       .expect({
+        cancelAtPeriodEnd: false,
         currentPeriodEndsAt: '2026-10-20T12:00:00.000Z',
         planId: 'launch',
         planVersion: 1,
         providerSubscriptionId: 'sub_northstar',
+        scheduledPlanId: null,
         status: 'active',
       });
 
@@ -457,6 +462,312 @@ describe('AppController (e2e)', () => {
       .send(body)
       .expect(409);
     expect(checkoutGateway.sessions).toHaveLength(1);
+  });
+
+  it('lets only the Active Organization Owner open an allowlisted Customer Portal', async () => {
+    await app.close();
+    const billingRepository = new MemoryBillingRepository();
+    const portalGateway = new MemoryBillingPortalGateway();
+    billingRepository.subscriptions.set('org_portal', {
+      currentPeriodEndsAt: new Date('2026-10-21T00:00:00.000Z'),
+      organizationId: 'org_portal',
+      planId: 'launch',
+      planVersion: 1,
+      providerCustomerId: 'cus_portal',
+      providerEventCreatedAt: new Date('2026-09-21T00:00:00.000Z'),
+      providerSubscriptionId: 'sub_portal',
+      status: 'active',
+    });
+    const organization = {
+      id: 'org_portal',
+      locale: 'en-US',
+      name: 'Portal Labs',
+      slug: 'portal-labs',
+      state: 'active' as const,
+      timeZone: 'UTC',
+    };
+    app = await createApp(
+      [],
+      undefined,
+      new MemoryOrganizationRepository({
+        organizations: [organization],
+        memberships: [
+          {
+            organizationId: organization.id,
+            role: 'owner',
+            status: 'active',
+            userId: 'user_portal_owner',
+          },
+          {
+            organizationId: organization.id,
+            role: 'admin',
+            status: 'active',
+            userId: 'user_portal_admin',
+          },
+        ],
+      }),
+      new MemoryOrganizationDirectory(),
+      undefined,
+      billingRepository,
+      new MemoryBillingProjectionQueue(),
+      new MemoryBillingCheckoutGateway(),
+      undefined,
+      portalGateway,
+    );
+    const ownerAuthorization = `Bearer ${createSessionToken({
+      organization,
+      organizationRole: 'owner',
+      userId: 'user_portal_owner',
+    })}`;
+    const body = {
+      returnUrl: 'http://localhost:3000/organizations/portal-labs#billing',
+    };
+
+    await request(app.getHttpServer())
+      .post(`/v1/organizations/${organization.id}/billing/portal-sessions`)
+      .set('authorization', ownerAuthorization)
+      .send(body)
+      .expect(201)
+      .expect({
+        portalUrl: 'https://billing.stripe.com/p/session/test_portal',
+      });
+    expect(portalGateway.sessions).toEqual([
+      {
+        customerId: 'cus_portal',
+        returnUrl: body.returnUrl,
+      },
+    ]);
+
+    await request(app.getHttpServer())
+      .post(`/v1/organizations/${organization.id}/billing/portal-sessions`)
+      .set(
+        'authorization',
+        `Bearer ${createSessionToken({
+          organization,
+          organizationRole: 'admin',
+          userId: 'user_portal_admin',
+        })}`,
+      )
+      .send(body)
+      .expect(403);
+    await request(app.getHttpServer())
+      .post('/v1/organizations/org_other/billing/portal-sessions')
+      .set('authorization', ownerAuthorization)
+      .send(body)
+      .expect(403);
+    await request(app.getHttpServer())
+      .post(`/v1/organizations/${organization.id}/billing/portal-sessions`)
+      .set('authorization', ownerAuthorization)
+      .send({ returnUrl: 'https://attacker.example/billing' })
+      .expect(400);
+
+    billingRepository.subscriptions.delete(organization.id);
+    await request(app.getHttpServer())
+      .post(`/v1/organizations/${organization.id}/billing/portal-sessions`)
+      .set('authorization', ownerAuthorization)
+      .send(body)
+      .expect(404);
+  });
+
+  it('projects Customer Portal changes into the Organization billing view', async () => {
+    await app.close();
+    const billingRepository = new MemoryBillingRepository();
+    const projectionQueue = new MemoryBillingProjectionQueue();
+    const organization = {
+      id: 'org_portal_projection',
+      locale: 'en-US',
+      name: 'Portal Projection Labs',
+      slug: 'portal-projection-labs',
+      state: 'active' as const,
+      timeZone: 'UTC',
+    };
+    app = await createApp(
+      [],
+      undefined,
+      new MemoryOrganizationRepository({
+        organizations: [organization],
+        memberships: [
+          {
+            organizationId: organization.id,
+            role: 'owner',
+            status: 'active',
+            userId: 'user_portal_projection_owner',
+          },
+        ],
+      }),
+      new MemoryOrganizationDirectory(),
+      undefined,
+      billingRepository,
+      projectionQueue,
+    );
+    const authorization = `Bearer ${createSessionToken({
+      organization,
+      organizationRole: 'owner',
+      userId: 'user_portal_projection_owner',
+    })}`;
+    const projector = new SubscriptionProjector(billingRepository, {
+      launch: { priceId: 'price_launchTest', productId: 'prod_launchTest' },
+      scale: { priceId: 'price_scaleTest', productId: 'prod_scaleTest' },
+    });
+    const ingest = async (event: object) => {
+      const payload = JSON.stringify(event);
+      const timestamp = Math.floor(Date.now() / 1_000);
+      const signature = createHmac('sha256', 'whsec_testWebhookSecret')
+        .update(`${timestamp}.${payload}`)
+        .digest('hex');
+      await request(app.getHttpServer())
+        .post('/v1/billing/stripe/webhooks')
+        .set('content-type', 'application/json')
+        .set('stripe-signature', `t=${timestamp},v1=${signature}`)
+        .send(payload)
+        .expect(200);
+    };
+    await ingest({
+      id: 'evt_portal_subscription_created',
+      type: 'customer.subscription.created',
+      created: 1_789_473_600,
+      data: {
+        object: {
+          id: 'sub_portal_projection',
+          customer: 'cus_portal_projection',
+          status: 'active',
+          cancel_at_period_end: false,
+          current_period_end: 1_792_065_600,
+          metadata: { organizationId: organization.id },
+          items: { data: [{ price: { id: 'price_launchTest' } }] },
+        },
+      },
+    });
+    await projector.process(projectionQueue.eventIds[0]);
+
+    await request(app.getHttpServer())
+      .get(`/v1/organizations/${organization.id}/billing/subscription`)
+      .set('authorization', authorization)
+      .expect(200)
+      .expect({
+        cancelAtPeriodEnd: false,
+        currentPeriodEndsAt: '2026-10-15T12:00:00.000Z',
+        planId: 'launch',
+        planVersion: 1,
+        providerSubscriptionId: 'sub_portal_projection',
+        scheduledPlanId: null,
+        status: 'active',
+      });
+
+    await ingest({
+      id: 'evt_portal_upgrade',
+      type: 'customer.subscription.updated',
+      created: 1_789_473_700,
+      data: {
+        object: {
+          id: 'sub_portal_projection',
+          customer: 'cus_portal_projection',
+          status: 'active',
+          cancel_at_period_end: false,
+          current_period_end: 1_792_065_600,
+          metadata: { organizationId: organization.id },
+          items: { data: [{ price: { id: 'price_scaleTest' } }] },
+        },
+      },
+    });
+    await projector.process('evt_portal_upgrade');
+
+    await request(app.getHttpServer())
+      .get(`/v1/organizations/${organization.id}/billing/subscription`)
+      .set('authorization', authorization)
+      .expect(200)
+      .expect({
+        cancelAtPeriodEnd: false,
+        currentPeriodEndsAt: '2026-10-15T12:00:00.000Z',
+        planId: 'scale',
+        planVersion: 1,
+        providerSubscriptionId: 'sub_portal_projection',
+        scheduledPlanId: null,
+        status: 'active',
+      });
+
+    const scheduledDowngrade = {
+      id: 'evt_portal_scheduled_downgrade',
+      type: 'subscription_schedule.created',
+      created: 1_789_473_800,
+      data: {
+        object: {
+          id: 'sub_sched_portal_projection',
+          customer: 'cus_portal_projection',
+          subscription: 'sub_portal_projection',
+          status: 'active',
+          current_phase: {
+            start_date: 1_789_473_600,
+            end_date: 1_792_065_600,
+          },
+          phases: [
+            {
+              start_date: 1_789_473_600,
+              end_date: 1_792_065_600,
+              items: [{ price: 'price_scaleTest' }],
+            },
+            {
+              start_date: 1_792_065_600,
+              end_date: 1_794_744_000,
+              items: [{ price: 'price_launchTest' }],
+            },
+          ],
+        },
+      },
+    };
+    await ingest(scheduledDowngrade);
+    await ingest(scheduledDowngrade);
+    await projector.process('evt_portal_scheduled_downgrade');
+    await projector.process('evt_portal_scheduled_downgrade');
+
+    await request(app.getHttpServer())
+      .get(`/v1/organizations/${organization.id}/billing/subscription`)
+      .set('authorization', authorization)
+      .expect(200)
+      .expect({
+        cancelAtPeriodEnd: false,
+        currentPeriodEndsAt: '2026-10-15T12:00:00.000Z',
+        planId: 'scale',
+        planVersion: 1,
+        providerSubscriptionId: 'sub_portal_projection',
+        scheduledPlanId: 'launch',
+        status: 'active',
+      });
+
+    const cancellation = {
+      id: 'evt_portal_cancellation',
+      type: 'customer.subscription.updated',
+      created: 1_789_473_900,
+      data: {
+        object: {
+          id: 'sub_portal_projection',
+          customer: 'cus_portal_projection',
+          status: 'active',
+          cancel_at_period_end: true,
+          current_period_end: 1_792_065_600,
+          metadata: { organizationId: organization.id },
+          items: { data: [{ price: { id: 'price_scaleTest' } }] },
+        },
+      },
+    };
+    await ingest(cancellation);
+    await ingest(cancellation);
+    await projector.process('evt_portal_cancellation');
+    await projector.process('evt_portal_cancellation');
+
+    await request(app.getHttpServer())
+      .get(`/v1/organizations/${organization.id}/billing/subscription`)
+      .set('authorization', authorization)
+      .expect(200)
+      .expect({
+        cancelAtPeriodEnd: true,
+        currentPeriodEndsAt: '2026-10-15T12:00:00.000Z',
+        planId: 'scale',
+        planVersion: 1,
+        providerSubscriptionId: 'sub_portal_projection',
+        scheduledPlanId: null,
+        status: 'active',
+      });
   });
 
   it('exposes health inside the stable v1 boundary', () => {

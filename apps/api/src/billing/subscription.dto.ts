@@ -3,6 +3,9 @@ import type { SubscriptionStatus } from './billing.js';
 import type { PlanId } from './plan-catalog.js';
 
 export class SubscriptionDto {
+  @ApiProperty({ example: false })
+  cancelAtPeriodEnd!: boolean;
+
   @ApiProperty({ example: 'sub_2abc' })
   providerSubscriptionId!: string;
 
@@ -11,6 +14,9 @@ export class SubscriptionDto {
 
   @ApiProperty({ example: 1 })
   planVersion!: number;
+
+  @ApiProperty({ enum: ['launch', 'scale'], example: 'launch', nullable: true })
+  scheduledPlanId!: PlanId | null;
 
   @ApiProperty({
     enum: [

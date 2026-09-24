@@ -11,6 +11,7 @@ import { StripeWebhookVerifier } from './stripe-webhook.js';
 import { StripeWebhookController } from './stripe-webhook.controller.js';
 import { BillingCheckoutGateway } from './checkout.js';
 import type { StripePlanMappings } from './subscription-projection.js';
+import { BillingPortalGateway } from './portal.js';
 
 export interface BillingModuleOptions {
   repository: AuthorizationRepository;
@@ -19,6 +20,7 @@ export interface BillingModuleOptions {
   checkoutGateway: BillingCheckoutGateway;
   checkoutReturnOrigins: string[];
   planMappings: StripePlanMappings;
+  portalGateway: BillingPortalGateway;
   capabilityPolicy?: CapabilityPolicy;
   stripeWebhookSecret: string;
 }
@@ -38,6 +40,7 @@ export class BillingModule {
       providers: [
         BillingService,
         { provide: BillingCheckoutGateway, useValue: options.checkoutGateway },
+        { provide: BillingPortalGateway, useValue: options.portalGateway },
         {
           provide: 'CHECKOUT_RETURN_ORIGINS',
           useValue: options.checkoutReturnOrigins,

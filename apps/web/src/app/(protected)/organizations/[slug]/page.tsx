@@ -9,6 +9,7 @@ import { getWebEnvironment } from "../../../../environment";
 import { OrganizationInvitations } from "./organization-invitations";
 import { OrganizationLinkRedirect } from "./organization-link-redirect";
 import { OrganizationMemberships } from "./organization-memberships";
+import { BillingPortalButton } from "./billing-portal-button";
 
 type Money = components["schemas"]["MoneyDto"];
 type PermissionId =
@@ -586,14 +587,27 @@ export default async function Home({
             <p className="eyebrow">Billing</p>
             <h2 id="billing-title">Plan catalog</h2>
             {billingSubscription.available ? (
-              <div className="contract-example">
-                <span>Active Subscription</span>
-                <span data-testid="active-subscription">
-                  {billingSubscription.value.planId} v
-                  {billingSubscription.value.planVersion} ·{" "}
-                  {billingSubscription.value.status}
-                </span>
-              </div>
+              <>
+                <div className="contract-example">
+                  <span>Active Subscription</span>
+                  <span data-testid="active-subscription">
+                    {billingSubscription.value.planId} v
+                    {billingSubscription.value.planVersion} ·{" "}
+                    {billingSubscription.value.status}
+                  </span>
+                </div>
+                {billingSubscription.value.scheduledPlanId ? (
+                  <p data-testid="scheduled-plan-change">
+                    Changes to {billingSubscription.value.scheduledPlanId} when
+                    the current period ends.
+                  </p>
+                ) : null}
+                {billingSubscription.value.cancelAtPeriodEnd ? (
+                  <p data-testid="scheduled-cancellation">
+                    Cancels when the current period ends.
+                  </p>
+                ) : null}
+              </>
             ) : null}
             {billingCatalog.available ? (
               <>
@@ -625,6 +639,15 @@ export default async function Home({
                 An Owner can view and manage Plans.
               </p>
             )}
+            <BillingPortalButton
+              apiUrl={getWebEnvironment().apiUrl.toString()}
+              canManage={canManageBilling}
+              organizationId={
+                activeOrganization.available
+                  ? activeOrganization.organization.id
+                  : ""
+              }
+            />
           </section>
 
           <section

@@ -9,24 +9,39 @@ export type SubscriptionStatus =
   | 'unpaid';
 
 export interface BillingInboxEvent {
+  cancelAtPeriodEnd: boolean;
   createdAt: Date;
-  currentPeriodEndsAt: Date;
+  currentPeriodEndsAt?: Date;
   id: string;
   organizationId: string;
   payload: object;
-  priceId: string;
+  priceId?: string;
+  providerCustomerId?: string;
   providerSubscriptionId: string;
-  status: SubscriptionStatus;
-  type: 'customer.subscription.created' | 'customer.subscription.updated';
+  scheduledPriceId?: string;
+  status?: SubscriptionStatus;
+  type:
+    | 'customer.subscription.created'
+    | 'customer.subscription.deleted'
+    | 'customer.subscription.updated'
+    | 'subscription_schedule.created'
+    | 'subscription_schedule.updated';
 }
 
+export type VerifiedBillingEvent = Omit<BillingInboxEvent, 'organizationId'> & {
+  organizationId?: string;
+};
+
 export interface SubscriptionProjection {
+  cancelAtPeriodEnd?: boolean;
   currentPeriodEndsAt: Date;
   organizationId: string;
   planId: 'launch' | 'scale';
   planVersion: number;
   providerEventCreatedAt: Date;
+  providerCustomerId?: string;
   providerSubscriptionId: string;
+  scheduledPlanId?: 'launch' | 'scale';
   status: SubscriptionStatus;
 }
 
@@ -36,6 +51,9 @@ export abstract class BillingRepository {
   ): Promise<'duplicate' | 'stored'>;
   abstract findSubscription(
     organizationId: string,
+  ): Promise<SubscriptionProjection | undefined>;
+  abstract findSubscriptionByProviderId(
+    providerSubscriptionId: string,
   ): Promise<SubscriptionProjection | undefined>;
 }
 

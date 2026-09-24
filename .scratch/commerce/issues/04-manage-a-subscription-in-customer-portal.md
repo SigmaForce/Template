@@ -8,6 +8,6 @@ billing view.
 
 **Status:** ready-for-agent
 
-- [ ] Customer Portal sessions require the Owner billing Permission and an allowlisted return URL.
-- [ ] Upgrade, scheduled downgrade, and cancellation events are idempotently reflected in the billing view.
-- [ ] Browser and API tests cover pending, unavailable, and unauthorized portal states.
+- [x] Customer Portal sessions require the Owner billing Permission and an allowlisted return URL.
+- [x] Upgrade, scheduled downgrade, and cancellation events are idempotently reflected in the billing view.
+- [x] Browser and API tests cover pending, unavailable, and unauthorized portal states.

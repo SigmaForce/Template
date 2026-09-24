@@ -195,6 +195,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/organizations/{organizationId}/billing/portal-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createPortalSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/organizations/{organizationId}/billing/subscription": {
         parameters: {
             query?: never;
@@ -442,6 +458,10 @@ export interface components {
              */
             timeZone: "America/Cuiaba" | "America/Sao_Paulo" | "UTC";
         };
+        CreatePortalSessionDto: {
+            /** @example https://app.example.com/organizations/northstar */
+            returnUrl: string;
+        };
         DependencyReadinessDto: {
             critical: boolean;
             /** @example database */
@@ -559,6 +579,10 @@ export interface components {
             /** @example 1 */
             version: number;
         };
+        PortalSessionDto: {
+            /** @example https://billing.stripe.com/p/session/test_example */
+            portalUrl: string;
+        };
         ProblemDetailsDto: {
             /** @example f81d4fae-7dec-11d0-a765-00a0c91e6bf6 */
             correlationId: string;
@@ -588,6 +612,8 @@ export interface components {
             status: "ready" | "degraded" | "unready";
         };
         SubscriptionDto: {
+            /** @example false */
+            cancelAtPeriodEnd: boolean;
             /**
              * Format: date-time
              * @example 2026-10-20T12:00:00.000Z
@@ -602,6 +628,11 @@ export interface components {
             planVersion: number;
             /** @example sub_2abc */
             providerSubscriptionId: string;
+            /**
+             * @example launch
+             * @enum {string|null}
+             */
+            scheduledPlanId: "launch" | "scale" | null;
             /**
              * @example active
              * @enum {string}
@@ -1000,6 +1031,55 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
+    createPortalSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePortalSessionDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortalSessionDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

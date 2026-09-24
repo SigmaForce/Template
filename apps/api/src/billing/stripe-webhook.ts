@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import type { BillingInboxEvent, SubscriptionStatus } from './billing.js';
+import type { SubscriptionStatus, VerifiedBillingEvent } from './billing.js';
 
 const subscriptionStatuses = new Set<SubscriptionStatus>([
   'active',
@@ -46,17 +46,26 @@ export class StripeWebhookVerifier {
     return this.parse(rawBody);
   }
 
-  private parse(rawBody: Buffer): BillingInboxEvent {
+  private parse(rawBody: Buffer): VerifiedBillingEvent {
     let payload: unknown;
     try {
       payload = JSON.parse(rawBody.toString('utf8'));
     } catch {
       throw new InvalidStripeWebhookError();
     }
+    if (!isRecord(payload)) {
+      throw new InvalidStripeWebhookError();
+    }
     if (
-      !isRecord(payload) ||
-      (payload.type !== 'customer.subscription.created' &&
-        payload.type !== 'customer.subscription.updated')
+      payload.type === 'subscription_schedule.created' ||
+      payload.type === 'subscription_schedule.updated'
+    ) {
+      return this.parseSchedule(payload, payload.type);
+    }
+    if (
+      payload.type !== 'customer.subscription.created' &&
+      payload.type !== 'customer.subscription.deleted' &&
+      payload.type !== 'customer.subscription.updated'
     ) {
       throw new InvalidStripeWebhookError();
     }
@@ -68,6 +77,10 @@ export class StripeWebhookVerifier {
     const firstItem = Array.isArray(itemList) ? itemList[0] : undefined;
     const price = isRecord(firstItem) ? firstItem.price : undefined;
     const status = isRecord(subscription) ? subscription.status : undefined;
+    const customer = isRecord(subscription) ? subscription.customer : undefined;
+    const cancelAtPeriodEnd = isRecord(subscription)
+      ? subscription.cancel_at_period_end
+      : undefined;
     if (
       typeof payload.id !== 'string' ||
       !/^evt_[A-Za-z0-9_]+$/.test(payload.id) ||
@@ -85,21 +98,87 @@ export class StripeWebhookVerifier {
       typeof price.id !== 'string' ||
       !/^price_[A-Za-z0-9]+$/.test(price.id) ||
       typeof status !== 'string' ||
-      !subscriptionStatuses.has(status as SubscriptionStatus)
+      !subscriptionStatuses.has(status as SubscriptionStatus) ||
+      (customer !== undefined &&
+        (typeof customer !== 'string' ||
+          !/^cus_[A-Za-z0-9_]+$/.test(customer))) ||
+      (cancelAtPeriodEnd !== undefined &&
+        typeof cancelAtPeriodEnd !== 'boolean')
     ) {
       throw new InvalidStripeWebhookError();
     }
 
     return {
+      cancelAtPeriodEnd: cancelAtPeriodEnd ?? false,
       createdAt: new Date(payload.created * 1_000),
       currentPeriodEndsAt: new Date(subscription.current_period_end * 1_000),
       id: payload.id,
       organizationId: metadata.organizationId,
       payload,
       priceId: price.id,
+      ...(typeof customer === 'string' && { providerCustomerId: customer }),
       providerSubscriptionId: subscription.id,
       status: status as SubscriptionStatus,
       type: payload.type,
+    };
+  }
+
+  private parseSchedule(
+    payload: Record<string, unknown>,
+    type: 'subscription_schedule.created' | 'subscription_schedule.updated',
+  ): VerifiedBillingEvent {
+    const data = payload.data;
+    const schedule = isRecord(data) ? data.object : undefined;
+    const currentPhase = isRecord(schedule)
+      ? schedule.current_phase
+      : undefined;
+    const phases = isRecord(schedule) ? schedule.phases : undefined;
+    const currentPeriodEnd = isRecord(currentPhase)
+      ? currentPhase.end_date
+      : undefined;
+    const nextPhase = Array.isArray(phases)
+      ? phases.find(
+          (phase) => isRecord(phase) && phase.start_date === currentPeriodEnd,
+        )
+      : undefined;
+    const items = isRecord(nextPhase) ? nextPhase.items : undefined;
+    const firstItem = Array.isArray(items) ? items[0] : undefined;
+    const price = isRecord(firstItem) ? firstItem.price : undefined;
+    const scheduledPriceId =
+      typeof price === 'string'
+        ? price
+        : isRecord(price) && typeof price.id === 'string'
+          ? price.id
+          : undefined;
+    const customer = isRecord(schedule) ? schedule.customer : undefined;
+    const subscription = isRecord(schedule) ? schedule.subscription : undefined;
+    if (
+      typeof payload.id !== 'string' ||
+      !/^evt_[A-Za-z0-9_]+$/.test(payload.id) ||
+      typeof payload.created !== 'number' ||
+      !Number.isSafeInteger(payload.created) ||
+      !isRecord(schedule) ||
+      typeof schedule.id !== 'string' ||
+      !/^sub_sched_[A-Za-z0-9_]+$/.test(schedule.id) ||
+      typeof subscription !== 'string' ||
+      !/^sub_[A-Za-z0-9_]+$/.test(subscription) ||
+      (customer !== undefined &&
+        (typeof customer !== 'string' ||
+          !/^cus_[A-Za-z0-9_]+$/.test(customer))) ||
+      (scheduledPriceId !== undefined &&
+        !/^price_[A-Za-z0-9]+$/.test(scheduledPriceId))
+    ) {
+      throw new InvalidStripeWebhookError();
+    }
+    return {
+      cancelAtPeriodEnd: false,
+      createdAt: new Date(payload.created * 1_000),
+      id: payload.id,
+      payload,
+      ...(typeof customer === 'string' && { providerCustomerId: customer }),
+      providerSubscriptionId: subscription,
+      ...(scheduledPriceId && { scheduledPriceId }),
+      type,
     };
   }
 }

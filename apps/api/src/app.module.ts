@@ -17,6 +17,7 @@ import type {
 import type { BillingCheckoutGateway } from './billing/checkout.js';
 import type { StripePlanMappings } from './billing/subscription-projection.js';
 import type { CapabilityPolicy } from './authorization/authorization.js';
+import type { BillingPortalGateway } from './billing/portal.js';
 
 export interface AppModuleOptions {
   authentication: AuthenticationOptions;
@@ -27,6 +28,7 @@ export interface AppModuleOptions {
     checkoutGateway: BillingCheckoutGateway;
     checkoutReturnOrigins: string[];
     planMappings: StripePlanMappings;
+    portalGateway: BillingPortalGateway;
     stripeWebhookSecret: string;
   };
   organizations: OrganizationModuleOptions;
@@ -50,6 +52,7 @@ export class AppModule {
           checkoutGateway: options.billing.checkoutGateway,
           checkoutReturnOrigins: options.billing.checkoutReturnOrigins,
           planMappings: options.billing.planMappings,
+          portalGateway: options.billing.portalGateway,
           capabilityPolicy: options.capabilityPolicy,
           stripeWebhookSecret: options.billing.stripeWebhookSecret,
         }),

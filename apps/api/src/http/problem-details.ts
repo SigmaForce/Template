@@ -108,6 +108,15 @@ export class PublicProblemException extends HttpException {
     });
   }
 
+  static billingPortalUnavailable() {
+    return new PublicProblemException({
+      type: 'urn:problem:next-nest-saas-starter:billing-portal-unavailable',
+      title: 'Customer Portal unavailable',
+      status: 404,
+      detail: 'No projected Subscription can open Customer Portal.',
+    });
+  }
+
   static subscriptionAlreadyExists() {
     return new PublicProblemException({
       type: 'urn:problem:next-nest-saas-starter:subscription-already-exists',

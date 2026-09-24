@@ -25,6 +25,7 @@ import {
   CheckoutSessionDto,
   CreateCheckoutSessionDto,
 } from './checkout.dto.js';
+import { CreatePortalSessionDto, PortalSessionDto } from './portal.dto.js';
 
 @ApiTags('billing')
 @ApiExtraModels(ProblemDetailsDto)
@@ -35,6 +36,42 @@ export class BillingController {
     private readonly authorization: AuthorizationService,
     private readonly billing: BillingService,
   ) {}
+
+  @Post('portal-sessions')
+  @ApiOperation({ operationId: 'createPortalSession' })
+  @ApiParam({ name: 'organizationId', example: 'org_2abc' })
+  @ApiCreatedResponse({ type: PortalSessionDto })
+  @ApiResponse({
+    status: 400,
+    content: {
+      'application/problem+json': {
+        schema: { $ref: getSchemaPath(ProblemDetailsDto) },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      'application/problem+json': {
+        schema: { $ref: getSchemaPath(ProblemDetailsDto) },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      'application/problem+json': {
+        schema: { $ref: getSchemaPath(ProblemDetailsDto) },
+      },
+    },
+  })
+  createPortalSession(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('organizationId') organizationId: string,
+    @Body() input: CreatePortalSessionDto,
+  ) {
+    return this.billing.createPortalSession(user, organizationId, input);
+  }
 
   @Post('checkout-sessions')
   @ApiOperation({ operationId: 'createCheckoutSession' })

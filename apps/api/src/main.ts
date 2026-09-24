@@ -13,6 +13,7 @@ import { PrismaBillingRepository } from './billing/prisma-billing.repository.js'
 import { BullMqBillingProjectionQueue } from './billing/bullmq-billing-projection.queue.js';
 import { StripeCheckoutGateway } from './billing/checkout.js';
 import { SubscriptionCapabilityPolicy } from './billing/subscription-capability-policy.js';
+import { StripeBillingPortalGateway } from './billing/portal.js';
 
 async function bootstrap() {
   const config = parseApiEnvironment(process.env);
@@ -37,6 +38,7 @@ async function bootstrap() {
         checkoutGateway: new StripeCheckoutGateway(config.stripeSecretKey),
         checkoutReturnOrigins: config.authentication.authorizedParties,
         planMappings: config.stripePlanMappings,
+        portalGateway: new StripeBillingPortalGateway(config.stripeSecretKey),
         projectionQueue: new BullMqBillingProjectionQueue(config.redisUrl),
         repository: billingRepository,
         stripeWebhookSecret: config.stripeWebhookSecret,
