@@ -5,6 +5,7 @@ import {
   OrganizationSlugConflictError,
   LastOwnerRequiredError,
   MembershipStateConflictError,
+  SeatAllowanceExceededError,
   type CompleteFirstOrganizationRecord,
   type OrganizationOnboardingClaim,
   type OrganizationOnboardingResult,
@@ -97,6 +98,7 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
     expectedRole?: OrganizationRole;
     organizationId: string;
     role?: OrganizationRole;
+    seatAllowance?: number;
     status?: 'active' | 'removed' | 'suspended';
     userId: string;
   }) {
@@ -107,6 +109,18 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
     }
     const role = input.role ?? membership.role;
     const status = input.status ?? membership.status;
+    if (
+      membership.status !== 'active' &&
+      status === 'active' &&
+      input.seatAllowance !== undefined &&
+      [...this.memberships.values()].filter(
+        (candidate) =>
+          candidate.organizationId === input.organizationId &&
+          candidate.status === 'active',
+      ).length >= input.seatAllowance
+    ) {
+      throw new SeatAllowanceExceededError();
+    }
     if (
       membership.role === 'owner' &&
       membership.status === 'active' &&
@@ -200,6 +214,7 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
     invitationId: string;
     organizationId: string;
     role: 'admin' | 'member' | 'owner';
+    seatAllowance?: number;
     userId: string;
   }) {
     const invitation = this.invitations.get(input.invitationId);
@@ -211,6 +226,18 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
       !organization
     ) {
       throw new InvitationStateConflictError();
+    }
+    const currentMembership = await this.findMembershipRecord(input);
+    if (
+      currentMembership?.status !== 'active' &&
+      input.seatAllowance !== undefined &&
+      [...this.memberships.values()].filter(
+        (candidate) =>
+          candidate.organizationId === input.organizationId &&
+          candidate.status === 'active',
+      ).length >= input.seatAllowance
+    ) {
+      throw new SeatAllowanceExceededError();
     }
     invitation.status = 'accepted';
     invitation.acceptedByUserId = input.userId;

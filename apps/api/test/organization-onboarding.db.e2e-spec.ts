@@ -26,6 +26,7 @@ const databaseUrl = process.env.TEST_DATABASE_URL;
 
 describe.skipIf(!databaseUrl)('Organization onboarding with PostgreSQL', () => {
   let app: INestApplication;
+  let billingRepository: MemoryBillingRepository;
   let pool: Pool;
 
   beforeAll(() => {
@@ -37,6 +38,7 @@ describe.skipIf(!databaseUrl)('Organization onboarding with PostgreSQL', () => {
       'TRUNCATE organization_onboarding_requests, memberships, organizations CASCADE',
     );
     const repository = new PrismaOrganizationRepository(databaseUrl!);
+    billingRepository = new MemoryBillingRepository();
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
         AppModule.register({
@@ -50,7 +52,7 @@ describe.skipIf(!databaseUrl)('Organization onboarding with PostgreSQL', () => {
             planMappings,
             portalGateway: new MemoryBillingPortalGateway(),
             projectionQueue: new MemoryBillingProjectionQueue(),
-            repository: new MemoryBillingRepository(),
+            repository: billingRepository,
             stripeWebhookSecret: 'whsec_testWebhookSecret',
           },
           organizations: {
@@ -514,6 +516,67 @@ describe.skipIf(!databaseUrl)('Organization onboarding with PostgreSQL', () => {
       .delete(`${otherMembershipsPath}/user_postgres_other_owner`)
       .set('authorization', ownerAuthorization)
       .expect(403);
+  });
+
+  it('serializes concurrent Membership activations at the Plan Seat allowance', async () => {
+    const ownerId = 'user_postgres_seat_owner';
+    const creation = await request(app.getHttpServer())
+      .post('/v1/organizations')
+      .set('authorization', `Bearer ${createSessionToken({ userId: ownerId })}`)
+      .set('idempotency-key', 'postgres-seat-allowance')
+      .send({
+        name: 'Postgres Seats',
+        slug: 'postgres-seats',
+        locale: 'pt-BR',
+        timeZone: 'America/Cuiaba',
+      })
+      .expect(201);
+    const organization = creation.body.organization as {
+      id: string;
+      slug: string;
+    };
+    billingRepository.subscriptions.set(organization.id, {
+      currentPeriodEndsAt: new Date('2026-10-20T12:00:00.000Z'),
+      organizationId: organization.id,
+      planId: 'launch',
+      planVersion: 1,
+      providerEventCreatedAt: new Date('2026-09-20T12:00:00.000Z'),
+      providerSubscriptionId: 'sub_postgres_seat_limit',
+      status: 'active',
+    });
+    await pool.query(
+      `INSERT INTO memberships (id, organization_id, user_id, role, status, updated_at)
+       VALUES
+         ('018f0c4a-7b5d-7cc4-b3e1-5a6f8d9c2101', $1, 'user_active_one', 'MEMBER', 'ACTIVE', NOW()),
+         ('018f0c4a-7b5d-7cc4-b3e1-5a6f8d9c2102', $1, 'user_active_two', 'MEMBER', 'ACTIVE', NOW()),
+         ('018f0c4a-7b5d-7cc4-b3e1-5a6f8d9c2103', $1, 'user_active_three', 'MEMBER', 'ACTIVE', NOW()),
+         ('018f0c4a-7b5d-7cc4-b3e1-5a6f8d9c2104', $1, 'user_waiting_one', 'MEMBER', 'SUSPENDED', NOW()),
+         ('018f0c4a-7b5d-7cc4-b3e1-5a6f8d9c2105', $1, 'user_waiting_two', 'MEMBER', 'SUSPENDED', NOW())`,
+      [organization.id],
+    );
+    const authorization = `Bearer ${createSessionToken({
+      userId: ownerId,
+      organization,
+      organizationRole: 'owner',
+    })}`;
+    const restore = (userId: string) =>
+      request(app.getHttpServer())
+        .patch(`/v1/organizations/${organization.id}/memberships/${userId}`)
+        .set('authorization', authorization)
+        .send({ status: 'active' });
+
+    const responses = await Promise.all([
+      restore('user_waiting_one'),
+      restore('user_waiting_two'),
+    ]);
+    expect(responses.map(({ status }) => status).sort()).toEqual([200, 409]);
+    const active = await pool.query<{ count: string }>(
+      `SELECT COUNT(*)::text AS count
+       FROM memberships
+       WHERE organization_id = $1 AND status = 'ACTIVE'`,
+      [organization.id],
+    );
+    expect(active.rows[0]?.count).toBe('5');
   });
 
   afterEach(async () => {

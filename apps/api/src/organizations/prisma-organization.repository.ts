@@ -14,6 +14,7 @@ import {
   InvitationStateConflictError,
   LastOwnerRequiredError,
   MembershipStateConflictError,
+  SeatAllowanceExceededError,
   OrganizationSlugConflictError,
   type CompleteFirstOrganizationRecord,
   type OrganizationOnboardingClaim,
@@ -64,12 +65,16 @@ export class PrismaOrganizationRepository
     expectedRole?: 'admin' | 'member' | 'owner';
     organizationId: string;
     role?: 'admin' | 'member' | 'owner';
+    seatAllowance?: number;
     status?: 'active' | 'removed' | 'suspended';
     userId: string;
   }) {
     try {
       return await this.client.$transaction(
         async (transaction) => {
+          if (input.status === 'active') {
+            await this.lockSeatAllocation(transaction, input.organizationId);
+          }
           const where = {
             organizationId_userId: {
               organizationId: input.organizationId,
@@ -94,6 +99,19 @@ export class PrismaOrganizationRepository
                 suspended: MembershipStatus.SUSPENDED,
               }[input.status]
             : membership.status;
+          if (
+            membership.status !== MembershipStatus.ACTIVE &&
+            status === MembershipStatus.ACTIVE &&
+            input.seatAllowance !== undefined &&
+            (await transaction.membership.count({
+              where: {
+                organizationId: input.organizationId,
+                status: MembershipStatus.ACTIVE,
+              },
+            })) >= input.seatAllowance
+          ) {
+            throw new SeatAllowanceExceededError();
+          }
           if (
             membership.role === MembershipRole.OWNER &&
             membership.status === MembershipStatus.ACTIVE &&
@@ -196,9 +214,31 @@ export class PrismaOrganizationRepository
     invitationId: string;
     organizationId: string;
     role: 'admin' | 'member' | 'owner';
+    seatAllowance?: number;
     userId: string;
   }) {
     return this.client.$transaction(async (transaction) => {
+      await this.lockSeatAllocation(transaction, input.organizationId);
+      const currentMembership = await transaction.membership.findUnique({
+        where: {
+          organizationId_userId: {
+            organizationId: input.organizationId,
+            userId: input.userId,
+          },
+        },
+      });
+      if (
+        currentMembership?.status !== MembershipStatus.ACTIVE &&
+        input.seatAllowance !== undefined &&
+        (await transaction.membership.count({
+          where: {
+            organizationId: input.organizationId,
+            status: MembershipStatus.ACTIVE,
+          },
+        })) >= input.seatAllowance
+      ) {
+        throw new SeatAllowanceExceededError();
+      }
       const accepted = await transaction.invitation.updateMany({
         where: {
           id: input.invitationId,
@@ -552,6 +592,16 @@ export class PrismaOrganizationRepository
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === 'P2002'
     );
+  }
+
+  private async lockSeatAllocation(
+    transaction: Prisma.TransactionClient,
+    organizationId: string,
+  ) {
+    // ponytail: serialize Seat changes per Organization; split the lock only if contention is measured.
+    await transaction.$queryRaw`
+      SELECT id FROM organizations WHERE id = ${organizationId} FOR UPDATE
+    `;
   }
 
   private membershipRole(role: 'admin' | 'member' | 'owner') {

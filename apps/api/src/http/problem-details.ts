@@ -194,4 +194,13 @@ export class PublicProblemException extends HttpException {
       detail: 'Assign another active Owner before changing this Membership.',
     });
   }
+
+  static seatAllowanceExceeded() {
+    return new PublicProblemException({
+      type: 'urn:problem:next-nest-saas-starter:seat-allowance-exceeded',
+      title: 'Seat allowance exceeded',
+      status: 409,
+      detail: 'Suspend another Membership or select a Plan with more Seats.',
+    });
+  }
 }

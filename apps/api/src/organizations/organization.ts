@@ -58,6 +58,7 @@ export abstract class OrganizationRepository extends AuthorizationRepository {
     expectedRole?: OrganizationRole;
     organizationId: string;
     role?: OrganizationRole;
+    seatAllowance?: number;
     status?: MembershipRecord['status'];
     userId: string;
   }): Promise<MembershipRecord>;
@@ -89,6 +90,7 @@ export abstract class OrganizationRepository extends AuthorizationRepository {
     invitationId: string;
     organizationId: string;
     role: OrganizationRole;
+    seatAllowance?: number;
     userId: string;
   }): Promise<{
     membership: { role: OrganizationRole };
@@ -212,3 +214,4 @@ export class OrganizationSlugConflictError extends Error {}
 export class InvitationStateConflictError extends Error {}
 export class LastOwnerRequiredError extends Error {}
 export class MembershipStateConflictError extends Error {}
+export class SeatAllowanceExceededError extends Error {}

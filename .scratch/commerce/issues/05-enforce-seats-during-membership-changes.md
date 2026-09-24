@@ -6,8 +6,8 @@ Memberships do not.
 
 **Blocked by:** 03 — Start Checkout and activate a Subscription.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A Seat allowance from the selected Plan prevents an over-limit Membership activation or Invitation acceptance.
-- [ ] Membership Suspension releases a Seat without deleting Membership history.
-- [ ] Tests prove concurrent Membership changes cannot exceed the Organization's allowance.
+- [x] A Seat allowance from the selected Plan prevents an over-limit Membership activation or Invitation acceptance.
+- [x] Membership Suspension releases a Seat without deleting Membership history.
+- [x] Tests prove concurrent Membership changes cannot exceed the Organization's allowance.

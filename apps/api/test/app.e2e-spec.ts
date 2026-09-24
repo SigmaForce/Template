@@ -2175,6 +2175,82 @@ describe('AppController (e2e)', () => {
         .expect(409);
     });
 
+    it('enforces the Plan Seat allowance when accepting an Invitation', async () => {
+      await app.close();
+      const directory = new MemoryOrganizationDirectory();
+      const billingRepository = new MemoryBillingRepository();
+      billingRepository.subscriptions.set(organization.id, {
+        currentPeriodEndsAt: new Date('2026-10-20T12:00:00.000Z'),
+        organizationId: organization.id,
+        planId: 'launch',
+        planVersion: 1,
+        providerEventCreatedAt: new Date('2026-09-20T12:00:00.000Z'),
+        providerSubscriptionId: 'sub_invitation_seat_limit',
+        status: 'active',
+      });
+      app = await createApp(
+        [],
+        undefined,
+        new MemoryOrganizationRepository({
+          organizations: [organization],
+          memberships: [
+            {
+              organizationId: organization.id,
+              userId: 'user_owner',
+              role: 'owner',
+              status: 'active',
+            },
+            ...['one', 'two', 'three', 'four'].map((suffix) => ({
+              organizationId: organization.id,
+              userId: `user_${suffix}`,
+              role: 'member' as const,
+              status: 'active' as const,
+            })),
+          ],
+        }),
+        directory,
+        undefined,
+        billingRepository,
+      );
+      const ownerAuthorization = `Bearer ${createSessionToken({
+        userId: 'user_owner',
+        organization,
+        organizationRole: 'owner',
+      })}`;
+      await request(app.getHttpServer())
+        .post(`/v1/organizations/${organization.id}/invitations`)
+        .set('authorization', ownerAuthorization)
+        .send({ emailAddress: 'waiting@example.com', role: 'member' })
+        .expect(201);
+      const externalId = directory.acceptInvitation({
+        emailAddress: 'waiting@example.com',
+        userId: 'user_waiting',
+      });
+      const invitedAuthorization = `Bearer ${createSessionToken({
+        userId: 'user_waiting',
+      })}`;
+
+      await request(app.getHttpServer())
+        .post(`/v1/invitations/${externalId}/accept`)
+        .set('authorization', invitedAuthorization)
+        .expect(409)
+        .expect((response) => {
+          expect(response.body).toMatchObject({
+            type: 'urn:problem:next-nest-saas-starter:seat-allowance-exceeded',
+            status: 409,
+          });
+        });
+      await request(app.getHttpServer())
+        .patch(`/v1/organizations/${organization.id}/memberships/user_four`)
+        .set('authorization', ownerAuthorization)
+        .send({ status: 'suspended' })
+        .expect(200);
+      await request(app.getHttpServer())
+        .post(`/v1/invitations/${externalId}/accept`)
+        .set('authorization', invitedAuthorization)
+        .expect(200);
+    });
+
     it('rejects an Invitation for another identity or an invalid state', async () => {
       await app.close();
       let directory = new MemoryOrganizationDirectory();
@@ -2634,6 +2710,75 @@ describe('AppController (e2e)', () => {
         .get(`/v1/organizations/${organization.id}/settings`)
         .set('authorization', member)
         .expect(200);
+    });
+
+    it('enforces the Plan Seat allowance when restoring a Membership', async () => {
+      await app.close();
+      const billingRepository = new MemoryBillingRepository();
+      billingRepository.subscriptions.set(organization.id, {
+        currentPeriodEndsAt: new Date('2026-10-20T12:00:00.000Z'),
+        organizationId: organization.id,
+        planId: 'launch',
+        planVersion: 1,
+        providerEventCreatedAt: new Date('2026-09-20T12:00:00.000Z'),
+        providerSubscriptionId: 'sub_seat_limit',
+        status: 'active',
+      });
+      app = await createApp(
+        [],
+        undefined,
+        new MemoryOrganizationRepository({
+          organizations: [organization],
+          memberships: [
+            {
+              organizationId: organization.id,
+              userId: 'user_owner',
+              role: 'owner',
+              status: 'active',
+            },
+            ...['one', 'two', 'three', 'four'].map((suffix) => ({
+              organizationId: organization.id,
+              userId: `user_${suffix}`,
+              role: 'member' as const,
+              status: 'active' as const,
+            })),
+            {
+              organizationId: organization.id,
+              userId: 'user_waiting',
+              role: 'member',
+              status: 'suspended',
+            },
+          ],
+        }),
+        new MemoryOrganizationDirectory(),
+        undefined,
+        billingRepository,
+      );
+      const owner = authorization('user_owner', 'owner');
+
+      await request(app.getHttpServer())
+        .patch(`/v1/organizations/${organization.id}/memberships/user_waiting`)
+        .set('authorization', owner)
+        .send({ status: 'active' })
+        .expect(409)
+        .expect((response) => {
+          expect(response.body).toMatchObject({
+            type: 'urn:problem:next-nest-saas-starter:seat-allowance-exceeded',
+            status: 409,
+          });
+        });
+
+      await request(app.getHttpServer())
+        .patch(`/v1/organizations/${organization.id}/memberships/user_four`)
+        .set('authorization', owner)
+        .send({ status: 'suspended' })
+        .expect(200);
+      await request(app.getHttpServer())
+        .patch(`/v1/organizations/${organization.id}/memberships/user_waiting`)
+        .set('authorization', owner)
+        .send({ status: 'active' })
+        .expect(200)
+        .expect({ userId: 'user_waiting', role: 'member', status: 'active' });
     });
 
     it('removes access while retaining the Membership record', async () => {

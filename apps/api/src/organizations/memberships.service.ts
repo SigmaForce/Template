@@ -4,11 +4,14 @@ import { AuthorizationService } from '../authorization/authorization.service.js'
 import { Capability } from '../authorization/authorization.js';
 import { Permission } from '../authorization/permission.js';
 import { PublicProblemException } from '../http/problem-details.js';
+import { BillingRepository } from '../billing/billing.js';
+import { findPlan } from '../billing/plan-catalog.js';
 import {
   LastOwnerRequiredError,
   MembershipStateConflictError,
   OrganizationDirectory,
   OrganizationRepository,
+  SeatAllowanceExceededError,
 } from './organization.js';
 import type { ListMembershipsQuery } from './list-memberships.query.js';
 import { UpdateMembershipDto } from './update-membership.dto.js';
@@ -22,6 +25,7 @@ export class MembershipsService {
     private readonly repository: OrganizationRepository,
     private readonly directory: OrganizationDirectory,
     private readonly authorization: AuthorizationService,
+    private readonly billing: BillingRepository,
   ) {}
 
   async list(
@@ -84,10 +88,18 @@ export class MembershipsService {
 
     let updated;
     try {
+      const subscription =
+        input.status === 'active'
+          ? await this.billing.findSubscription(scope.organizationId)
+          : undefined;
       updated = await this.repository.updateMembership({
         expectedRole: membership.role,
         organizationId: scope.organizationId,
         role: input.role,
+        seatAllowance: subscription
+          ? findPlan(subscription.planId, subscription.planVersion)
+              ?.seatAllowance
+          : undefined,
         status: input.status,
         userId: targetUserId,
       });
@@ -238,6 +250,9 @@ export class MembershipsService {
     }
     if (error instanceof MembershipStateConflictError) {
       throw PublicProblemException.membershipUnavailable();
+    }
+    if (error instanceof SeatAllowanceExceededError) {
+      throw PublicProblemException.seatAllowanceExceeded();
     }
     throw error;
   }

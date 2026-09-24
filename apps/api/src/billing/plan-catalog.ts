@@ -88,3 +88,9 @@ export const planCatalog = {
     },
   ],
 } as const;
+
+export function findPlan(id: PlanId, version: number) {
+  return planCatalog.plans.find(
+    (plan) => plan.id === id && plan.version === version,
+  );
+}

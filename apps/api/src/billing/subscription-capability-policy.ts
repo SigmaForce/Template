@@ -4,7 +4,7 @@ import {
   type CapabilityId,
 } from '../authorization/authorization.js';
 import { BillingRepository } from './billing.js';
-import { planCatalog } from './plan-catalog.js';
+import { findPlan } from './plan-catalog.js';
 
 export class SubscriptionCapabilityPolicy extends CapabilityPolicy {
   constructor(private readonly subscriptions: BillingRepository) {
@@ -23,10 +23,7 @@ export class SubscriptionCapabilityPolicy extends CapabilityPolicy {
     ) {
       return false;
     }
-    const plan = planCatalog.plans.find(
-      ({ id, version }) =>
-        id === subscription.planId && version === subscription.planVersion,
-    );
+    const plan = findPlan(subscription.planId, subscription.planVersion);
     return plan?.capabilities.includes(input.capability) ?? false;
   }
 }

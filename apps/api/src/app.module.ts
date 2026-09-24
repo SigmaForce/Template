@@ -31,7 +31,7 @@ export interface AppModuleOptions {
     portalGateway: BillingPortalGateway;
     stripeWebhookSecret: string;
   };
-  organizations: OrganizationModuleOptions;
+  organizations: Omit<OrganizationModuleOptions, 'billingRepository'>;
 }
 
 @Module({})
@@ -43,6 +43,7 @@ export class AppModule {
         AuthenticationModule.register(options.authentication),
         OrganizationsModule.register({
           ...options.organizations,
+          billingRepository: options.billing.repository,
           capabilityPolicy: options.capabilityPolicy,
         }),
         BillingModule.register({

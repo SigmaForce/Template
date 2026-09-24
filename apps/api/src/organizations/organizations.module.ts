@@ -10,11 +10,13 @@ import { InvitationsController } from './invitations.controller.js';
 import { MembershipsController } from './memberships.controller.js';
 import { MembershipsService } from './memberships.service.js';
 import type { CapabilityPolicy } from '../authorization/authorization.js';
+import { BillingRepository } from '../billing/billing.js';
 
 export interface OrganizationModuleOptions {
   directory: OrganizationDirectory;
   repository: OrganizationRepository;
   capabilityPolicy?: CapabilityPolicy;
+  billingRepository: BillingRepository;
 }
 
 @Module({})
@@ -38,6 +40,7 @@ export class OrganizationsModule {
         OrganizationsService,
         { provide: OrganizationDirectory, useValue: options.directory },
         { provide: OrganizationRepository, useValue: options.repository },
+        { provide: BillingRepository, useValue: options.billingRepository },
       ],
     };
   }
