@@ -16,22 +16,35 @@ export type SubscriptionStatus =
   | 'unpaid';
 
 export interface BillingInboxRecord {
+  cancelAtPeriodEnd: boolean;
   createdAt: Date;
-  currentPeriodEndsAt: Date;
+  currentPeriodEndsAt?: Date;
   id: string;
-  organizationId: string;
-  priceId: string;
+  organizationId?: string;
+  priceId?: string;
+  providerCustomerId?: string;
   providerSubscriptionId: string;
-  status: SubscriptionStatus;
+  scheduledPriceId?: string;
+  status?: SubscriptionStatus;
+  type:
+    | 'customer.subscription.created'
+    | 'customer.subscription.deleted'
+    | 'customer.subscription.updated'
+    | 'subscription_schedule.created'
+    | 'subscription_schedule.updated';
 }
 
 export interface SubscriptionProjection {
+  cancelAtPeriodEnd?: boolean;
   currentPeriodEndsAt: Date;
   organizationId: string;
   planId: 'launch' | 'scale';
   planVersion: number;
   providerEventCreatedAt: Date;
+  providerCustomerId?: string;
+  providerScheduleEventCreatedAt?: Date;
   providerSubscriptionId: string;
+  scheduledPlanId?: 'launch' | 'scale';
   status: SubscriptionStatus;
 }
 
@@ -49,7 +62,7 @@ export abstract class BillingProjectionRepository {
 }
 
 export function nextSubscriptionProjection(
-  event: BillingInboxRecord,
+  event: BillingInboxRecord & { organizationId: string },
   current: SubscriptionProjection | undefined,
   planMappings: StripePlanMappings,
 ): SubscriptionProjection | undefined;

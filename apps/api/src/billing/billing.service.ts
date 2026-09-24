@@ -33,6 +33,7 @@ export class BillingService {
   async createPortalSession(
     user: AuthenticatedUser,
     organizationId: string,
+    idempotencyKey: string,
     input: CreatePortalSessionDto,
   ) {
     const scope = await this.authorization.authorize({
@@ -48,6 +49,7 @@ export class BillingService {
       throw PublicProblemException.billingPortalUnavailable();
     }
     const portalUrl = await this.portal.createSession({
+      idempotencyKey: `portal-session:${scope.organizationId}:${idempotencyKey}`,
       customerId: subscription.providerCustomerId,
       returnUrl: this.allowlistedReturnUrl(input.returnUrl),
     });
@@ -104,7 +106,9 @@ export class BillingService {
       planId: subscription.planId,
       planVersion: subscription.planVersion,
       providerSubscriptionId: subscription.providerSubscriptionId,
-      scheduledPlanId: subscription.scheduledPlanId ?? null,
+      scheduledPlanId: subscription.cancelAtPeriodEnd
+        ? null
+        : (subscription.scheduledPlanId ?? null),
       status: subscription.status,
     };
   }
@@ -115,17 +119,7 @@ export class BillingService {
   ) {
     try {
       const event = this.webhooks.verify(rawBody, signature);
-      const organizationId =
-        event.organizationId ??
-        (
-          await this.repository.findSubscriptionByProviderId(
-            event.providerSubscriptionId,
-          )
-        )?.organizationId;
-      if (!organizationId) {
-        throw new Error('Stripe event Subscription is unavailable.');
-      }
-      await this.repository.storeEvent({ ...event, organizationId });
+      await this.repository.storeEvent(event);
       await this.queue.enqueue(event.id);
       return { received: true };
     } catch (error) {

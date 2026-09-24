@@ -24,37 +24,41 @@ export class MemoryBillingRepository extends BillingRepository {
     return this.subscriptions.get(organizationId);
   }
 
-  async findSubscriptionByProviderId(providerSubscriptionId: string) {
-    return [...this.subscriptions.values()].find(
-      (subscription) =>
-        subscription.providerSubscriptionId === providerSubscriptionId,
-    );
-  }
-
   async project(eventId: string, planMappings: StripePlanMappings) {
     const event = this.events.get(eventId);
     if (!event) throw new Error('Billing event was not found.');
+    const current = event.organizationId
+      ? this.subscriptions.get(event.organizationId)
+      : [...this.subscriptions.values()].find(
+          (subscription) =>
+            subscription.providerSubscriptionId ===
+            event.providerSubscriptionId,
+        );
+    const organizationId = event.organizationId ?? current?.organizationId;
+    if (!organizationId) {
+      throw new Error('Stripe event Subscription is unavailable.');
+    }
     if (this.processedEventIds.has(eventId)) {
       return {
-        organizationId: event.organizationId,
+        organizationId,
         outcome: 'already-processed' as const,
       };
     }
     const next = nextSubscriptionProjection(
-      event,
-      this.subscriptions.get(event.organizationId),
+      { ...event, organizationId },
+      current,
       planMappings,
     );
     this.processedEventIds.add(eventId);
     if (!next) {
       return {
-        organizationId: event.organizationId,
+        organizationId,
         outcome: 'ignored-delayed' as const,
       };
     }
-    this.subscriptions.set(event.organizationId, next);
+    this.subscriptions.set(organizationId, next);
     return {
-      organizationId: event.organizationId,
+      organizationId,
       outcome: 'projected' as const,
     };
   }

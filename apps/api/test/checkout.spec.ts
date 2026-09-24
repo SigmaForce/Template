@@ -59,12 +59,14 @@ describe('StripeBillingPortalGateway', () => {
     );
     const gateway = new StripeBillingPortalGateway(
       'sk_test_serverOnlySecret',
+      'bpc_portalTest',
       request,
     );
 
     await expect(
       gateway.createSession({
         customerId: 'cus_portal',
+        idempotencyKey: 'portal-session:org_portal:request-1',
         returnUrl: 'https://app.example.com/settings/billing',
       }),
     ).resolves.toBe('https://billing.stripe.com/p/session/test_portal');
@@ -74,9 +76,11 @@ describe('StripeBillingPortalGateway', () => {
     expect(options?.headers).toEqual({
       authorization: 'Bearer sk_test_serverOnlySecret',
       'content-type': 'application/x-www-form-urlencoded',
+      'idempotency-key': 'portal-session:org_portal:request-1',
     });
     const body = options?.body?.toString() ?? '';
     expect(body).toContain('customer=cus_portal');
+    expect(body).toContain('configuration=bpc_portalTest');
     expect(body).toContain(
       'return_url=https%3A%2F%2Fapp.example.com%2Fsettings%2Fbilling',
     );

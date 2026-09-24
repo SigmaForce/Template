@@ -1,5 +1,6 @@
 export interface CreatePortalSession {
   customerId: string;
+  idempotencyKey: string;
   returnUrl: string;
 }
 
@@ -19,6 +20,7 @@ export class MemoryBillingPortalGateway extends BillingPortalGateway {
 export class StripeBillingPortalGateway extends BillingPortalGateway {
   constructor(
     private readonly secretKey: string,
+    private readonly configurationId: string,
     private readonly request: typeof fetch = fetch,
   ) {
     super();
@@ -29,12 +31,14 @@ export class StripeBillingPortalGateway extends BillingPortalGateway {
       'https://api.stripe.com/v1/billing_portal/sessions',
       {
         body: new URLSearchParams({
+          configuration: this.configurationId,
           customer: input.customerId,
           return_url: input.returnUrl,
         }),
         headers: {
           authorization: `Bearer ${this.secretKey}`,
           'content-type': 'application/x-www-form-urlencoded',
+          'idempotency-key': input.idempotencyKey,
         },
         method: 'POST',
       },

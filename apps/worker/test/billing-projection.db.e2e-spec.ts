@@ -27,6 +27,14 @@ describe.skipIf(!databaseUrl)('Subscription projection with PostgreSQL', () => {
     );
     await pool.query(
       `INSERT INTO billing_inbox_events
+         (event_id, type, provider_subscription_id, scheduled_price_id,
+          cancel_at_period_end, provider_created_at, payload)
+       VALUES ('evt_worker_schedule', 'subscription_schedule.created',
+               'sub_worker', 'price_scaleTest', false,
+               '2026-09-22T12:00:00Z', '{}')`,
+    );
+    await pool.query(
+      `INSERT INTO billing_inbox_events
          (event_id, organization_id, type, provider_subscription_id, price_id,
           subscription_status, current_period_ends_at, provider_created_at, payload)
        VALUES
@@ -45,17 +53,19 @@ describe.skipIf(!databaseUrl)('Subscription projection with PostgreSQL', () => {
     const projector = new SubscriptionProjector(repository, planMappings);
     await projector.process('evt_worker_newer');
     await projector.process('evt_worker_newer');
+    await projector.process('evt_worker_schedule');
     await projector.process('evt_worker_older');
 
     expect(await repository.findSubscription(organizationId)).toMatchObject({
       organizationId,
       planId: 'launch',
+      scheduledPlanId: 'scale',
       status: 'active',
     });
     const processed = await pool.query<{ count: string }>(
       'SELECT COUNT(*)::text AS count FROM billing_inbox_events WHERE processed_at IS NOT NULL',
     );
-    expect(processed.rows[0]?.count).toBe('2');
+    expect(processed.rows[0]?.count).toBe('3');
   });
 
   afterAll(async () => {

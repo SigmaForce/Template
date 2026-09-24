@@ -13,7 +13,7 @@ export interface BillingInboxEvent {
   createdAt: Date;
   currentPeriodEndsAt?: Date;
   id: string;
-  organizationId: string;
+  organizationId?: string;
   payload: object;
   priceId?: string;
   providerCustomerId?: string;
@@ -28,10 +28,6 @@ export interface BillingInboxEvent {
     | 'subscription_schedule.updated';
 }
 
-export type VerifiedBillingEvent = Omit<BillingInboxEvent, 'organizationId'> & {
-  organizationId?: string;
-};
-
 export interface SubscriptionProjection {
   cancelAtPeriodEnd?: boolean;
   currentPeriodEndsAt: Date;
@@ -39,6 +35,7 @@ export interface SubscriptionProjection {
   planId: 'launch' | 'scale';
   planVersion: number;
   providerEventCreatedAt: Date;
+  providerScheduleEventCreatedAt?: Date;
   providerCustomerId?: string;
   providerSubscriptionId: string;
   scheduledPlanId?: 'launch' | 'scale';
@@ -51,9 +48,6 @@ export abstract class BillingRepository {
   ): Promise<'duplicate' | 'stored'>;
   abstract findSubscription(
     organizationId: string,
-  ): Promise<SubscriptionProjection | undefined>;
-  abstract findSubscriptionByProviderId(
-    providerSubscriptionId: string,
   ): Promise<SubscriptionProjection | undefined>;
 }
 

@@ -38,7 +38,10 @@ async function bootstrap() {
         checkoutGateway: new StripeCheckoutGateway(config.stripeSecretKey),
         checkoutReturnOrigins: config.authentication.authorizedParties,
         planMappings: config.stripePlanMappings,
-        portalGateway: new StripeBillingPortalGateway(config.stripeSecretKey),
+        portalGateway: new StripeBillingPortalGateway(
+          config.stripeSecretKey,
+          config.stripePortalConfigurationId,
+        ),
         projectionQueue: new BullMqBillingProjectionQueue(config.redisUrl),
         repository: billingRepository,
         stripeWebhookSecret: config.stripeWebhookSecret,

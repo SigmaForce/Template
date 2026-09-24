@@ -62,29 +62,10 @@ export class PrismaBillingRepository
       planId: subscription.planId as 'launch' | 'scale',
       planVersion: subscription.planVersion,
       providerEventCreatedAt: subscription.providerEventCreatedAt,
-      ...(subscription.providerCustomerId && {
-        providerCustomerId: subscription.providerCustomerId,
+      ...(subscription.providerScheduleEventCreatedAt && {
+        providerScheduleEventCreatedAt:
+          subscription.providerScheduleEventCreatedAt,
       }),
-      providerSubscriptionId: subscription.providerSubscriptionId,
-      ...(subscription.scheduledPlanId && {
-        scheduledPlanId: subscription.scheduledPlanId as 'launch' | 'scale',
-      }),
-      status: subscription.status as SubscriptionStatus,
-    };
-  }
-
-  async findSubscriptionByProviderId(providerSubscriptionId: string) {
-    const subscription = await this.client.subscription.findUnique({
-      where: { providerSubscriptionId },
-    });
-    if (!subscription) return undefined;
-    return {
-      cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
-      currentPeriodEndsAt: subscription.currentPeriodEndsAt,
-      organizationId: subscription.organizationId,
-      planId: subscription.planId as 'launch' | 'scale',
-      planVersion: subscription.planVersion,
-      providerEventCreatedAt: subscription.providerEventCreatedAt,
       ...(subscription.providerCustomerId && {
         providerCustomerId: subscription.providerCustomerId,
       }),

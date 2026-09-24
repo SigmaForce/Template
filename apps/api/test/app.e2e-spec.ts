@@ -527,6 +527,13 @@ describe('AppController (e2e)', () => {
       .post(`/v1/organizations/${organization.id}/billing/portal-sessions`)
       .set('authorization', ownerAuthorization)
       .send(body)
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post(`/v1/organizations/${organization.id}/billing/portal-sessions`)
+      .set('authorization', ownerAuthorization)
+      .set('idempotency-key', 'portal-request-1')
+      .send(body)
       .expect(201)
       .expect({
         portalUrl: 'https://billing.stripe.com/p/session/test_portal',
@@ -534,6 +541,7 @@ describe('AppController (e2e)', () => {
     expect(portalGateway.sessions).toEqual([
       {
         customerId: 'cus_portal',
+        idempotencyKey: `portal-session:${organization.id}:portal-request-1`,
         returnUrl: body.returnUrl,
       },
     ]);
@@ -548,16 +556,19 @@ describe('AppController (e2e)', () => {
           userId: 'user_portal_admin',
         })}`,
       )
+      .set('idempotency-key', 'portal-request-1')
       .send(body)
       .expect(403);
     await request(app.getHttpServer())
       .post('/v1/organizations/org_other/billing/portal-sessions')
       .set('authorization', ownerAuthorization)
+      .set('idempotency-key', 'portal-request-1')
       .send(body)
       .expect(403);
     await request(app.getHttpServer())
       .post(`/v1/organizations/${organization.id}/billing/portal-sessions`)
       .set('authorization', ownerAuthorization)
+      .set('idempotency-key', 'portal-request-1')
       .send({ returnUrl: 'https://attacker.example/billing' })
       .expect(400);
 
@@ -565,6 +576,7 @@ describe('AppController (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/v1/organizations/${organization.id}/billing/portal-sessions`)
       .set('authorization', ownerAuthorization)
+      .set('idempotency-key', 'portal-request-1')
       .send(body)
       .expect(404);
   });
@@ -622,70 +634,6 @@ describe('AppController (e2e)', () => {
         .send(payload)
         .expect(200);
     };
-    await ingest({
-      id: 'evt_portal_subscription_created',
-      type: 'customer.subscription.created',
-      created: 1_789_473_600,
-      data: {
-        object: {
-          id: 'sub_portal_projection',
-          customer: 'cus_portal_projection',
-          status: 'active',
-          cancel_at_period_end: false,
-          current_period_end: 1_792_065_600,
-          metadata: { organizationId: organization.id },
-          items: { data: [{ price: { id: 'price_launchTest' } }] },
-        },
-      },
-    });
-    await projector.process(projectionQueue.eventIds[0]);
-
-    await request(app.getHttpServer())
-      .get(`/v1/organizations/${organization.id}/billing/subscription`)
-      .set('authorization', authorization)
-      .expect(200)
-      .expect({
-        cancelAtPeriodEnd: false,
-        currentPeriodEndsAt: '2026-10-15T12:00:00.000Z',
-        planId: 'launch',
-        planVersion: 1,
-        providerSubscriptionId: 'sub_portal_projection',
-        scheduledPlanId: null,
-        status: 'active',
-      });
-
-    await ingest({
-      id: 'evt_portal_upgrade',
-      type: 'customer.subscription.updated',
-      created: 1_789_473_700,
-      data: {
-        object: {
-          id: 'sub_portal_projection',
-          customer: 'cus_portal_projection',
-          status: 'active',
-          cancel_at_period_end: false,
-          current_period_end: 1_792_065_600,
-          metadata: { organizationId: organization.id },
-          items: { data: [{ price: { id: 'price_scaleTest' } }] },
-        },
-      },
-    });
-    await projector.process('evt_portal_upgrade');
-
-    await request(app.getHttpServer())
-      .get(`/v1/organizations/${organization.id}/billing/subscription`)
-      .set('authorization', authorization)
-      .expect(200)
-      .expect({
-        cancelAtPeriodEnd: false,
-        currentPeriodEndsAt: '2026-10-15T12:00:00.000Z',
-        planId: 'scale',
-        planVersion: 1,
-        providerSubscriptionId: 'sub_portal_projection',
-        scheduledPlanId: null,
-        status: 'active',
-      });
-
     const scheduledDowngrade = {
       id: 'evt_portal_scheduled_downgrade',
       type: 'subscription_schedule.created',
@@ -715,6 +663,78 @@ describe('AppController (e2e)', () => {
         },
       },
     };
+    await ingest(scheduledDowngrade);
+    await ingest({
+      id: 'evt_portal_subscription_created',
+      type: 'customer.subscription.created',
+      created: 1_789_473_600,
+      data: {
+        object: {
+          id: 'sub_portal_projection',
+          customer: 'cus_portal_projection',
+          status: 'active',
+          cancel_at_period_end: false,
+          current_period_end: 1_792_065_600,
+          metadata: { organizationId: organization.id },
+          items: { data: [{ price: { id: 'price_launchTest' } }] },
+        },
+      },
+    });
+    await projector.process('evt_portal_subscription_created');
+
+    await request(app.getHttpServer())
+      .get(`/v1/organizations/${organization.id}/billing/subscription`)
+      .set('authorization', authorization)
+      .expect(200)
+      .expect({
+        cancelAtPeriodEnd: false,
+        currentPeriodEndsAt: '2026-10-15T12:00:00.000Z',
+        planId: 'launch',
+        planVersion: 1,
+        providerSubscriptionId: 'sub_portal_projection',
+        scheduledPlanId: null,
+        status: 'active',
+      });
+
+    await projector.process('evt_portal_scheduled_downgrade');
+    await ingest({
+      id: 'evt_portal_upgrade',
+      type: 'customer.subscription.updated',
+      created: 1_789_473_700,
+      data: {
+        object: {
+          id: 'sub_portal_projection',
+          customer: 'cus_portal_projection',
+          status: 'active',
+          cancel_at_period_end: false,
+          metadata: { organizationId: organization.id },
+          items: {
+            data: [
+              {
+                current_period_end: 1_792_065_600,
+                price: { id: 'price_scaleTest' },
+              },
+            ],
+          },
+        },
+      },
+    });
+    await projector.process('evt_portal_upgrade');
+
+    await request(app.getHttpServer())
+      .get(`/v1/organizations/${organization.id}/billing/subscription`)
+      .set('authorization', authorization)
+      .expect(200)
+      .expect({
+        cancelAtPeriodEnd: false,
+        currentPeriodEndsAt: '2026-10-15T12:00:00.000Z',
+        planId: 'scale',
+        planVersion: 1,
+        providerSubscriptionId: 'sub_portal_projection',
+        scheduledPlanId: 'launch',
+        status: 'active',
+      });
+
     await ingest(scheduledDowngrade);
     await ingest(scheduledDowngrade);
     await projector.process('evt_portal_scheduled_downgrade');

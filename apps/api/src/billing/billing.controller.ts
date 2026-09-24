@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Post } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiExtraModels,
+  ApiHeader,
   ApiOkResponse,
   ApiCreatedResponse,
   ApiOperation,
@@ -17,7 +18,10 @@ import {
   CurrentUser,
   type AuthenticatedUser,
 } from '../authentication/authentication.js';
-import { ProblemDetailsDto } from '../http/problem-details.js';
+import {
+  ProblemDetailsDto,
+  PublicProblemException,
+} from '../http/problem-details.js';
 import { PlanCatalogDto, planCatalog } from './plan-catalog.js';
 import { BillingService } from './billing.service.js';
 import { SubscriptionDto } from './subscription.dto.js';
@@ -39,6 +43,7 @@ export class BillingController {
 
   @Post('portal-sessions')
   @ApiOperation({ operationId: 'createPortalSession' })
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
   @ApiParam({ name: 'organizationId', example: 'org_2abc' })
   @ApiCreatedResponse({ type: PortalSessionDto })
   @ApiResponse({
@@ -68,9 +73,23 @@ export class BillingController {
   createPortalSession(
     @CurrentUser() user: AuthenticatedUser,
     @Param('organizationId') organizationId: string,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Body() input: CreatePortalSessionDto,
   ) {
-    return this.billing.createPortalSession(user, organizationId, input);
+    if (!idempotencyKey || !/^[A-Za-z0-9._:-]{8,64}$/.test(idempotencyKey)) {
+      throw PublicProblemException.validation([
+        {
+          pointer: '#/headers/idempotency-key',
+          detail: 'Idempotency-Key must contain 8 to 64 safe ASCII characters.',
+        },
+      ]);
+    }
+    return this.billing.createPortalSession(
+      user,
+      organizationId,
+      idempotencyKey,
+      input,
+    );
   }
 
   @Post('checkout-sessions')

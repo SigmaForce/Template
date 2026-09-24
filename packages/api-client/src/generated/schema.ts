@@ -1043,7 +1043,9 @@ export interface operations {
     createPortalSession: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
             path: {
                 organizationId: string;
             };

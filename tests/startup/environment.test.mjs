@@ -31,6 +31,7 @@ function apiEnvironment(authentication) {
     STRIPE_LAUNCH_PRODUCT_ID: "prod_launchTest",
     STRIPE_SCALE_PRICE_ID: "price_scaleTest",
     STRIPE_SCALE_PRODUCT_ID: "prod_scaleTest",
+    STRIPE_PORTAL_CONFIGURATION_ID: "bpc_portalTest",
     STRIPE_SECRET_KEY: "sk_test_testStripeSecret",
     STRIPE_WEBHOOK_SECRET: "whsec_testWebhookSecret",
     ...authentication,
@@ -220,6 +221,7 @@ test("API environment validates server-only Stripe Plan mappings", () => {
       productId: "prod_scaleTest",
     },
   });
+  assert.equal(configuration.stripePortalConfigurationId, "bpc_portalTest");
   assert.equal(configuration.stripeSecretKey, "sk_test_testStripeSecret");
 
   assert.throws(
@@ -330,6 +332,7 @@ test("startup reports invalid optional telemetry as degraded without exposing va
       "STRIPE_LAUNCH_PRICE_ID=price_launchTest",
       "STRIPE_SCALE_PRODUCT_ID=prod_scaleTest",
       "STRIPE_SCALE_PRICE_ID=price_scaleTest",
+      "STRIPE_PORTAL_CONFIGURATION_ID=bpc_portalTest",
       "STRIPE_SECRET_KEY=sk_test_testStripeSecret",
       "STRIPE_WEBHOOK_SECRET=whsec_testWebhookSecret",
       "POSTHOG_KEY=phc_private-looking-value",

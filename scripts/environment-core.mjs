@@ -412,6 +412,12 @@ export function parseApiEnvironment(environment) {
 
   const authentication = parseAuthentication(environment, errors);
   const stripePlanMappings = parseStripePlanMappings(environment, errors);
+  const stripePortalConfigurationId = parseStripeId(
+    environment,
+    "STRIPE_PORTAL_CONFIGURATION_ID",
+    "bpc",
+    errors,
+  );
   const stripeSecretKey = parseStripeSecretKey(environment, errors);
   const stripeWebhookSecret = parseStripeWebhookSecret(environment, errors);
 
@@ -423,6 +429,7 @@ export function parseApiEnvironment(environment) {
     ...runtime,
     authentication,
     stripePlanMappings,
+    stripePortalConfigurationId,
     stripeSecretKey,
     stripeWebhookSecret,
   };

@@ -39,7 +39,10 @@ export function BillingPortalButton({
         {
           body: { returnUrl: returnUrl.toString() },
           headers: { authorization: `Bearer ${token}` },
-          params: { path: { organizationId } },
+          params: {
+            header: { "Idempotency-Key": crypto.randomUUID() },
+            path: { organizationId },
+          },
         },
       );
       if (!data) {

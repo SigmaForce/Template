@@ -19,6 +19,9 @@ export class MemoryBillingProjectionRepository extends BillingProjectionReposito
   async project(eventId: string, planMappings: StripePlanMappings) {
     const event = this.events.get(eventId);
     if (!event) throw new Error('Billing inbox event is unavailable.');
+    if (!event.organizationId) {
+      throw new Error('Billing inbox event has no Organization.');
+    }
     if (this.processedEventIds.has(eventId)) {
       return {
         organizationId: event.organizationId,
@@ -26,7 +29,7 @@ export class MemoryBillingProjectionRepository extends BillingProjectionReposito
       };
     }
     const next = nextSubscriptionProjection(
-      event,
+      { ...event, organizationId: event.organizationId },
       this.subscriptions.get(event.organizationId),
       planMappings,
     );

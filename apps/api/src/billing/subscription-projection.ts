@@ -23,16 +23,10 @@ export abstract class BillingProjectionRepository {
 }
 
 export function nextSubscriptionProjection(
-  event: BillingInboxRecord,
+  event: BillingInboxRecord & { organizationId: string },
   current: SubscriptionProjection | undefined,
   planMappings: StripePlanMappings,
 ): SubscriptionProjection | undefined {
-  if (
-    current &&
-    current.providerEventCreatedAt.getTime() >= event.createdAt.getTime()
-  ) {
-    return undefined;
-  }
   if (event.type.startsWith('subscription_schedule.')) {
     if (
       !current ||
@@ -40,17 +34,30 @@ export function nextSubscriptionProjection(
     ) {
       throw new Error('Subscription schedule has no projected Subscription.');
     }
+    if (
+      current.providerScheduleEventCreatedAt &&
+      current.providerScheduleEventCreatedAt.getTime() >=
+        event.createdAt.getTime()
+    ) {
+      return undefined;
+    }
     const scheduledPlanId = event.scheduledPriceId
       ? planIdForPrice(event.scheduledPriceId, planMappings)
       : undefined;
     return {
       ...current,
-      providerEventCreatedAt: event.createdAt,
+      providerScheduleEventCreatedAt: event.createdAt,
       ...(event.providerCustomerId && {
         providerCustomerId: event.providerCustomerId,
       }),
       scheduledPlanId,
     };
+  }
+  if (
+    current &&
+    current.providerEventCreatedAt.getTime() >= event.createdAt.getTime()
+  ) {
+    return undefined;
   }
   if (!event.priceId || !event.currentPeriodEndsAt || !event.status) {
     throw new Error('Stripe Subscription event is incomplete.');
@@ -64,10 +71,16 @@ export function nextSubscriptionProjection(
     planId: plan,
     planVersion: 1,
     providerEventCreatedAt: event.createdAt,
+    ...(current?.providerScheduleEventCreatedAt && {
+      providerScheduleEventCreatedAt: current.providerScheduleEventCreatedAt,
+    }),
     ...(event.providerCustomerId && {
       providerCustomerId: event.providerCustomerId,
     }),
     providerSubscriptionId: event.providerSubscriptionId,
+    ...(current?.scheduledPlanId && {
+      scheduledPlanId: current.scheduledPlanId,
+    }),
     status: event.status,
   };
 }

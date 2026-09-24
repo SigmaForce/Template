@@ -50,10 +50,10 @@ model Organization {
   createdAt           DateTime          @default(now()) @map("created_at")
   updatedAt           DateTime          @updatedAt @map("updated_at")
 
-  memberships       Membership[]
-  invitations       Invitation[]
-  slugs             OrganizationSlug[]
-  onboardingRequest OrganizationOnboardingRequest?
+  memberships        Membership[]
+  invitations        Invitation[]
+  slugs              OrganizationSlug[]
+  onboardingRequest  OrganizationOnboardingRequest?
   billingInboxEvents BillingInboxEvent[]
   subscription       Subscription?
 
@@ -62,7 +62,7 @@ model Organization {
 
 model BillingInboxEvent {
   eventId                String    @id @map("event_id") @db.VarChar(255)
-  organizationId         String    @map("organization_id") @db.VarChar(64)
+  organizationId         String?   @map("organization_id") @db.VarChar(64)
   type                   String    @db.VarChar(100)
   providerSubscriptionId String    @map("provider_subscription_id") @db.VarChar(255)
   providerCustomerId     String?   @map("provider_customer_id") @db.VarChar(255)
@@ -76,25 +76,26 @@ model BillingInboxEvent {
   receivedAt             DateTime  @default(now()) @map("received_at")
   processedAt            DateTime? @map("processed_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, providerCreatedAt])
   @@map("billing_inbox_events")
 }
 
 model Subscription {
-  organizationId         String   @id @map("organization_id") @db.VarChar(64)
-  providerSubscriptionId String   @unique @map("provider_subscription_id") @db.VarChar(255)
-  providerCustomerId     String?  @map("provider_customer_id") @db.VarChar(255)
-  planId                 String   @map("plan_id") @db.VarChar(32)
-  planVersion            Int      @map("plan_version")
-  scheduledPlanId        String?  @map("scheduled_plan_id") @db.VarChar(32)
-  status                 String   @db.VarChar(32)
-  cancelAtPeriodEnd      Boolean  @default(false) @map("cancel_at_period_end")
-  currentPeriodEndsAt    DateTime @map("current_period_ends_at")
-  providerEventCreatedAt DateTime @map("provider_event_created_at")
-  createdAt              DateTime @default(now()) @map("created_at")
-  updatedAt              DateTime @updatedAt @map("updated_at")
+  organizationId                 String    @id @map("organization_id") @db.VarChar(64)
+  providerSubscriptionId         String    @unique @map("provider_subscription_id") @db.VarChar(255)
+  providerCustomerId             String?   @map("provider_customer_id") @db.VarChar(255)
+  planId                         String    @map("plan_id") @db.VarChar(32)
+  planVersion                    Int       @map("plan_version")
+  scheduledPlanId                String?   @map("scheduled_plan_id") @db.VarChar(32)
+  status                         String    @db.VarChar(32)
+  cancelAtPeriodEnd              Boolean   @default(false) @map("cancel_at_period_end")
+  currentPeriodEndsAt            DateTime  @map("current_period_ends_at")
+  providerEventCreatedAt         DateTime  @map("provider_event_created_at")
+  providerScheduleEventCreatedAt DateTime? @map("provider_schedule_event_created_at")
+  createdAt                      DateTime  @default(now()) @map("created_at")
+  updatedAt                      DateTime  @updatedAt @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 

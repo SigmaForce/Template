@@ -6,6 +6,7 @@ describe('Stripe Subscription projection', () => {
   it('is idempotent, ignores delayed state, and logs no provider payload', async () => {
     const repository = new MemoryBillingProjectionRepository([
       {
+        cancelAtPeriodEnd: false,
         createdAt: new Date('2026-09-20T12:00:00.000Z'),
         currentPeriodEndsAt: new Date('2026-10-20T12:00:00.000Z'),
         id: 'evt_active_newer',
@@ -13,8 +14,10 @@ describe('Stripe Subscription projection', () => {
         priceId: 'price_launchTest',
         providerSubscriptionId: 'sub_northstar',
         status: 'active',
+        type: 'customer.subscription.updated',
       },
       {
+        cancelAtPeriodEnd: false,
         createdAt: new Date('2026-09-19T12:00:00.000Z'),
         currentPeriodEndsAt: new Date('2026-09-30T12:00:00.000Z'),
         id: 'evt_canceled_older',
@@ -22,6 +25,7 @@ describe('Stripe Subscription projection', () => {
         priceId: 'price_scaleTest',
         providerSubscriptionId: 'sub_northstar',
         status: 'canceled',
+        type: 'customer.subscription.updated',
       },
     ]);
     const lines: string[] = [];
@@ -50,6 +54,7 @@ describe('Stripe Subscription projection', () => {
     await projector.process('evt_canceled_older');
 
     expect(await repository.findSubscription('org_northstar')).toEqual({
+      cancelAtPeriodEnd: false,
       currentPeriodEndsAt: new Date('2026-10-20T12:00:00.000Z'),
       organizationId: 'org_northstar',
       planId: 'launch',

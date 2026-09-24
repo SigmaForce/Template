@@ -32,6 +32,7 @@ export interface ApiEnvironment extends RuntimeEnvironment {
       productId: string;
     }
   >;
+  stripePortalConfigurationId: string;
   stripeSecretKey: string;
   stripeWebhookSecret: string;
 }

@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import type { SubscriptionStatus, VerifiedBillingEvent } from './billing.js';
+import type { BillingInboxEvent, SubscriptionStatus } from './billing.js';
 
 const subscriptionStatuses = new Set<SubscriptionStatus>([
   'active',
@@ -46,7 +46,7 @@ export class StripeWebhookVerifier {
     return this.parse(rawBody);
   }
 
-  private parse(rawBody: Buffer): VerifiedBillingEvent {
+  private parse(rawBody: Buffer): BillingInboxEvent {
     let payload: unknown;
     try {
       payload = JSON.parse(rawBody.toString('utf8'));
@@ -76,6 +76,10 @@ export class StripeWebhookVerifier {
     const itemList = isRecord(items) ? items.data : undefined;
     const firstItem = Array.isArray(itemList) ? itemList[0] : undefined;
     const price = isRecord(firstItem) ? firstItem.price : undefined;
+    const currentPeriodEnd = isRecord(subscription)
+      ? (subscription.current_period_end ??
+        (isRecord(firstItem) ? firstItem.current_period_end : undefined))
+      : undefined;
     const status = isRecord(subscription) ? subscription.status : undefined;
     const customer = isRecord(subscription) ? subscription.customer : undefined;
     const cancelAtPeriodEnd = isRecord(subscription)
@@ -89,8 +93,8 @@ export class StripeWebhookVerifier {
       !isRecord(subscription) ||
       typeof subscription.id !== 'string' ||
       !/^sub_[A-Za-z0-9_]+$/.test(subscription.id) ||
-      typeof subscription.current_period_end !== 'number' ||
-      !Number.isSafeInteger(subscription.current_period_end) ||
+      typeof currentPeriodEnd !== 'number' ||
+      !Number.isSafeInteger(currentPeriodEnd) ||
       !isRecord(metadata) ||
       typeof metadata.organizationId !== 'string' ||
       !/^org_[A-Za-z0-9_]+$/.test(metadata.organizationId) ||
@@ -111,7 +115,7 @@ export class StripeWebhookVerifier {
     return {
       cancelAtPeriodEnd: cancelAtPeriodEnd ?? false,
       createdAt: new Date(payload.created * 1_000),
-      currentPeriodEndsAt: new Date(subscription.current_period_end * 1_000),
+      currentPeriodEndsAt: new Date(currentPeriodEnd * 1_000),
       id: payload.id,
       organizationId: metadata.organizationId,
       payload,
@@ -126,7 +130,7 @@ export class StripeWebhookVerifier {
   private parseSchedule(
     payload: Record<string, unknown>,
     type: 'subscription_schedule.created' | 'subscription_schedule.updated',
-  ): VerifiedBillingEvent {
+  ): BillingInboxEvent {
     const data = payload.data;
     const schedule = isRecord(data) ? data.object : undefined;
     const currentPhase = isRecord(schedule)
