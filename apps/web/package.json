@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@clerk/nextjs": "7.9.2",
+    "@clerk/nextjs": "7.9.4",
     "@saas/api-client": "workspace:*",
     "@saas/tooling-config": "workspace:*",
     "@saas/ui": "workspace:*",
