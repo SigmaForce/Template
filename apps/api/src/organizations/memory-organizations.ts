@@ -231,13 +231,17 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
       currentMembership?.status,
       input.seatAllowance,
     );
+    if (seatAllowanceExceeded) {
+      invitation.status = 'revoked';
+      invitation.acceptedByUserId = undefined;
+      throw new SeatAllowanceExceededError();
+    }
     this.memberships.set(this.membershipKey(input), {
       organizationId: input.organizationId,
       role: input.role,
       userId: input.userId,
-      status: seatAllowanceExceeded ? 'suspended' : 'active',
+      status: 'active',
     });
-    if (seatAllowanceExceeded) throw new SeatAllowanceExceededError();
     invitation.status = 'accepted';
     invitation.acceptedByUserId = input.userId;
     return {
@@ -411,6 +415,7 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
 }
 
 export class MemoryOrganizationDirectory extends OrganizationDirectory {
+  private readonly deletedMemberships = new Set<string>();
   private readonly organizationsBySlug = new Map<string, string>();
   private readonly organizationNames = new Map<string, string>();
   private readonly invitations = new Map<
@@ -501,6 +506,9 @@ export class MemoryOrganizationDirectory extends OrganizationDirectory {
     const [externalId, invitation] = entry;
     invitation.status = 'accepted';
     invitation.acceptedByUserId = input.userId;
+    this.deletedMemberships.delete(
+      this.membershipKey(invitation.organizationId, input.userId),
+    );
     return externalId;
   }
 
@@ -529,7 +537,10 @@ export class MemoryOrganizationDirectory extends OrganizationDirectory {
     const invitation = this.invitations.get(input.externalId);
     return invitation?.organizationId === input.organizationId &&
       invitation.status === 'accepted' &&
-      invitation.acceptedByUserId === input.userId
+      invitation.acceptedByUserId === input.userId &&
+      !this.deletedMemberships.has(
+        this.membershipKey(input.organizationId, input.userId),
+      )
       ? { role: invitation.role }
       : undefined;
   }
@@ -540,5 +551,13 @@ export class MemoryOrganizationDirectory extends OrganizationDirectory {
     userId: string;
   }) {}
 
-  async deleteMembership(_input: { organizationId: string; userId: string }) {}
+  async deleteMembership(input: { organizationId: string; userId: string }) {
+    this.deletedMemberships.add(
+      this.membershipKey(input.organizationId, input.userId),
+    );
+  }
+
+  private membershipKey(organizationId: string, userId: string) {
+    return `${organizationId}\u0000${userId}`;
+  }
 }

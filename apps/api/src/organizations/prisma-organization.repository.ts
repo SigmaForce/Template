@@ -245,34 +245,31 @@ export class PrismaOrganizationRepository
         currentMembership?.status,
         input.seatAllowance,
       );
-      await transaction.membership.upsert({
-        where: {
-          organizationId_userId: {
-            organizationId: input.organizationId,
-            userId: input.userId,
-          },
-        },
-        create: {
-          organizationId: input.organizationId,
-          userId: input.userId,
-          role: this.membershipRole(input.role),
-          status: seatAllowanceExceeded
-            ? MembershipStatus.SUSPENDED
-            : MembershipStatus.ACTIVE,
-        },
-        update: {
-          role: this.membershipRole(input.role),
-          status: seatAllowanceExceeded
-            ? MembershipStatus.SUSPENDED
-            : MembershipStatus.ACTIVE,
-        },
-      });
       if (seatAllowanceExceeded) {
         await transaction.invitation.update({
           where: { id: input.invitationId },
           data: {
             acceptedByUserId: null,
-            status: InvitationStatus.PENDING,
+            status: InvitationStatus.REVOKED,
+          },
+        });
+      } else {
+        await transaction.membership.upsert({
+          where: {
+            organizationId_userId: {
+              organizationId: input.organizationId,
+              userId: input.userId,
+            },
+          },
+          create: {
+            organizationId: input.organizationId,
+            userId: input.userId,
+            role: this.membershipRole(input.role),
+            status: MembershipStatus.ACTIVE,
+          },
+          update: {
+            role: this.membershipRole(input.role),
+            status: MembershipStatus.ACTIVE,
           },
         });
       }

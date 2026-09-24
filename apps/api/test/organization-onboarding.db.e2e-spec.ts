@@ -580,7 +580,7 @@ describe.skipIf(!databaseUrl)('Organization onboarding with PostgreSQL', () => {
     );
     expect(active.rows[0]?.count).toBe('5');
 
-    await request(app.getHttpServer())
+    const createdInvitation = await request(app.getHttpServer())
       .post(`/v1/organizations/${organization.id}/invitations`)
       .set('authorization', authorization)
       .send({ emailAddress: 'postgres-waiting@example.com', role: 'member' })
@@ -598,17 +598,19 @@ describe.skipIf(!databaseUrl)('Organization onboarding with PostgreSQL', () => {
       .expect(409);
     const waiting = await pool.query<{
       invitation_status: string;
-      membership_status: string;
+      membership_status: string | null;
     }>(
       `SELECT i.status AS invitation_status, m.status AS membership_status
        FROM invitations i
-       JOIN memberships m ON m.organization_id = i.organization_id
-       WHERE i.external_id = $1 AND m.user_id = 'user_postgres_waiting'`,
+       LEFT JOIN memberships m
+         ON m.organization_id = i.organization_id
+        AND m.user_id = 'user_postgres_waiting'
+       WHERE i.external_id = $1`,
       [externalId],
     );
     expect(waiting.rows[0]).toEqual({
-      invitation_status: 'PENDING',
-      membership_status: 'SUSPENDED',
+      invitation_status: 'REVOKED',
+      membership_status: null,
     });
     await request(app.getHttpServer())
       .patch(
@@ -618,7 +620,17 @@ describe.skipIf(!databaseUrl)('Organization onboarding with PostgreSQL', () => {
       .send({ status: 'suspended' })
       .expect(200);
     await request(app.getHttpServer())
-      .post(`/v1/invitations/${externalId}/accept`)
+      .post(
+        `/v1/organizations/${organization.id}/invitations/${createdInvitation.body.id as string}/resend`,
+      )
+      .set('authorization', authorization)
+      .expect(200);
+    const replacementExternalId = directory.acceptInvitation({
+      emailAddress: 'postgres-waiting@example.com',
+      userId: 'user_postgres_waiting',
+    });
+    await request(app.getHttpServer())
+      .post(`/v1/invitations/${replacementExternalId}/accept`)
       .set(
         'authorization',
         `Bearer ${createSessionToken({ userId: 'user_postgres_waiting' })}`,
@@ -626,7 +638,7 @@ describe.skipIf(!databaseUrl)('Organization onboarding with PostgreSQL', () => {
       .expect(200);
     const accepted = await pool.query<{ status: string }>(
       'SELECT status FROM invitations WHERE external_id = $1',
-      [externalId],
+      [replacementExternalId],
     );
     expect(accepted.rows[0]?.status).toBe('ACCEPTED');
   });

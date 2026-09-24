@@ -2217,7 +2217,7 @@ describe('AppController (e2e)', () => {
         organization,
         organizationRole: 'owner',
       })}`;
-      await request(app.getHttpServer())
+      const created = await request(app.getHttpServer())
         .post(`/v1/organizations/${organization.id}/invitations`)
         .set('authorization', ownerAuthorization)
         .send({ emailAddress: 'waiting@example.com', role: 'member' })
@@ -2245,11 +2245,9 @@ describe('AppController (e2e)', () => {
         .set('authorization', ownerAuthorization)
         .expect(200)
         .expect((response) => {
-          expect(response.body.items).toContainEqual({
-            userId: 'user_waiting',
-            role: 'member',
-            status: 'suspended',
-          });
+          expect(response.body.items).not.toContainEqual(
+            expect.objectContaining({ userId: 'user_waiting' }),
+          );
         });
       await request(app.getHttpServer())
         .get(`/v1/organizations/${organization.id}/invitations`)
@@ -2259,7 +2257,7 @@ describe('AppController (e2e)', () => {
           expect(response.body.items).toContainEqual(
             expect.objectContaining({
               emailAddress: 'waiting@example.com',
-              status: 'pending',
+              status: 'revoked',
             }),
           );
         });
@@ -2269,7 +2267,17 @@ describe('AppController (e2e)', () => {
         .send({ status: 'suspended' })
         .expect(200);
       await request(app.getHttpServer())
-        .post(`/v1/invitations/${externalId}/accept`)
+        .post(
+          `/v1/organizations/${organization.id}/invitations/${created.body.id as string}/resend`,
+        )
+        .set('authorization', ownerAuthorization)
+        .expect(200);
+      const replacementExternalId = directory.acceptInvitation({
+        emailAddress: 'waiting@example.com',
+        userId: 'user_waiting',
+      });
+      await request(app.getHttpServer())
+        .post(`/v1/invitations/${replacementExternalId}/accept`)
         .set('authorization', invitedAuthorization)
         .expect(200);
     });

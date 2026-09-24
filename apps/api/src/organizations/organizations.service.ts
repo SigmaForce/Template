@@ -323,6 +323,10 @@ export class OrganizationsService {
         throw PublicProblemException.invitationUnavailable();
       }
       if (error instanceof SeatAllowanceExceededError) {
+        await this.directory.deleteMembership({
+          organizationId: invitation.organizationId,
+          userId: user.id,
+        });
         throw PublicProblemException.seatAllowanceExceeded();
       }
       throw error;
