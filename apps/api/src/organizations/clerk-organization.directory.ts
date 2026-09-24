@@ -91,7 +91,7 @@ export class ClerkOrganizationDirectory extends OrganizationDirectory {
     });
   }
 
-  async findAcceptedMembership(input: {
+  async findInvitationAcceptance(input: {
     externalId: string;
     organizationId: string;
     userId: string;
@@ -120,7 +120,9 @@ export class ClerkOrganizationDirectory extends OrganizationDirectory {
         limit: 1,
       });
     const role = resolveOrganizationRole(memberships.data[0]?.role);
-    return role ? { role } : undefined;
+    return role
+      ? ({ role, status: 'accepted' } as const)
+      : ({ status: 'membership-missing' } as const);
   }
 
   async updateMembershipRole(input: {

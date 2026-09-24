@@ -250,7 +250,7 @@ export class PrismaOrganizationRepository
           where: { id: input.invitationId },
           data: {
             acceptedByUserId: null,
-            status: InvitationStatus.REVOKED,
+            status: InvitationStatus.PENDING,
           },
         });
       } else {

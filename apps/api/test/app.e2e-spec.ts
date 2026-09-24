@@ -2176,8 +2176,22 @@ describe('AppController (e2e)', () => {
     });
 
     it('enforces the Plan Seat allowance when accepting an Invitation', async () => {
+      class RetryableDirectory extends MemoryOrganizationDirectory {
+        private failDelete = true;
+
+        override async deleteMembership(
+          input: Parameters<MemoryOrganizationDirectory['deleteMembership']>[0],
+        ) {
+          if (this.failDelete) {
+            this.failDelete = false;
+            throw new Error('Temporary Directory failure.');
+          }
+          return super.deleteMembership(input);
+        }
+      }
+
       await app.close();
-      const directory = new MemoryOrganizationDirectory();
+      const directory = new RetryableDirectory();
       const billingRepository = new MemoryBillingRepository();
       billingRepository.subscriptions.set(organization.id, {
         currentPeriodEndsAt: new Date('2026-10-20T12:00:00.000Z'),
@@ -2230,9 +2244,13 @@ describe('AppController (e2e)', () => {
         userId: 'user_waiting',
       })}`;
 
-      await request(app.getHttpServer())
-        .post(`/v1/invitations/${externalId}/accept`)
-        .set('authorization', invitedAuthorization)
+      const accept = () =>
+        request(app.getHttpServer())
+          .post(`/v1/invitations/${externalId}/accept`)
+          .set('authorization', invitedAuthorization);
+
+      await accept().expect(500);
+      await accept()
         .expect(409)
         .expect((response) => {
           expect(response.body).toMatchObject({

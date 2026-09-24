@@ -299,12 +299,22 @@ export class OrganizationsService {
     ) {
       throw PublicProblemException.invitationUnavailable();
     }
-    const membership = await this.directory.findAcceptedMembership({
+    const acceptance = await this.directory.findInvitationAcceptance({
       externalId,
       organizationId: invitation.organizationId,
       userId: user.id,
     });
-    if (!membership || membership.role !== invitation.role) {
+    if (acceptance?.status === 'membership-missing') {
+      await this.repository.updateInvitation({
+        ...invitation,
+        status: 'revoked',
+      });
+      throw PublicProblemException.invitationUnavailable();
+    }
+    if (
+      acceptance?.status !== 'accepted' ||
+      acceptance.role !== invitation.role
+    ) {
       throw PublicProblemException.invitationUnavailable();
     }
 
@@ -312,7 +322,7 @@ export class OrganizationsService {
       return await this.repository.acceptInvitation({
         invitationId: invitation.id,
         organizationId: invitation.organizationId,
-        role: membership.role,
+        role: acceptance.role,
         seatAllowance: await this.seats.findAllowance(
           invitation.organizationId,
         ),
@@ -326,6 +336,10 @@ export class OrganizationsService {
         await this.directory.deleteMembership({
           organizationId: invitation.organizationId,
           userId: user.id,
+        });
+        await this.repository.updateInvitation({
+          ...invitation,
+          status: 'revoked',
         });
         throw PublicProblemException.seatAllowanceExceeded();
       }

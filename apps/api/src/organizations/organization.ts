@@ -196,11 +196,15 @@ export abstract class OrganizationDirectory {
     requestingUserId: string;
   }): Promise<void>;
 
-  abstract findAcceptedMembership(input: {
+  abstract findInvitationAcceptance(input: {
     externalId: string;
     organizationId: string;
     userId: string;
-  }): Promise<{ role: OrganizationRole } | undefined>;
+  }): Promise<
+    | { role: OrganizationRole; status: 'accepted' }
+    | { status: 'membership-missing' }
+    | undefined
+  >;
 
   abstract updateMembershipRole(input: {
     organizationId: string;

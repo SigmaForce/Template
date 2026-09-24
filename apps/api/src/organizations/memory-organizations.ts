@@ -232,8 +232,6 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
       input.seatAllowance,
     );
     if (seatAllowanceExceeded) {
-      invitation.status = 'revoked';
-      invitation.acceptedByUserId = undefined;
       throw new SeatAllowanceExceededError();
     }
     this.memberships.set(this.membershipKey(input), {
@@ -529,20 +527,24 @@ export class MemoryOrganizationDirectory extends OrganizationDirectory {
     ).length;
   }
 
-  async findAcceptedMembership(input: {
+  async findInvitationAcceptance(input: {
     externalId: string;
     organizationId: string;
     userId: string;
   }) {
     const invitation = this.invitations.get(input.externalId);
-    return invitation?.organizationId === input.organizationId &&
-      invitation.status === 'accepted' &&
-      invitation.acceptedByUserId === input.userId &&
-      !this.deletedMemberships.has(
-        this.membershipKey(input.organizationId, input.userId),
-      )
-      ? { role: invitation.role }
-      : undefined;
+    if (
+      invitation?.organizationId !== input.organizationId ||
+      invitation.status !== 'accepted' ||
+      invitation.acceptedByUserId !== input.userId
+    ) {
+      return undefined;
+    }
+    return this.deletedMemberships.has(
+      this.membershipKey(input.organizationId, input.userId),
+    )
+      ? ({ status: 'membership-missing' } as const)
+      : ({ role: invitation.role, status: 'accepted' } as const);
   }
 
   async updateMembershipRole(_input: {
