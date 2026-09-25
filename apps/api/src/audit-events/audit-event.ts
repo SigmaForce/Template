@@ -3,6 +3,9 @@ export const auditActions = [
   'billing.checkout-session.create-requested',
   'billing.portal-session.create-requested',
   'billing.subscription.replay-requested',
+  'organization.api-key.create-requested',
+  'organization.api-key.revoke-requested',
+  'organization.api-key.rotate-requested',
   'organization.created',
   'organization.data-export.requested',
   'organization.invitation.accept-requested',
@@ -15,6 +18,7 @@ export const auditActions = [
 ] as const;
 export type AuditAction = (typeof auditActions)[number];
 export const auditTargetTypes = [
+  'api-key',
   'invitation',
   'membership',
   'organization',

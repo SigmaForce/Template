@@ -163,6 +163,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/organizations/{organizationId}/api-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createOrganizationApiKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/organizations/{organizationId}/api-keys/{apiKeyId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["revokeOrganizationApiKey"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/organizations/{organizationId}/api-keys/{apiKeyId}/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["rotateOrganizationApiKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/organizations/{organizationId}/audit-events": {
         parameters: {
             query?: never;
@@ -392,11 +440,20 @@ export interface components {
         ActiveOrganizationDto: {
             /** @example org_2abc */
             id: string;
-            permissions: ("organization:audit-events:read" | "organization:settings:read" | "organization:settings:update" | "organization:memberships:manage" | "organization:memberships:leave" | "billing:manage" | "organization:ownership:manage" | "organization:delete" | "organization:data:export")[];
+            permissions: ("organization:audit-events:read" | "organization:api-keys:manage" | "organization:settings:read" | "organization:settings:update" | "organization:memberships:manage" | "organization:memberships:leave" | "billing:manage" | "organization:ownership:manage" | "organization:delete" | "organization:data:export")[];
             /** @enum {string} */
             role: "admin" | "member" | "owner";
             /** @example northstar-labs */
             slug: string;
+        };
+        ApiKeyDto: {
+            createdAt: string;
+            expiresAt?: string | null;
+            id: string;
+            name: string;
+            organizationId: string;
+            revokedAt?: string | null;
+            scopes: ("organization:audit-events:read" | "organization:settings:read")[];
         };
         AuditActorDto: {
             /** @example user_2abc */
@@ -409,7 +466,7 @@ export interface components {
              * @example organization.membership.update-requested
              * @enum {string}
              */
-            action: "billing.checkout-session.create-requested" | "billing.portal-session.create-requested" | "billing.subscription.replay-requested" | "organization.created" | "organization.data-export.requested" | "organization.invitation.accept-requested" | "organization.invitation.create-requested" | "organization.invitation.resend-requested" | "organization.invitation.revoke-requested" | "organization.membership.remove-requested" | "organization.membership.update-requested" | "organization.settings.update-requested";
+            action: "billing.checkout-session.create-requested" | "billing.portal-session.create-requested" | "billing.subscription.replay-requested" | "organization.api-key.create-requested" | "organization.api-key.revoke-requested" | "organization.api-key.rotate-requested" | "organization.created" | "organization.data-export.requested" | "organization.invitation.accept-requested" | "organization.invitation.create-requested" | "organization.invitation.resend-requested" | "organization.invitation.revoke-requested" | "organization.membership.remove-requested" | "organization.membership.update-requested" | "organization.settings.update-requested";
             actor: components["schemas"]["AuditActorDto"];
             context: {
                 [key: string]: unknown;
@@ -431,7 +488,7 @@ export interface components {
              * @example membership
              * @enum {string}
              */
-            type: "invitation" | "membership" | "organization" | "subscription";
+            type: "api-key" | "invitation" | "membership" | "organization" | "subscription";
         };
         AuthenticatedUserDto: {
             /** @example user_2RfWKJREkjKbHZy0Wqa5qrHeAnb */
@@ -489,6 +546,11 @@ export interface components {
             items: components["schemas"]["ContractExampleDto"][];
             pageInfo: components["schemas"]["PageInfoDto"];
         };
+        CreateApiKeyDto: {
+            /** @example Reporting */
+            name: string;
+            scopes: ("organization:audit-events:read" | "organization:settings:read")[];
+        };
         CreateCheckoutSessionDto: {
             /** @example https://app.example.com/settings/billing */
             cancelUrl: string;
@@ -535,6 +597,10 @@ export interface components {
             name: string;
             /** @enum {string} */
             status: "up" | "down" | "configured" | "disabled" | "misconfigured";
+        };
+        IssuedApiKeyDto: {
+            apiKey: components["schemas"]["ApiKeyDto"];
+            plaintext: string;
         };
         LocalBusinessTimeDto: {
             /** @example 09:30:00 */
@@ -1030,6 +1096,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OrganizationOnboardingStateDto"];
+                };
+            };
+        };
+    };
+    createOrganizationApiKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateApiKeyDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssuedApiKeyDto"];
+                };
+            };
+        };
+    };
+    revokeOrganizationApiKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+                apiKeyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    rotateOrganizationApiKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+                apiKeyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssuedApiKeyDto"];
                 };
             };
         };

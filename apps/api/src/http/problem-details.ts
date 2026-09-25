@@ -117,6 +117,15 @@ export class PublicProblemException extends HttpException {
     });
   }
 
+  static apiKeyUnavailable() {
+    return new PublicProblemException({
+      type: 'urn:problem:next-nest-saas-starter:api-key-unavailable',
+      title: 'API Key unavailable',
+      status: 404,
+      detail: 'No API Key is available in this Organization.',
+    });
+  }
+
   static subscriptionAlreadyExists() {
     return new PublicProblemException({
       type: 'urn:problem:next-nest-saas-starter:subscription-already-exists',

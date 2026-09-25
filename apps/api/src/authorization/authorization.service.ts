@@ -19,6 +19,7 @@ import {
 } from './permission.js';
 
 interface OrganizationAccessContext {
+  apiKeyScopes?: PermissionId[];
   organizationId: string;
   organization: OrganizationAccess;
   role: OrganizationRole;
@@ -117,6 +118,9 @@ export class AuthorizationService {
     permission: PermissionId,
     capability: CapabilityId | undefined,
   ) {
+    if (context.apiKeyScopes && !context.apiKeyScopes.includes(permission)) {
+      return false;
+    }
     if (!organizationStateAllows(context.organization.state, permission)) {
       return false;
     }
@@ -153,6 +157,7 @@ export class AuthorizationService {
     user:
       | {
           activeOrganization?: { id: string; role?: OrganizationRole };
+          apiKey?: { scopes: PermissionId[] };
           id: string;
         }
       | undefined,
@@ -164,6 +169,25 @@ export class AuthorizationService {
     const activeOrganization = user.activeOrganization;
     if (!activeOrganization) {
       throw PublicProblemException.activeOrganizationRequired();
+    }
+
+    if (user.apiKey) {
+      const storedOrganization = await this.repository.findOrganization(
+        activeOrganization.id,
+      );
+      if (!storedOrganization) return undefined;
+      return {
+        apiKeyScopes: user.apiKey.scopes,
+        organization: {
+          ...storedOrganization,
+          state: await this.organizationStates.resolve({
+            organizationId: activeOrganization.id,
+            state: storedOrganization.state,
+          }),
+        },
+        organizationId: activeOrganization.id,
+        role: 'owner',
+      };
     }
 
     const context = await this.loadOrganizationAccess(

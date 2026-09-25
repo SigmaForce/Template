@@ -14,11 +14,13 @@ import {
 import { MemoryBillingCheckoutGateway } from './billing/checkout.js';
 import { MemoryBillingPortalGateway } from './billing/portal.js';
 import { MemoryAuditEventRepository } from './audit-events/memory-audit-events.js';
+import { MemoryApiKeyRepository } from './api-keys/memory-api-keys.js';
 
 export async function buildContractDocument() {
   const organizationRepository = new MemoryOrganizationRepository();
   const app = await NestFactory.create(
     AppModule.register({
+      apiKeys: { repository: new MemoryApiKeyRepository() },
       auditEvents: { repository: new MemoryAuditEventRepository() },
       authentication: {
         authorizedParties: ['http://localhost:3000'],

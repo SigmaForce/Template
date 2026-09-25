@@ -1,5 +1,6 @@
 export const Permission = {
   organizationAuditEventsRead: 'organization:audit-events:read',
+  organizationApiKeysManage: 'organization:api-keys:manage',
   organizationSettingsRead: 'organization:settings:read',
   organizationSettingsUpdate: 'organization:settings:update',
   organizationMembershipsManage: 'organization:memberships:manage',

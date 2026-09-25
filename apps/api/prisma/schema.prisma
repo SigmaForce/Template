@@ -57,6 +57,7 @@ model Organization {
   billingInboxEvents BillingInboxEvent[]
   subscription       Subscription?
   auditEvents        AuditEvent[]
+  apiKeys            ApiKey[]
 
   @@map("organizations")
 }
@@ -76,6 +77,23 @@ model AuditEvent {
 
   @@index([organizationId, occurredAt(sort: Desc), id(sort: Desc)])
   @@map("audit_events")
+}
+
+model ApiKey {
+  id              String    @id @default(uuid()) @db.Uuid
+  organizationId  String    @map("organization_id") @db.VarChar(64)
+  name            String    @db.VarChar(100)
+  scopes          String[]
+  secretHash      String    @map("secret_hash") @db.Char(64)
+  createdByUserId String    @map("created_by_user_id") @db.VarChar(64)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt       DateTime? @map("expires_at") @db.Timestamptz(3)
+  revokedAt       DateTime? @map("revoked_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt(sort: Desc), id(sort: Desc)])
+  @@map("api_keys")
 }
 
 model BillingInboxEvent {

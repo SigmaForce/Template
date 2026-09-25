@@ -3,16 +3,18 @@ import type { ExecutionContext } from '@nestjs/common';
 import type { Request } from 'express';
 import { PublicProblemException } from '../http/problem-details.js';
 import type { OrganizationRole } from '../authorization/permission.js';
+import type { PermissionId } from '../authorization/permission.js';
 
 export interface AuthenticatedUser {
   activeOrganization?: ActiveOrganization;
+  apiKey?: { scopes: PermissionId[] };
   id: string;
 }
 
 export interface ActiveOrganization {
   id: string;
   role?: OrganizationRole;
-  slug: string;
+  slug?: string;
 }
 
 export interface AuthenticationOptions {

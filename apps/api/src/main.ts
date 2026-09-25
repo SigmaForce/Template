@@ -15,6 +15,7 @@ import { StripeCheckoutGateway } from './billing/checkout.js';
 import { SubscriptionCapabilityPolicy } from './billing/subscription-capability-policy.js';
 import { StripeBillingPortalGateway } from './billing/portal.js';
 import { PrismaAuditEventRepository } from './audit-events/prisma-audit-event.repository.js';
+import { PrismaApiKeyRepository } from './api-keys/prisma-api-key.repository.js';
 
 async function bootstrap() {
   const config = parseApiEnvironment(process.env);
@@ -39,6 +40,9 @@ async function bootstrap() {
   );
   const app = await NestFactory.create(
     AppModule.register({
+      apiKeys: {
+        repository: new PrismaApiKeyRepository(config.databaseUrl.toString()),
+      },
       auditEvents: { repository: auditEventRepository },
       authentication: config.authentication,
       capabilityPolicy: new SubscriptionCapabilityPolicy(billingRepository),

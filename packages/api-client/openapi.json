@@ -59,6 +59,7 @@
             "items": {
               "enum": [
                 "organization:audit-events:read",
+                "organization:api-keys:manage",
                 "organization:settings:read",
                 "organization:settings:update",
                 "organization:memberships:manage",
@@ -93,6 +94,48 @@
         ],
         "type": "object"
       },
+      "ApiKeyDto": {
+        "properties": {
+          "createdAt": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "organizationId": {
+            "type": "string"
+          },
+          "revokedAt": {
+            "nullable": true,
+            "type": "string"
+          },
+          "scopes": {
+            "items": {
+              "enum": [
+                "organization:audit-events:read",
+                "organization:settings:read"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "organizationId",
+          "name",
+          "scopes",
+          "createdAt"
+        ],
+        "type": "object"
+      },
       "AuditActorDto": {
         "properties": {
           "id": {
@@ -120,6 +163,9 @@
               "billing.checkout-session.create-requested",
               "billing.portal-session.create-requested",
               "billing.subscription.replay-requested",
+              "organization.api-key.create-requested",
+              "organization.api-key.revoke-requested",
+              "organization.api-key.rotate-requested",
               "organization.created",
               "organization.data-export.requested",
               "organization.invitation.accept-requested",
@@ -188,6 +234,7 @@
           },
           "type": {
             "enum": [
+              "api-key",
               "invitation",
               "membership",
               "organization",
@@ -325,6 +372,29 @@
         ],
         "type": "object"
       },
+      "CreateApiKeyDto": {
+        "properties": {
+          "name": {
+            "example": "Reporting",
+            "type": "string"
+          },
+          "scopes": {
+            "items": {
+              "enum": [
+                "organization:audit-events:read",
+                "organization:settings:read"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "scopes"
+        ],
+        "type": "object"
+      },
       "CreateCheckoutSessionDto": {
         "properties": {
           "cancelUrl": {
@@ -449,6 +519,21 @@
           "name",
           "critical",
           "status"
+        ],
+        "type": "object"
+      },
+      "IssuedApiKeyDto": {
+        "properties": {
+          "apiKey": {
+            "$ref": "#/components/schemas/ApiKeyDto"
+          },
+          "plaintext": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "apiKey",
+          "plaintext"
         ],
         "type": "object"
       },
@@ -1481,6 +1566,133 @@
         "summary": "",
         "tags": [
           "organizations"
+        ]
+      }
+    },
+    "/v1/organizations/{organizationId}/api-keys": {
+      "post": {
+        "operationId": "createOrganizationApiKey",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organizationId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateApiKeyDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssuedApiKeyDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "clerk-session": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "api-keys"
+        ]
+      }
+    },
+    "/v1/organizations/{organizationId}/api-keys/{apiKeyId}": {
+      "delete": {
+        "operationId": "revokeOrganizationApiKey",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organizationId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "apiKeyId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "clerk-session": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "api-keys"
+        ]
+      }
+    },
+    "/v1/organizations/{organizationId}/api-keys/{apiKeyId}/rotate": {
+      "post": {
+        "operationId": "rotateOrganizationApiKey",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organizationId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "apiKeyId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssuedApiKeyDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "clerk-session": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "api-keys"
         ]
       }
     },

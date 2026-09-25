@@ -22,8 +22,11 @@ import { SubscriptionSeatAllowancePolicy } from './billing/subscription-seat-all
 import { SubscriptionOrganizationStatePolicy } from './billing/subscription-organization-state-policy.js';
 import type { AuditEventRepository } from './audit-events/audit-event.js';
 import { AuditEventsModule } from './audit-events/audit-events.module.js';
+import { ApiKeysModule } from './api-keys/api-keys.module.js';
+import type { ApiKeyRepository } from './api-keys/api-key.js';
 
 export interface AppModuleOptions {
+  apiKeys?: { repository: ApiKeyRepository };
   auditEvents: { repository: AuditEventRepository };
   authentication: AuthenticationOptions;
   capabilityPolicy?: CapabilityPolicy;
@@ -58,6 +61,16 @@ export class AppModule {
           organizationStatePolicy,
           repository: options.auditEvents.repository,
         }),
+        ...(options.apiKeys
+          ? [
+              ApiKeysModule.register({
+                authorizationRepository: options.organizations.repository,
+                capabilityPolicy: options.capabilityPolicy,
+                organizationStatePolicy,
+                repository: options.apiKeys.repository,
+              }),
+            ]
+          : []),
         OrganizationsModule.register({
           ...options.organizations,
           capabilityPolicy: options.capabilityPolicy,

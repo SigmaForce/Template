@@ -62,6 +62,7 @@ export interface AuthorizeOrganizationOperation {
   user:
     | {
         activeOrganization?: { id: string; role?: OrganizationRole };
+        apiKey?: { scopes: PermissionId[] };
         id: string;
       }
     | undefined;
