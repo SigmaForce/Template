@@ -8,6 +8,6 @@ audit record.
 
 **Status:** ready-for-agent
 
-- [ ] Sensitive Organization actions create immutable events with safe actor, target, action, and occurrence context.
-- [ ] Authorized read access is Organization scoped; mutation and cross-Organization enumeration are denied.
-- [ ] Tests prove secrets, raw request payloads, and operational log content are absent from Audit Events.
+- [x] Sensitive Organization actions create immutable events with safe actor, target, action, and occurrence context.
+- [x] Authorized read access is Organization scoped; mutation and cross-Organization enumeration are denied.
+- [x] Tests prove secrets, raw request payloads, and operational log content are absent from Audit Events.

@@ -56,7 +56,7 @@ export abstract class OrganizationStatePolicy {
 }
 
 export interface AuthorizeOrganizationOperation {
-  capability: CapabilityId;
+  capability?: CapabilityId;
   permission: PermissionId;
   targetOrganizationId: string;
   user:

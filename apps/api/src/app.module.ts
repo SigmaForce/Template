@@ -20,8 +20,10 @@ import type { CapabilityPolicy } from './authorization/authorization.js';
 import type { BillingPortalGateway } from './billing/portal.js';
 import { SubscriptionSeatAllowancePolicy } from './billing/subscription-seat-allowance-policy.js';
 import { SubscriptionOrganizationStatePolicy } from './billing/subscription-organization-state-policy.js';
+import type { AuditEventRepository } from './audit-events/audit-event.js';
 
 export interface AppModuleOptions {
+  auditEvents: { repository: AuditEventRepository };
   authentication: AuthenticationOptions;
   capabilityPolicy?: CapabilityPolicy;
   billing: {
@@ -35,7 +37,7 @@ export interface AppModuleOptions {
   };
   organizations: Omit<
     OrganizationModuleOptions,
-    'organizationStatePolicy' | 'seatAllowancePolicy'
+    'auditEventRepository' | 'organizationStatePolicy' | 'seatAllowancePolicy'
   >;
 }
 
@@ -51,6 +53,7 @@ export class AppModule {
         AuthenticationModule.register(options.authentication),
         OrganizationsModule.register({
           ...options.organizations,
+          auditEventRepository: options.auditEvents.repository,
           capabilityPolicy: options.capabilityPolicy,
           organizationStatePolicy,
           seatAllowancePolicy: new SubscriptionSeatAllowancePolicy(

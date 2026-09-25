@@ -14,6 +14,7 @@ import { BullMqBillingProjectionQueue } from './billing/bullmq-billing-projectio
 import { StripeCheckoutGateway } from './billing/checkout.js';
 import { SubscriptionCapabilityPolicy } from './billing/subscription-capability-policy.js';
 import { StripeBillingPortalGateway } from './billing/portal.js';
+import { PrismaAuditEventRepository } from './audit-events/prisma-audit-event.repository.js';
 
 async function bootstrap() {
   const config = parseApiEnvironment(process.env);
@@ -30,8 +31,12 @@ async function bootstrap() {
   const billingRepository = new PrismaBillingRepository(
     config.databaseUrl.toString(),
   );
+  const auditEventRepository = new PrismaAuditEventRepository(
+    config.databaseUrl.toString(),
+  );
   const app = await NestFactory.create(
     AppModule.register({
+      auditEvents: { repository: auditEventRepository },
       authentication: config.authentication,
       capabilityPolicy: new SubscriptionCapabilityPolicy(billingRepository),
       billing: {

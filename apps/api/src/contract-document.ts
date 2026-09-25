@@ -12,10 +12,12 @@ import {
 } from './billing/memory-billing.js';
 import { MemoryBillingCheckoutGateway } from './billing/checkout.js';
 import { MemoryBillingPortalGateway } from './billing/portal.js';
+import { MemoryAuditEventRepository } from './audit-events/memory-audit-events.js';
 
 export async function buildContractDocument() {
   const app = await NestFactory.create(
     AppModule.register({
+      auditEvents: { repository: new MemoryAuditEventRepository() },
       authentication: {
         authorizedParties: ['http://localhost:3000'],
         jwtKey: 'contract-generation-does-not-verify-tokens',

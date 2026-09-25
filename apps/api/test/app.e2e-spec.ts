@@ -25,6 +25,7 @@ import { SubscriptionProjector } from './../src/billing/subscription-projector.j
 import { SubscriptionCapabilityPolicy } from './../src/billing/subscription-capability-policy.js';
 import type { CapabilityPolicy } from './../src/authorization/authorization.js';
 import { MemoryBillingPortalGateway } from './../src/billing/portal.js';
+import { MemoryAuditEventRepository } from './../src/audit-events/memory-audit-events.js';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication;
@@ -40,6 +41,7 @@ describe('AppController (e2e)', () => {
     checkoutGateway = new MemoryBillingCheckoutGateway(),
     capabilityPolicy?: CapabilityPolicy,
     portalGateway = new MemoryBillingPortalGateway(),
+    auditEvents = new MemoryAuditEventRepository(),
   ) {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
@@ -68,6 +70,7 @@ describe('AppController (e2e)', () => {
             repository: billingRepository,
             stripeWebhookSecret: 'whsec_testWebhookSecret',
           },
+          auditEvents: { repository: auditEvents },
           organizations: {
             directory,
             repository,
@@ -1625,6 +1628,7 @@ describe('AppController (e2e)', () => {
         .set('authorization', authorization)
         .expect(200);
       expect(active.body.permissions).toEqual([
+        'organization:audit-events:read',
         'organization:settings:read',
         'organization:memberships:manage',
         'organization:memberships:leave',
@@ -1810,6 +1814,125 @@ describe('AppController (e2e)', () => {
           'organization:delete',
         ]),
       );
+    });
+  });
+
+  describe('Audit Events', () => {
+    const organization = {
+      id: 'org_audit',
+      name: 'Audit Labs',
+      slug: 'audit-labs',
+      locale: 'en-US',
+      timeZone: 'UTC',
+      state: 'active' as const,
+    };
+
+    function authorization(userId: string, role: 'admin' | 'member' | 'owner') {
+      return `Bearer ${createSessionToken({
+        organization: { id: organization.id, slug: organization.slug },
+        organizationRole: role,
+        userId,
+      })}`;
+    }
+
+    it('records safe immutable events that only an Owner can review in the Active Organization', async () => {
+      const logLines: string[] = [];
+      const logger = new JsonLogger({
+        environment: 'test',
+        level: 'debug',
+        service: 'api',
+        write: (line) => logLines.push(line),
+      });
+      const otherOrganization = {
+        ...organization,
+        id: 'org_other_audit',
+        slug: 'other-audit-labs',
+      };
+      await app.close();
+      app = await createApp(
+        [],
+        logger,
+        new MemoryOrganizationRepository({
+          organizations: [organization, otherOrganization],
+          memberships: [
+            {
+              organizationId: organization.id,
+              role: 'owner',
+              status: 'active',
+              userId: 'user_owner',
+            },
+            {
+              organizationId: organization.id,
+              role: 'admin',
+              status: 'active',
+              userId: 'user_admin',
+            },
+            {
+              organizationId: organization.id,
+              role: 'member',
+              status: 'active',
+              userId: 'user_target',
+            },
+          ],
+        }),
+      );
+      const owner = authorization('user_owner', 'owner');
+
+      await request(app.getHttpServer())
+        .patch(`/v1/organizations/${organization.id}/settings`)
+        .set('authorization', owner)
+        .send({
+          billingContactEmail: 'raw-request-secret@example.test',
+          name: 'Raw request payload secret',
+        })
+        .expect(200);
+      await request(app.getHttpServer())
+        .patch(`/v1/organizations/${organization.id}/memberships/user_target`)
+        .set('authorization', owner)
+        .send({ status: 'suspended' })
+        .expect(200);
+
+      const response = await request(app.getHttpServer())
+        .get(`/v1/organizations/${organization.id}/audit-events`)
+        .set('authorization', owner)
+        .expect(200);
+
+      expect(response.body.items).toEqual([
+        expect.objectContaining({
+          action: 'organization.membership.updated',
+          actor: { id: 'user_owner', type: 'user' },
+          context: { changedFields: ['status'] },
+          occurredAt: expect.any(String),
+          target: { id: 'user_target', type: 'membership' },
+        }),
+        expect.objectContaining({
+          action: 'organization.settings.updated',
+          actor: { id: 'user_owner', type: 'user' },
+          context: { changedFields: ['billingContactEmail', 'name'] },
+          occurredAt: expect.any(String),
+          target: { id: organization.id, type: 'organization' },
+        }),
+      ]);
+      expect(JSON.stringify(response.body)).not.toMatch(
+        /raw-request-secret|request\.completed|authorization/i,
+      );
+      expect(logLines.join('\n')).toContain('request.completed');
+
+      await request(app.getHttpServer())
+        .get(`/v1/organizations/${organization.id}/audit-events`)
+        .set('authorization', authorization('user_admin', 'admin'))
+        .expect(403);
+      await request(app.getHttpServer())
+        .get(`/v1/organizations/${otherOrganization.id}/audit-events`)
+        .set('authorization', owner)
+        .expect(403);
+      await request(app.getHttpServer())
+        .patch(
+          `/v1/organizations/${organization.id}/audit-events/${response.body.items[0].id}`,
+        )
+        .set('authorization', owner)
+        .send({ action: 'tampered' })
+        .expect(404);
     });
   });
 

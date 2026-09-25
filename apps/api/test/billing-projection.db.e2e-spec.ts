@@ -14,6 +14,7 @@ import {
   MemoryOrganizationRepository,
 } from '../src/organizations/memory-organizations.js';
 import { authenticationPublicKey } from './session-token.js';
+import { MemoryAuditEventRepository } from '../src/audit-events/memory-audit-events.js';
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
 const organization = {
@@ -46,6 +47,7 @@ describe.skipIf(!databaseUrl)(
       const moduleFixture = await Test.createTestingModule({
         imports: [
           AppModule.register({
+            auditEvents: { repository: new MemoryAuditEventRepository() },
             authentication: {
               authorizedParties: ['http://localhost:3000'],
               jwtKey: authenticationPublicKey,

@@ -163,6 +163,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/organizations/{organizationId}/audit-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listOrganizationAuditEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/organizations/{organizationId}/billing/catalog": {
         parameters: {
             query?: never;
@@ -376,11 +392,39 @@ export interface components {
         ActiveOrganizationDto: {
             /** @example org_2abc */
             id: string;
-            permissions: ("organization:settings:read" | "organization:settings:update" | "organization:memberships:manage" | "organization:memberships:leave" | "billing:manage" | "organization:ownership:manage" | "organization:delete" | "organization:data:export")[];
+            permissions: ("organization:audit-events:read" | "organization:settings:read" | "organization:settings:update" | "organization:memberships:manage" | "organization:memberships:leave" | "billing:manage" | "organization:ownership:manage" | "organization:delete" | "organization:data:export")[];
             /** @enum {string} */
             role: "admin" | "member" | "owner";
             /** @example northstar-labs */
             slug: string;
+        };
+        AuditActorDto: {
+            /** @example user_2abc */
+            id: string;
+            /** @enum {string} */
+            type: "operator" | "user";
+        };
+        AuditEventDto: {
+            /** @example organization.membership.updated */
+            action: string;
+            actor: components["schemas"]["AuditActorDto"];
+            context: {
+                [key: string]: unknown;
+            };
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            occurredAt: string;
+            target: components["schemas"]["AuditTargetDto"];
+        };
+        AuditEventListDto: {
+            items: components["schemas"]["AuditEventDto"][];
+        };
+        AuditTargetDto: {
+            /** @example user_3def */
+            id: string;
+            /** @example membership */
+            type: string;
         };
         AuthenticatedUserDto: {
             /** @example user_2RfWKJREkjKbHZy0Wqa5qrHeAnb */
@@ -979,6 +1023,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OrganizationOnboardingStateDto"];
+                };
+            };
+        };
+    };
+    listOrganizationAuditEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditEventListDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
                 };
             };
         };

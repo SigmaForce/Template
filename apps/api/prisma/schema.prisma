@@ -56,8 +56,26 @@ model Organization {
   onboardingRequest  OrganizationOnboardingRequest?
   billingInboxEvents BillingInboxEvent[]
   subscription       Subscription?
+  auditEvents        AuditEvent[]
 
   @@map("organizations")
+}
+
+model AuditEvent {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.VarChar(64)
+  actorType       String   @map("actor_type") @db.VarChar(16)
+  actorId         String   @map("actor_id") @db.VarChar(64)
+  action          String   @db.VarChar(100)
+  targetType      String   @map("target_type") @db.VarChar(64)
+  targetId        String   @map("target_id") @db.VarChar(255)
+  context         Json     @default("{}")
+  occurredAt      DateTime @default(now()) @map("occurred_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, occurredAt(sort: Desc), id(sort: Desc)])
+  @@map("audit_events")
 }
 
 model BillingInboxEvent {

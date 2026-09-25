@@ -11,6 +11,7 @@ import {
   OrganizationSlugConflictError,
   SeatAllowanceExceededError,
   SeatAllowancePolicy,
+  type AcceptedInvitationResult,
 } from './organization.js';
 import { AuthorizationService } from '../authorization/authorization.service.js';
 import { Capability } from '../authorization/authorization.js';
@@ -18,6 +19,7 @@ import { Permission } from '../authorization/permission.js';
 import type { UpdateOrganizationSettingsDto } from './update-organization-settings.dto.js';
 import type { CreateInvitationDto } from './create-invitation.dto.js';
 import type { OrganizationInvitation } from './organization.js';
+import { AuditEventsService } from '../audit-events/audit-events.service.js';
 
 @Injectable()
 export class OrganizationsService {
@@ -26,6 +28,7 @@ export class OrganizationsService {
     private readonly directory: OrganizationDirectory,
     private readonly authorization: AuthorizationService,
     private readonly seats: SeatAllowancePolicy,
+    private readonly auditEvents: AuditEventsService,
   ) {}
 
   async createFirstOrganization(
@@ -102,6 +105,14 @@ export class OrganizationsService {
       throw error;
     }
 
+    await this.auditEvents.record({
+      action: 'organization.created',
+      actor: { id: user.id, type: 'user' },
+      context: {},
+      organizationId: result.organization.id,
+      target: { id: result.organization.id, type: 'organization' },
+    });
+
     return result;
   }
 
@@ -143,8 +154,9 @@ export class OrganizationsService {
       inviterUserId: user.id,
       role: input.role,
     });
+    let invitation: OrganizationInvitation;
     try {
-      const invitation = await this.repository.createInvitation({
+      invitation = await this.repository.createInvitation({
         id: randomUUID(),
         organizationId: scope.organizationId,
         emailAddress: input.emailAddress,
@@ -154,7 +166,6 @@ export class OrganizationsService {
         externalId: external.externalId,
         expiresAt: external.expiresAt,
       });
-      return this.publicInvitation(invitation);
     } catch (error) {
       await this.directory.revokeInvitation({
         organizationId: scope.organizationId,
@@ -166,6 +177,14 @@ export class OrganizationsService {
       }
       throw error;
     }
+    await this.auditEvents.record({
+      action: 'organization.invitation.created',
+      actor: { id: user.id, type: 'user' },
+      context: { role: invitation.role },
+      organizationId: scope.organizationId,
+      target: { id: invitation.id, type: 'invitation' },
+    });
+    return this.publicInvitation(invitation);
   }
 
   async listInvitations(user: AuthenticatedUser, organizationId: string) {
@@ -200,12 +219,18 @@ export class OrganizationsService {
       externalId: invitation.externalId,
       requestingUserId: user.id,
     });
-    return this.publicInvitation(
-      await this.repository.updateInvitation({
-        ...invitation,
-        status: 'revoked',
-      }),
-    );
+    const revoked = await this.repository.updateInvitation({
+      ...invitation,
+      status: 'revoked',
+    });
+    await this.auditEvents.record({
+      action: 'organization.invitation.revoked',
+      actor: { id: user.id, type: 'user' },
+      context: {},
+      organizationId: scope.organizationId,
+      target: { id: invitation.id, type: 'invitation' },
+    });
+    return this.publicInvitation(revoked);
   }
 
   async resendInvitation(
@@ -247,6 +272,7 @@ export class OrganizationsService {
 
     let oldInvitationRevoked = invitation.status === 'revoked';
     let replacement: { expiresAt: Date; externalId: string } | undefined;
+    let resent: OrganizationInvitation;
     try {
       if (!oldInvitationRevoked) {
         await this.directory.revokeInvitation({
@@ -262,15 +288,13 @@ export class OrganizationsService {
         inviterUserId: user.id,
         role: invitation.role,
       });
-      return this.publicInvitation(
-        await this.repository.updateInvitation({
-          ...invitation,
-          externalId: replacement.externalId,
-          expiresAt: replacement.expiresAt,
-          invitedByUserId: user.id,
-          status: 'pending',
-        }),
-      );
+      resent = await this.repository.updateInvitation({
+        ...invitation,
+        externalId: replacement.externalId,
+        expiresAt: replacement.expiresAt,
+        invitedByUserId: user.id,
+        status: 'pending',
+      });
     } catch (error) {
       await Promise.allSettled([
         replacement
@@ -287,6 +311,14 @@ export class OrganizationsService {
       ]);
       throw error;
     }
+    await this.auditEvents.record({
+      action: 'organization.invitation.resent',
+      actor: { id: user.id, type: 'user' },
+      context: {},
+      organizationId: scope.organizationId,
+      target: { id: invitation.id, type: 'invitation' },
+    });
+    return this.publicInvitation(resent);
   }
 
   async acceptInvitation(user: AuthenticatedUser, externalId: string) {
@@ -318,8 +350,9 @@ export class OrganizationsService {
       throw PublicProblemException.invitationUnavailable();
     }
 
+    let accepted: AcceptedInvitationResult;
     try {
-      return await this.repository.acceptInvitation({
+      accepted = await this.repository.acceptInvitation({
         invitationId: invitation.id,
         organizationId: invitation.organizationId,
         role: acceptance.role,
@@ -345,6 +378,14 @@ export class OrganizationsService {
       }
       throw error;
     }
+    await this.auditEvents.record({
+      action: 'organization.invitation.accepted',
+      actor: { id: user.id, type: 'user' },
+      context: { role: acceptance.role },
+      organizationId: invitation.organizationId,
+      target: { id: invitation.id, type: 'invitation' },
+    });
+    return accepted;
   }
 
   async getAcceptedInvitation(user: AuthenticatedUser, externalId: string) {
@@ -444,25 +485,36 @@ export class OrganizationsService {
       throw error;
     }
 
-    if (updated.name === previous.name && updated.slug === previous.slug) {
-      return updated;
+    if (updated.name !== previous.name || updated.slug !== previous.slug) {
+      try {
+        await this.directory.update({
+          name: updated.name,
+          organizationId: updated.id,
+          slug: updated.slug,
+        });
+      } catch (error) {
+        await this.repository.updateSettings({
+          ...previous,
+          organizationId: previous.id,
+        });
+        if (error instanceof OrganizationSlugConflictError) {
+          throw PublicProblemException.organizationSlugConflict();
+        }
+        throw error;
+      }
     }
 
-    try {
-      await this.directory.update({
-        name: updated.name,
-        organizationId: updated.id,
-        slug: updated.slug,
+    const changedFields = (
+      ['billingContactEmail', 'locale', 'name', 'slug', 'timeZone'] as const
+    ).filter((field) => updated[field] !== previous[field]);
+    if (changedFields.length) {
+      await this.auditEvents.record({
+        action: 'organization.settings.updated',
+        actor: { id: user.id, type: 'user' },
+        context: { changedFields },
+        organizationId: scope.organizationId,
+        target: { id: scope.organizationId, type: 'organization' },
       });
-    } catch (error) {
-      await this.repository.updateSettings({
-        ...previous,
-        organizationId: previous.id,
-      });
-      if (error instanceof OrganizationSlugConflictError) {
-        throw PublicProblemException.organizationSlugConflict();
-      }
-      throw error;
     }
 
     return updated;

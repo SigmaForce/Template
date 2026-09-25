@@ -1,4 +1,5 @@
 export const Permission = {
+  organizationAuditEventsRead: 'organization:audit-events:read',
   organizationSettingsRead: 'organization:settings:read',
   organizationSettingsUpdate: 'organization:settings:update',
   organizationMembershipsManage: 'organization:memberships:manage',
@@ -62,6 +63,7 @@ export function organizationStateAllows(
   if (state === 'pending-deletion') return false;
 
   return (
+    permission === Permission.organizationAuditEventsRead ||
     permission === Permission.organizationSettingsRead ||
     permission === Permission.organizationMembershipsManage ||
     permission === Permission.organizationMembershipsLeave ||

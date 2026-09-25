@@ -14,6 +14,7 @@ import {
 } from './organization.js';
 import type { ListMembershipsQuery } from './list-memberships.query.js';
 import { UpdateMembershipDto } from './update-membership.dto.js';
+import { AuditEventsService } from '../audit-events/audit-events.service.js';
 
 const cursorScope = 'organization-memberships';
 const cursorSort = 'userId';
@@ -25,6 +26,7 @@ export class MembershipsService {
     private readonly directory: OrganizationDirectory,
     private readonly authorization: AuthorizationService,
     private readonly seats: SeatAllowancePolicy,
+    private readonly auditEvents: AuditEventsService,
   ) {}
 
   async list(
@@ -119,6 +121,15 @@ export class MembershipsService {
         throw error;
       }
     }
+    await this.auditEvents.record({
+      action: 'organization.membership.updated',
+      actor: { id: user.id, type: 'user' },
+      context: {
+        changedFields: [input.role === undefined ? 'status' : 'role'],
+      },
+      organizationId: scope.organizationId,
+      target: { id: targetUserId, type: 'membership' },
+    });
     return this.publicMembership(updated);
   }
 
@@ -173,6 +184,13 @@ export class MembershipsService {
       });
       throw error;
     }
+    await this.auditEvents.record({
+      action: 'organization.membership.removed',
+      actor: { id: user.id, type: 'user' },
+      context: {},
+      organizationId: scope.organizationId,
+      target: { id: targetUserId, type: 'membership' },
+    });
     return this.publicMembership(removed);
   }
 

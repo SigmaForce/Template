@@ -58,6 +58,7 @@
           "permissions": {
             "items": {
               "enum": [
+                "organization:audit-events:read",
                 "organization:settings:read",
                 "organization:settings:update",
                 "organization:memberships:manage",
@@ -89,6 +90,92 @@
           "slug",
           "role",
           "permissions"
+        ],
+        "type": "object"
+      },
+      "AuditActorDto": {
+        "properties": {
+          "id": {
+            "example": "user_2abc",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "operator",
+              "user"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type"
+        ],
+        "type": "object"
+      },
+      "AuditEventDto": {
+        "properties": {
+          "action": {
+            "example": "organization.membership.updated",
+            "type": "string"
+          },
+          "actor": {
+            "$ref": "#/components/schemas/AuditActorDto"
+          },
+          "context": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "occurredAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/AuditTargetDto"
+          }
+        },
+        "required": [
+          "action",
+          "actor",
+          "context",
+          "id",
+          "occurredAt",
+          "target"
+        ],
+        "type": "object"
+      },
+      "AuditEventListDto": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AuditEventDto"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "AuditTargetDto": {
+        "properties": {
+          "id": {
+            "example": "user_3def",
+            "type": "string"
+          },
+          "type": {
+            "example": "membership",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type"
         ],
         "type": "object"
       },
@@ -1370,6 +1457,52 @@
         "summary": "",
         "tags": [
           "organizations"
+        ]
+      }
+    },
+    "/v1/organizations/{organizationId}/audit-events": {
+      "get": {
+        "operationId": "listOrganizationAuditEvents",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organizationId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditEventListDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "clerk-session": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "audit-events"
         ]
       }
     },
