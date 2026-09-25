@@ -34,7 +34,7 @@ export class AuditEventsModule {
         AuditEventsService,
         { provide: AuditEventRepository, useValue: options.repository },
       ],
-      exports: [AuditEventsService],
+      exports: [AuditEventRepository, AuditEventsService],
     };
   }
 }

@@ -12,6 +12,7 @@ import {
   type OrganizationInvitation,
   type OrganizationRecord,
 } from './organization.js';
+import type { AuditEventRepository } from '../audit-events/audit-event.js';
 import type {
   MembershipAccess,
   MembershipIdentity,
@@ -283,11 +284,15 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
     return true;
   }
 
-  async completeOnboarding(record: CompleteFirstOrganizationRecord) {
+  async completeOnboarding(
+    record: CompleteFirstOrganizationRecord,
+    auditEvents: AuditEventRepository,
+  ) {
     const slugOwner = this.organizationSlugs.get(record.organization.slug);
     if (slugOwner && slugOwner !== record.organization.id) {
       throw new OrganizationSlugConflictError();
     }
+    await auditEvents.append(record.auditEvent);
     const result = {
       organization: record.organization,
       membership: { role: 'owner' as const },
@@ -328,33 +333,6 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
     const request = this.requests.get(input.userId);
     if (request?.idempotencyKey === input.idempotencyKey && !request.result) {
       this.requests.delete(input.userId);
-    }
-  }
-
-  async rollbackOnboarding(input: {
-    idempotencyKey: string;
-    organizationId: string;
-    userId: string;
-  }) {
-    const request = this.requests.get(input.userId);
-    if (
-      request?.idempotencyKey !== input.idempotencyKey ||
-      request.result?.organization.id !== input.organizationId
-    ) {
-      return;
-    }
-    this.requests.delete(input.userId);
-    this.onboarding.delete(input.userId);
-    this.organizations.delete(input.organizationId);
-    for (const [slug, organizationId] of this.organizationSlugs) {
-      if (organizationId === input.organizationId) {
-        this.organizationSlugs.delete(slug);
-      }
-    }
-    for (const [key, membership] of this.memberships) {
-      if (membership.organizationId === input.organizationId) {
-        this.memberships.delete(key);
-      }
     }
   }
 

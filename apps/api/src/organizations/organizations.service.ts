@@ -20,6 +20,7 @@ import type { UpdateOrganizationSettingsDto } from './update-organization-settin
 import type { CreateInvitationDto } from './create-invitation.dto.js';
 import type { OrganizationInvitation } from './organization.js';
 import { AuditEventsService } from '../audit-events/audit-events.service.js';
+import { AuditEventRepository } from '../audit-events/audit-event.js';
 
 @Injectable()
 export class OrganizationsService {
@@ -29,6 +30,7 @@ export class OrganizationsService {
     private readonly authorization: AuthorizationService,
     private readonly seats: SeatAllowancePolicy,
     private readonly auditEvents: AuditEventsService,
+    private readonly auditEventRepository: AuditEventRepository,
   ) {}
 
   async createFirstOrganization(
@@ -85,12 +87,24 @@ export class OrganizationsService {
     };
 
     try {
-      await this.repository.completeOnboarding({
-        idempotencyKey,
-        organization: result.organization,
-        requestHash,
-        userId: user.id,
-      });
+      await this.repository.completeOnboarding(
+        {
+          auditEvent: {
+            action: 'organization.created',
+            actor: { id: user.id, type: 'user' },
+            context: {},
+            id: randomUUID(),
+            occurredAt: new Date(),
+            organizationId: result.organization.id,
+            target: { id: result.organization.id, type: 'organization' },
+          },
+          idempotencyKey,
+          organization: result.organization,
+          requestHash,
+          userId: user.id,
+        },
+        this.auditEventRepository,
+      );
     } catch (error) {
       await Promise.allSettled([
         this.directory.delete(directoryOrganization.id),
@@ -102,26 +116,6 @@ export class OrganizationsService {
       if (error instanceof OrganizationSlugConflictError) {
         throw PublicProblemException.organizationSlugConflict();
       }
-      throw error;
-    }
-
-    try {
-      await this.auditEvents.record({
-        action: 'organization.created',
-        actor: { id: user.id, type: 'user' },
-        context: {},
-        organizationId: result.organization.id,
-        target: { id: result.organization.id, type: 'organization' },
-      });
-    } catch (error) {
-      await Promise.allSettled([
-        this.directory.delete(result.organization.id),
-        this.repository.rollbackOnboarding({
-          idempotencyKey,
-          organizationId: result.organization.id,
-          userId: user.id,
-        }),
-      ]);
       throw error;
     }
 

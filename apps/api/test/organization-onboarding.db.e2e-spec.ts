@@ -101,6 +101,26 @@ describe.skipIf(!databaseUrl)('Organization onboarding with PostgreSQL', () => {
       .set('authorization', authorization)
       .expect(200)
       .expect({ status: 'complete', ...first.body });
+
+    const auditEvents = await pool.query<{
+      action: string;
+      actor_id: string;
+      organization_id: string;
+      target_id: string;
+    }>(
+      `SELECT action, actor_id, organization_id, target_id
+       FROM audit_events
+       WHERE organization_id = $1`,
+      [first.body.organization.id],
+    );
+    expect(auditEvents.rows).toEqual([
+      {
+        action: 'organization.created',
+        actor_id: 'user_verified',
+        organization_id: first.body.organization.id,
+        target_id: first.body.organization.id,
+      },
+    ]);
   });
 
   it('persists profile changes and serializes competing slug claims', async () => {

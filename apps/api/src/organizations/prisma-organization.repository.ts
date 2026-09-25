@@ -21,6 +21,7 @@ import {
   type OrganizationOnboardingResult,
   type OrganizationInvitation,
 } from './organization.js';
+import type { AuditEventRepository } from '../audit-events/audit-event.js';
 
 export class PrismaOrganizationRepository
   extends OrganizationRepository
@@ -373,7 +374,10 @@ export class PrismaOrganizationRepository
     }
   }
 
-  async completeOnboarding(record: CompleteFirstOrganizationRecord) {
+  async completeOnboarding(
+    record: CompleteFirstOrganizationRecord,
+    _auditEvents: AuditEventRepository,
+  ) {
     try {
       await this.client.$transaction(async (transaction) => {
         await transaction.organization.create({
@@ -406,6 +410,19 @@ export class PrismaOrganizationRepository
         if (completed.count !== 1) {
           throw new Error('Organization onboarding claim is unavailable.');
         }
+        await transaction.auditEvent.create({
+          data: {
+            action: record.auditEvent.action,
+            actorId: record.auditEvent.actor.id,
+            actorType: record.auditEvent.actor.type,
+            context: record.auditEvent.context,
+            id: record.auditEvent.id,
+            occurredAt: record.auditEvent.occurredAt,
+            organizationId: record.auditEvent.organizationId,
+            targetId: record.auditEvent.target.id,
+            targetType: record.auditEvent.target.type,
+          },
+        });
       });
     } catch (error) {
       if (this.isUniqueConflict(error)) {
@@ -457,29 +474,6 @@ export class PrismaOrganizationRepository
         idempotencyKey: input.idempotencyKey,
         status: OnboardingStatus.PROCESSING,
       },
-    });
-  }
-
-  async rollbackOnboarding(input: {
-    idempotencyKey: string;
-    organizationId: string;
-    userId: string;
-  }) {
-    await this.client.$transaction(async (transaction) => {
-      const deleted =
-        await transaction.organizationOnboardingRequest.deleteMany({
-          where: {
-            idempotencyKey: input.idempotencyKey,
-            organizationId: input.organizationId,
-            status: OnboardingStatus.COMPLETED,
-            userId: input.userId,
-          },
-        });
-      if (deleted.count) {
-        await transaction.organization.delete({
-          where: { id: input.organizationId },
-        });
-      }
     });
   }
 
