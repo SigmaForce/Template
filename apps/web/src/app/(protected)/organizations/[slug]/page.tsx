@@ -11,6 +11,7 @@ import { OrganizationLinkRedirect } from "./organization-link-redirect";
 import { OrganizationMemberships } from "./organization-memberships";
 import { BillingPortalButton } from "./billing-portal-button";
 import { OrganizationAuditEvents } from "./organization-audit-events";
+import { OrganizationApiKeys } from "./organization-api-keys";
 
 type Money = components["schemas"]["MoneyDto"];
 type PermissionId =
@@ -19,6 +20,7 @@ type PermissionId =
 const permission = {
   billingManage: "billing:manage",
   organizationAuditEventsRead: "organization:audit-events:read",
+  organizationApiKeysManage: "organization:api-keys:manage",
   organizationMembershipsManage: "organization:memberships:manage",
   organizationSettingsUpdate: "organization:settings:update",
 } as const satisfies Record<string, PermissionId>;
@@ -401,6 +403,9 @@ export default async function Home({
   const canReviewAuditEvents = activePermissions.includes(
     permission.organizationAuditEventsRead,
   );
+  const canManageApiKeys = activePermissions.includes(
+    permission.organizationApiKeysManage,
+  );
   const canManageMemberships = activePermissions.includes(
     permission.organizationMembershipsManage,
   );
@@ -765,6 +770,11 @@ export default async function Home({
               <OrganizationAuditEvents
                 apiUrl={getWebEnvironment().apiUrl.toString()}
                 canReview={canReviewAuditEvents}
+                organizationId={activeOrganization.organization.id}
+              />
+              <OrganizationApiKeys
+                apiUrl={getWebEnvironment().apiUrl.toString()}
+                canManage={canManageApiKeys}
                 organizationId={activeOrganization.organization.id}
               />
               <OrganizationMemberships
