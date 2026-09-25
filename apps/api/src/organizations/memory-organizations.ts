@@ -321,12 +321,34 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
     });
   }
 
-  async validateOnboarding(record: {
+  validateOnboarding(record: {
     organization: Pick<OrganizationRecord, 'id' | 'slug'>;
   }) {
     const slugOwner = this.organizationSlugs.get(record.organization.slug);
     if (slugOwner && slugOwner !== record.organization.id) {
       throw new OrganizationSlugConflictError();
+    }
+  }
+
+  reserveOnboarding(record: {
+    organization: Pick<OrganizationRecord, 'id' | 'slug'>;
+  }) {
+    this.validateOnboarding(record);
+    this.organizationSlugs.set(
+      record.organization.slug,
+      record.organization.id,
+    );
+  }
+
+  async releaseOnboardingReservation(record: {
+    organization: Pick<OrganizationRecord, 'id' | 'slug'>;
+  }) {
+    if (
+      !this.organizations.has(record.organization.id) &&
+      this.organizationSlugs.get(record.organization.slug) ===
+        record.organization.id
+    ) {
+      this.organizationSlugs.delete(record.organization.slug);
     }
   }
 

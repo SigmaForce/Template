@@ -75,8 +75,9 @@ describe('AppController (e2e)', () => {
           organizations: {
             directory,
             onboarding: new MemoryOrganizationOnboardingUnitOfWork(
-              (record) => repository.validateOnboarding(record),
+              (record) => repository.reserveOnboarding(record),
               (record) => repository.completeOnboarding(record),
+              (record) => repository.releaseOnboardingReservation(record),
               auditEvents,
             ),
             repository,

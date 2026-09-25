@@ -23,10 +23,13 @@ export abstract class OrganizationOnboardingUnitOfWork {
 
 export class MemoryOrganizationOnboardingUnitOfWork extends OrganizationOnboardingUnitOfWork {
   constructor(
-    private readonly validateOrganization: (
+    private readonly reserveOrganization: (
+      record: CompleteFirstOrganizationRecord,
+    ) => Promise<void> | void,
+    private readonly completeOrganization: (
       record: CompleteFirstOrganizationRecord,
     ) => Promise<void>,
-    private readonly completeOrganization: (
+    private readonly releaseReservation: (
       record: CompleteFirstOrganizationRecord,
     ) => Promise<void>,
     private readonly auditEvents: AuditEventRepository,
@@ -35,8 +38,13 @@ export class MemoryOrganizationOnboardingUnitOfWork extends OrganizationOnboardi
   }
 
   async complete(record: CompleteFirstOrganizationRecord) {
-    await this.validateOrganization(record);
-    await this.auditEvents.append(record.auditEvent);
-    await this.completeOrganization(record);
+    await this.reserveOrganization(record);
+    try {
+      await this.auditEvents.append(record.auditEvent);
+      await this.completeOrganization(record);
+    } catch (error) {
+      await this.releaseReservation(record);
+      throw error;
+    }
   }
 }

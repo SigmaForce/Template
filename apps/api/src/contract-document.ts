@@ -39,8 +39,9 @@ export async function buildContractDocument() {
       organizations: {
         directory: new MemoryOrganizationDirectory(),
         onboarding: new MemoryOrganizationOnboardingUnitOfWork(
-          (record) => organizationRepository.validateOnboarding(record),
+          (record) => organizationRepository.reserveOnboarding(record),
           (record) => organizationRepository.completeOnboarding(record),
+          (record) => organizationRepository.releaseOnboardingReservation(record),
           new MemoryAuditEventRepository(),
         ),
         repository: organizationRepository,
