@@ -7,7 +7,7 @@ CREATE TABLE "audit_events" (
     "target_type" VARCHAR(64) NOT NULL,
     "target_id" VARCHAR(255) NOT NULL,
     "context" JSONB NOT NULL DEFAULT '{}',
-    "occurred_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "occurred_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "audit_events_pkey" PRIMARY KEY ("id"),
     CONSTRAINT "audit_events_actor_type_check" CHECK ("actor_type" IN ('operator', 'user')),
     CONSTRAINT "audit_events_organization_id_fkey"

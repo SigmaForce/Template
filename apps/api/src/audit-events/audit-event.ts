@@ -1,19 +1,28 @@
 export type AuditActor = { id: string; type: 'operator' | 'user' };
-export type AuditAction =
-  | 'billing.checkout-session.create-requested'
-  | 'billing.portal-session.create-requested'
-  | 'billing.subscription.replay-requested'
-  | 'organization.data-export.requested'
-  | 'organization.invitation.accept-requested'
-  | 'organization.invitation.create-requested'
-  | 'organization.invitation.resend-requested'
-  | 'organization.invitation.revoke-requested'
-  | 'organization.membership.remove-requested'
-  | 'organization.membership.update-requested'
-  | 'organization.settings.update-requested';
+export const auditActions = [
+  'billing.checkout-session.create-requested',
+  'billing.portal-session.create-requested',
+  'billing.subscription.replay-requested',
+  'organization.created',
+  'organization.data-export.requested',
+  'organization.invitation.accept-requested',
+  'organization.invitation.create-requested',
+  'organization.invitation.resend-requested',
+  'organization.invitation.revoke-requested',
+  'organization.membership.remove-requested',
+  'organization.membership.update-requested',
+  'organization.settings.update-requested',
+] as const;
+export type AuditAction = (typeof auditActions)[number];
+export const auditTargetTypes = [
+  'invitation',
+  'membership',
+  'organization',
+  'subscription',
+] as const;
 export type AuditTarget = {
   id: string;
-  type: 'invitation' | 'membership' | 'organization' | 'subscription';
+  type: (typeof auditTargetTypes)[number];
 };
 export type AuditContext = Record<
   string,

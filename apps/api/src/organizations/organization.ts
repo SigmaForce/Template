@@ -138,6 +138,12 @@ export abstract class OrganizationRepository extends AuthorizationRepository {
     userId: string;
   }): Promise<void>;
 
+  abstract rollbackOnboarding(input: {
+    idempotencyKey: string;
+    organizationId: string;
+    userId: string;
+  }): Promise<void>;
+
   abstract updateSettings(input: {
     billingContactEmail?: string | null;
     locale?: string;

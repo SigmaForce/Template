@@ -331,6 +331,33 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
     }
   }
 
+  async rollbackOnboarding(input: {
+    idempotencyKey: string;
+    organizationId: string;
+    userId: string;
+  }) {
+    const request = this.requests.get(input.userId);
+    if (
+      request?.idempotencyKey !== input.idempotencyKey ||
+      request.result?.organization.id !== input.organizationId
+    ) {
+      return;
+    }
+    this.requests.delete(input.userId);
+    this.onboarding.delete(input.userId);
+    this.organizations.delete(input.organizationId);
+    for (const [slug, organizationId] of this.organizationSlugs) {
+      if (organizationId === input.organizationId) {
+        this.organizationSlugs.delete(slug);
+      }
+    }
+    for (const [key, membership] of this.memberships) {
+      if (membership.organizationId === input.organizationId) {
+        this.memberships.delete(key);
+      }
+    }
+  }
+
   async findMembership(input: MembershipIdentity) {
     return this.memberships.get(this.membershipKey(input));
   }

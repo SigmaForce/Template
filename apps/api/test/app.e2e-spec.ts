@@ -2004,6 +2004,26 @@ describe('AppController (e2e)', () => {
       );
       const owner = authorization('user_owner', 'owner');
 
+      const onboardingAuthorization = `Bearer ${createSessionToken({
+        userId: 'user_new',
+      })}`;
+      await request(app.getHttpServer())
+        .post('/v1/organizations')
+        .set('authorization', onboardingAuthorization)
+        .set('idempotency-key', 'audit-failure-onboarding')
+        .send({
+          locale: 'en-US',
+          name: 'Unaudited Organization',
+          slug: 'unaudited-organization',
+          timeZone: 'UTC',
+        })
+        .expect(500);
+      await request(app.getHttpServer())
+        .get('/v1/organizations/onboarding')
+        .set('authorization', onboardingAuthorization)
+        .expect(200)
+        .expect({ status: 'required' });
+
       await request(app.getHttpServer())
         .patch(`/v1/organizations/${organization.id}/settings`)
         .set('authorization', owner)
@@ -3404,6 +3424,28 @@ describe('AppController (e2e)', () => {
       },
       membership: { role: 'owner' },
     });
+
+    const auditEvents = await request(app.getHttpServer())
+      .get(`/v1/organizations/${creation.body.organization.id}/audit-events`)
+      .set(
+        'authorization',
+        `Bearer ${createSessionToken({
+          organization: creation.body.organization,
+          organizationRole: 'owner',
+        })}`,
+      )
+      .expect(200);
+    expect(auditEvents.body.items).toEqual([
+      expect.objectContaining({
+        action: 'organization.created',
+        actor: { id: 'user_verified', type: 'user' },
+        context: {},
+        target: {
+          id: creation.body.organization.id,
+          type: 'organization',
+        },
+      }),
+    ]);
 
     const onboarding = await request(app.getHttpServer())
       .get('/v1/organizations/onboarding')

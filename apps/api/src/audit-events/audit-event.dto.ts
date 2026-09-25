@@ -1,5 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { PageInfoDto } from '../http/page-info.dto.js';
+import {
+  auditActions,
+  auditTargetTypes,
+  type AuditAction,
+  type AuditTarget,
+} from './audit-event.js';
 
 class AuditActorDto {
   @ApiProperty({ example: 'user_2abc' })
@@ -13,13 +19,16 @@ class AuditTargetDto {
   @ApiProperty({ example: 'user_3def' })
   id!: string;
 
-  @ApiProperty({ example: 'membership' })
-  type!: string;
+  @ApiProperty({ enum: auditTargetTypes, example: 'membership' })
+  type!: AuditTarget['type'];
 }
 
 export class AuditEventDto {
-  @ApiProperty({ example: 'organization.membership.updated' })
-  action!: string;
+  @ApiProperty({
+    enum: auditActions,
+    example: 'organization.membership.update-requested',
+  })
+  action!: AuditAction;
 
   @ApiProperty({ type: AuditActorDto })
   actor!: AuditActorDto;

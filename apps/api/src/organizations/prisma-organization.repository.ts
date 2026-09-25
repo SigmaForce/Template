@@ -460,6 +460,29 @@ export class PrismaOrganizationRepository
     });
   }
 
+  async rollbackOnboarding(input: {
+    idempotencyKey: string;
+    organizationId: string;
+    userId: string;
+  }) {
+    await this.client.$transaction(async (transaction) => {
+      const deleted =
+        await transaction.organizationOnboardingRequest.deleteMany({
+          where: {
+            idempotencyKey: input.idempotencyKey,
+            organizationId: input.organizationId,
+            status: OnboardingStatus.COMPLETED,
+            userId: input.userId,
+          },
+        });
+      if (deleted.count) {
+        await transaction.organization.delete({
+          where: { id: input.organizationId },
+        });
+      }
+    });
+  }
+
   async findMembership(input: { organizationId: string; userId: string }) {
     const membership = await this.client.membership.findUnique({
       where: {

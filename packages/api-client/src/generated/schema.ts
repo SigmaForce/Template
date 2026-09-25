@@ -405,8 +405,11 @@ export interface components {
             type: "operator" | "user";
         };
         AuditEventDto: {
-            /** @example organization.membership.updated */
-            action: string;
+            /**
+             * @example organization.membership.update-requested
+             * @enum {string}
+             */
+            action: "billing.checkout-session.create-requested" | "billing.portal-session.create-requested" | "billing.subscription.replay-requested" | "organization.created" | "organization.data-export.requested" | "organization.invitation.accept-requested" | "organization.invitation.create-requested" | "organization.invitation.resend-requested" | "organization.invitation.revoke-requested" | "organization.membership.remove-requested" | "organization.membership.update-requested" | "organization.settings.update-requested";
             actor: components["schemas"]["AuditActorDto"];
             context: {
                 [key: string]: unknown;
@@ -424,8 +427,11 @@ export interface components {
         AuditTargetDto: {
             /** @example user_3def */
             id: string;
-            /** @example membership */
-            type: string;
+            /**
+             * @example membership
+             * @enum {string}
+             */
+            type: "invitation" | "membership" | "organization" | "subscription";
         };
         AuthenticatedUserDto: {
             /** @example user_2RfWKJREkjKbHZy0Wqa5qrHeAnb */

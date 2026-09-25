@@ -116,7 +116,21 @@
       "AuditEventDto": {
         "properties": {
           "action": {
-            "example": "organization.membership.updated",
+            "enum": [
+              "billing.checkout-session.create-requested",
+              "billing.portal-session.create-requested",
+              "billing.subscription.replay-requested",
+              "organization.created",
+              "organization.data-export.requested",
+              "organization.invitation.accept-requested",
+              "organization.invitation.create-requested",
+              "organization.invitation.resend-requested",
+              "organization.invitation.revoke-requested",
+              "organization.membership.remove-requested",
+              "organization.membership.update-requested",
+              "organization.settings.update-requested"
+            ],
+            "example": "organization.membership.update-requested",
             "type": "string"
           },
           "actor": {
@@ -173,6 +187,12 @@
             "type": "string"
           },
           "type": {
+            "enum": [
+              "invitation",
+              "membership",
+              "organization",
+              "subscription"
+            ],
             "example": "membership",
             "type": "string"
           }

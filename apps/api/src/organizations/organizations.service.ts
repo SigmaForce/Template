@@ -105,6 +105,26 @@ export class OrganizationsService {
       throw error;
     }
 
+    try {
+      await this.auditEvents.record({
+        action: 'organization.created',
+        actor: { id: user.id, type: 'user' },
+        context: {},
+        organizationId: result.organization.id,
+        target: { id: result.organization.id, type: 'organization' },
+      });
+    } catch (error) {
+      await Promise.allSettled([
+        this.directory.delete(result.organization.id),
+        this.repository.rollbackOnboarding({
+          idempotencyKey,
+          organizationId: result.organization.id,
+          userId: user.id,
+        }),
+      ]);
+      throw error;
+    }
+
     return result;
   }
 
