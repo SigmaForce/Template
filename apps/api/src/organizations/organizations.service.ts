@@ -105,14 +105,6 @@ export class OrganizationsService {
       throw error;
     }
 
-    await this.auditEvents.record({
-      action: 'organization.created',
-      actor: { id: user.id, type: 'user' },
-      context: {},
-      organizationId: result.organization.id,
-      target: { id: result.organization.id, type: 'organization' },
-    });
-
     return result;
   }
 
@@ -148,6 +140,14 @@ export class OrganizationsService {
       return this.publicInvitation(existing);
     }
 
+    const invitationId = randomUUID();
+    await this.auditEvents.record({
+      action: 'organization.invitation.create-requested',
+      actor: { id: user.id, type: 'user' },
+      context: { role: input.role },
+      organizationId: scope.organizationId,
+      target: { id: invitationId, type: 'invitation' },
+    });
     const external = await this.directory.createInvitation({
       organizationId: scope.organizationId,
       emailAddress: input.emailAddress,
@@ -157,7 +157,7 @@ export class OrganizationsService {
     let invitation: OrganizationInvitation;
     try {
       invitation = await this.repository.createInvitation({
-        id: randomUUID(),
+        id: invitationId,
         organizationId: scope.organizationId,
         emailAddress: input.emailAddress,
         role: input.role,
@@ -177,13 +177,6 @@ export class OrganizationsService {
       }
       throw error;
     }
-    await this.auditEvents.record({
-      action: 'organization.invitation.created',
-      actor: { id: user.id, type: 'user' },
-      context: { role: invitation.role },
-      organizationId: scope.organizationId,
-      target: { id: invitation.id, type: 'invitation' },
-    });
     return this.publicInvitation(invitation);
   }
 
@@ -214,6 +207,13 @@ export class OrganizationsService {
     if (!invitation || invitation.status !== 'pending') {
       throw PublicProblemException.invitationUnavailable();
     }
+    await this.auditEvents.record({
+      action: 'organization.invitation.revoke-requested',
+      actor: { id: user.id, type: 'user' },
+      context: {},
+      organizationId: scope.organizationId,
+      target: { id: invitation.id, type: 'invitation' },
+    });
     await this.directory.revokeInvitation({
       organizationId: scope.organizationId,
       externalId: invitation.externalId,
@@ -222,13 +222,6 @@ export class OrganizationsService {
     const revoked = await this.repository.updateInvitation({
       ...invitation,
       status: 'revoked',
-    });
-    await this.auditEvents.record({
-      action: 'organization.invitation.revoked',
-      actor: { id: user.id, type: 'user' },
-      context: {},
-      organizationId: scope.organizationId,
-      target: { id: invitation.id, type: 'invitation' },
     });
     return this.publicInvitation(revoked);
   }
@@ -257,6 +250,13 @@ export class OrganizationsService {
       throw PublicProblemException.permissionDenied();
     }
 
+    await this.auditEvents.record({
+      action: 'organization.invitation.resend-requested',
+      actor: { id: user.id, type: 'user' },
+      context: {},
+      organizationId: scope.organizationId,
+      target: { id: invitation.id, type: 'invitation' },
+    });
     const claimExternalId = `claim_${randomUUID()}`;
     if (
       !(await this.repository.claimInvitationForResend({
@@ -311,13 +311,6 @@ export class OrganizationsService {
       ]);
       throw error;
     }
-    await this.auditEvents.record({
-      action: 'organization.invitation.resent',
-      actor: { id: user.id, type: 'user' },
-      context: {},
-      organizationId: scope.organizationId,
-      target: { id: invitation.id, type: 'invitation' },
-    });
     return this.publicInvitation(resent);
   }
 
@@ -350,6 +343,13 @@ export class OrganizationsService {
       throw PublicProblemException.invitationUnavailable();
     }
 
+    await this.auditEvents.record({
+      action: 'organization.invitation.accept-requested',
+      actor: { id: user.id, type: 'user' },
+      context: { role: acceptance.role },
+      organizationId: invitation.organizationId,
+      target: { id: invitation.id, type: 'invitation' },
+    });
     let accepted: AcceptedInvitationResult;
     try {
       accepted = await this.repository.acceptInvitation({
@@ -378,13 +378,6 @@ export class OrganizationsService {
       }
       throw error;
     }
-    await this.auditEvents.record({
-      action: 'organization.invitation.accepted',
-      actor: { id: user.id, type: 'user' },
-      context: { role: acceptance.role },
-      organizationId: invitation.organizationId,
-      target: { id: invitation.id, type: 'invitation' },
-    });
     return accepted;
   }
 
@@ -468,6 +461,20 @@ export class OrganizationsService {
     });
 
     const previous = await this.repository.getSettings(scope.organizationId);
+    const changedFields = (
+      ['billingContactEmail', 'locale', 'name', 'slug', 'timeZone'] as const
+    ).filter(
+      (field) => input[field] !== undefined && input[field] !== previous[field],
+    );
+    if (changedFields.length) {
+      await this.auditEvents.record({
+        action: 'organization.settings.update-requested',
+        actor: { id: user.id, type: 'user' },
+        context: { changedFields },
+        organizationId: scope.organizationId,
+        target: { id: scope.organizationId, type: 'organization' },
+      });
+    }
     let updated;
     try {
       updated = await this.repository.updateSettings({
@@ -504,19 +511,6 @@ export class OrganizationsService {
       }
     }
 
-    const changedFields = (
-      ['billingContactEmail', 'locale', 'name', 'slug', 'timeZone'] as const
-    ).filter((field) => updated[field] !== previous[field]);
-    if (changedFields.length) {
-      await this.auditEvents.record({
-        action: 'organization.settings.updated',
-        actor: { id: user.id, type: 'user' },
-        context: { changedFields },
-        organizationId: scope.organizationId,
-        target: { id: scope.organizationId, type: 'organization' },
-      });
-    }
-
     return updated;
   }
 
@@ -539,6 +533,13 @@ export class OrganizationsService {
       permission: Permission.organizationDataExport,
     });
 
+    await this.auditEvents.record({
+      action: 'organization.data-export.requested',
+      actor: { id: user.id, type: 'user' },
+      context: {},
+      organizationId: scope.organizationId,
+      target: { id: scope.organizationId, type: 'organization' },
+    });
     return this.repository.getSettings(scope.organizationId);
   }
 

@@ -1,4 +1,4 @@
-import { type DynamicModule, Module } from '@nestjs/common';
+import { type DynamicModule, Global, Module } from '@nestjs/common';
 import {
   AuthorizationRepository,
   type CapabilityPolicy,
@@ -16,6 +16,7 @@ export interface AuditEventsModuleOptions {
   repository: AuditEventRepository;
 }
 
+@Global()
 @Module({})
 export class AuditEventsModule {
   static register(options: AuditEventsModuleOptions): DynamicModule {

@@ -419,6 +419,7 @@ export interface components {
         };
         AuditEventListDto: {
             items: components["schemas"]["AuditEventDto"][];
+            pageInfo: components["schemas"]["PageInfoDto"];
         };
         AuditTargetDto: {
             /** @example user_3def */
@@ -1029,7 +1030,11 @@ export interface operations {
     };
     listOrganizationAuditEvents: {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number;
+                /** @description Opaque cursor returned by the previous page. */
+                cursor?: string;
+            };
             header?: never;
             path: {
                 organizationId: string;

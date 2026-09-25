@@ -36,13 +36,29 @@ export class PrismaAuditEventRepository
     });
   }
 
-  async list(organizationId: string) {
+  async list(input: {
+    before?: Pick<AuditEvent, 'id' | 'occurredAt'>;
+    limit: number;
+    organizationId: string;
+  }) {
     const events = await this.client.auditEvent.findMany({
-      where: { organizationId },
+      where: {
+        organizationId: input.organizationId,
+        ...(input.before && {
+          OR: [
+            { occurredAt: { lt: input.before.occurredAt } },
+            {
+              id: { lt: input.before.id },
+              occurredAt: input.before.occurredAt,
+            },
+          ],
+        }),
+      },
       orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
+      take: input.limit,
     });
     return events.map((event): AuditEvent => ({
-      action: event.action,
+      action: event.action as AuditEvent['action'],
       actor: {
         id: event.actorId,
         type: event.actorType as AuditEvent['actor']['type'],
@@ -51,7 +67,10 @@ export class PrismaAuditEventRepository
       id: event.id,
       occurredAt: event.occurredAt,
       organizationId: event.organizationId,
-      target: { id: event.targetId, type: event.targetType },
+      target: {
+        id: event.targetId,
+        type: event.targetType as AuditEvent['target']['type'],
+      },
     }));
   }
 

@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { PageInfoDto } from '../http/page-info.dto.js';
 
 class AuditActorDto {
   @ApiProperty({ example: 'user_2abc' })
@@ -39,4 +40,7 @@ export class AuditEventDto {
 export class AuditEventListDto {
   @ApiProperty({ type: [AuditEventDto] })
   items!: AuditEventDto[];
+
+  @ApiProperty({ type: PageInfoDto })
+  pageInfo!: PageInfoDto;
 }

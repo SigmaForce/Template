@@ -87,6 +87,15 @@ export class MembershipsService {
       throw PublicProblemException.permissionDenied();
     }
 
+    await this.auditEvents.record({
+      action: 'organization.membership.update-requested',
+      actor: { id: user.id, type: 'user' },
+      context: {
+        changedFields: [input.role === undefined ? 'status' : 'role'],
+      },
+      organizationId: scope.organizationId,
+      target: { id: targetUserId, type: 'membership' },
+    });
     let updated;
     try {
       updated = await this.repository.updateMembership({
@@ -121,15 +130,6 @@ export class MembershipsService {
         throw error;
       }
     }
-    await this.auditEvents.record({
-      action: 'organization.membership.updated',
-      actor: { id: user.id, type: 'user' },
-      context: {
-        changedFields: [input.role === undefined ? 'status' : 'role'],
-      },
-      organizationId: scope.organizationId,
-      target: { id: targetUserId, type: 'membership' },
-    });
     return this.publicMembership(updated);
   }
 
@@ -158,6 +158,13 @@ export class MembershipsService {
       throw PublicProblemException.permissionDenied();
     }
 
+    await this.auditEvents.record({
+      action: 'organization.membership.remove-requested',
+      actor: { id: user.id, type: 'user' },
+      context: {},
+      organizationId: scope.organizationId,
+      target: { id: targetUserId, type: 'membership' },
+    });
     let removed;
     try {
       removed = await this.repository.updateMembership({
@@ -184,13 +191,6 @@ export class MembershipsService {
       });
       throw error;
     }
-    await this.auditEvents.record({
-      action: 'organization.membership.removed',
-      actor: { id: user.id, type: 'user' },
-      context: {},
-      organizationId: scope.organizationId,
-      target: { id: targetUserId, type: 'membership' },
-    });
     return this.publicMembership(removed);
   }
 

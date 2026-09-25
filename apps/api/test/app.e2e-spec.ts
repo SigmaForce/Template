@@ -374,6 +374,20 @@ describe('AppController (e2e)', () => {
     expect(JSON.stringify(checkoutGateway.sessions)).not.toMatch(
       /card|secret|whsec|sk_test/i,
     );
+    const auditEvents = await request(app.getHttpServer())
+      .get(`/v1/organizations/${organization.id}/audit-events`)
+      .set('authorization', ownerAuthorization)
+      .expect(200);
+    expect(auditEvents.body.items).toHaveLength(2);
+    expect(auditEvents.body.items[0]).toMatchObject({
+      action: 'billing.checkout-session.create-requested',
+      actor: { id: 'user_checkout_owner', type: 'user' },
+      context: { planId: 'launch' },
+      target: { id: organization.id, type: 'organization' },
+    });
+    expect(JSON.stringify(auditEvents.body)).not.toMatch(
+      /settings\/billing|checkout\.stripe/i,
+    );
 
     await request(app.getHttpServer())
       .post(`/v1/organizations/${organization.id}/billing/checkout-sessions`)
@@ -1899,14 +1913,14 @@ describe('AppController (e2e)', () => {
 
       expect(response.body.items).toEqual([
         expect.objectContaining({
-          action: 'organization.membership.updated',
+          action: 'organization.membership.update-requested',
           actor: { id: 'user_owner', type: 'user' },
           context: { changedFields: ['status'] },
           occurredAt: expect.any(String),
           target: { id: 'user_target', type: 'membership' },
         }),
         expect.objectContaining({
-          action: 'organization.settings.updated',
+          action: 'organization.settings.update-requested',
           actor: { id: 'user_owner', type: 'user' },
           context: { changedFields: ['billingContactEmail', 'name'] },
           occurredAt: expect.any(String),
@@ -1917,6 +1931,28 @@ describe('AppController (e2e)', () => {
         /raw-request-secret|request\.completed|authorization/i,
       );
       expect(logLines.join('\n')).toContain('request.completed');
+
+      const firstPage = await request(app.getHttpServer())
+        .get(`/v1/organizations/${organization.id}/audit-events`)
+        .query({ limit: 1 })
+        .set('authorization', owner)
+        .expect(200);
+      expect(firstPage.body).toMatchObject({
+        items: [expect.objectContaining({ id: response.body.items[0].id })],
+        pageInfo: {
+          hasNextPage: true,
+          nextCursor: expect.stringMatching(/^[A-Za-z0-9_-]+$/),
+        },
+      });
+      const secondPage = await request(app.getHttpServer())
+        .get(`/v1/organizations/${organization.id}/audit-events`)
+        .query({ cursor: firstPage.body.pageInfo.nextCursor, limit: 1 })
+        .set('authorization', owner)
+        .expect(200);
+      expect(secondPage.body).toMatchObject({
+        items: [expect.objectContaining({ id: response.body.items[1].id })],
+        pageInfo: { hasNextPage: false, nextCursor: null },
+      });
 
       await request(app.getHttpServer())
         .get(`/v1/organizations/${organization.id}/audit-events`)
@@ -1933,6 +1969,51 @@ describe('AppController (e2e)', () => {
         .set('authorization', owner)
         .send({ action: 'tampered' })
         .expect(404);
+    });
+
+    it('does not perform a sensitive action when its Audit Event cannot be recorded', async () => {
+      class FailingAuditEventRepository extends MemoryAuditEventRepository {
+        override async append() {
+          throw new Error('Audit Event storage unavailable.');
+        }
+      }
+
+      await app.close();
+      app = await createApp(
+        [],
+        undefined,
+        new MemoryOrganizationRepository({
+          organizations: [organization],
+          memberships: [
+            {
+              organizationId: organization.id,
+              role: 'owner',
+              status: 'active',
+              userId: 'user_owner',
+            },
+          ],
+        }),
+        new MemoryOrganizationDirectory(),
+        undefined,
+        new MemoryBillingRepository(),
+        new MemoryBillingProjectionQueue(),
+        new MemoryBillingCheckoutGateway(),
+        undefined,
+        new MemoryBillingPortalGateway(),
+        new FailingAuditEventRepository(),
+      );
+      const owner = authorization('user_owner', 'owner');
+
+      await request(app.getHttpServer())
+        .patch(`/v1/organizations/${organization.id}/settings`)
+        .set('authorization', owner)
+        .send({ name: 'Unaudited change' })
+        .expect(500);
+      const settings = await request(app.getHttpServer())
+        .get(`/v1/organizations/${organization.id}/settings`)
+        .set('authorization', owner)
+        .expect(200);
+      expect(settings.body.name).toBe(organization.name);
     });
   });
 

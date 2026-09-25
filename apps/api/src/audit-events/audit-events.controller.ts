@@ -1,4 +1,4 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiExtraModels,
@@ -15,6 +15,7 @@ import {
 import { ProblemDetailsDto } from '../http/problem-details.js';
 import { AuditEventListDto } from './audit-event.dto.js';
 import { AuditEventsService } from './audit-events.service.js';
+import { ListAuditEventsQuery } from './list-audit-events.query.js';
 
 @ApiTags('audit-events')
 @ApiExtraModels(ProblemDetailsDto)
@@ -37,7 +38,8 @@ export class AuditEventsController {
   list(
     @CurrentUser() user: AuthenticatedUser,
     @Param('organizationId') organizationId: string,
+    @Query() query: ListAuditEventsQuery,
   ) {
-    return this.auditEvents.list(user, organizationId);
+    return this.auditEvents.list(user, organizationId, query);
   }
 }

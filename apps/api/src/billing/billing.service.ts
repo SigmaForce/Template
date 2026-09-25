@@ -14,6 +14,7 @@ import {
   InvalidStripeWebhookError,
   StripeWebhookVerifier,
 } from './stripe-webhook.js';
+import { AuditEventsService } from '../audit-events/audit-events.service.js';
 
 @Injectable()
 export class BillingService {
@@ -24,6 +25,7 @@ export class BillingService {
     private readonly webhooks: StripeWebhookVerifier,
     private readonly checkout: BillingCheckoutGateway,
     private readonly portal: BillingPortalGateway,
+    private readonly auditEvents: AuditEventsService,
     @Inject('CHECKOUT_RETURN_ORIGINS')
     private readonly checkoutReturnOrigins: string[],
     @Inject('STRIPE_PLAN_MAPPINGS')
@@ -48,10 +50,21 @@ export class BillingService {
     if (!subscription?.providerCustomerId) {
       throw PublicProblemException.billingPortalUnavailable();
     }
+    const returnUrl = this.allowlistedReturnUrl(input.returnUrl);
+    await this.auditEvents.record({
+      action: 'billing.portal-session.create-requested',
+      actor: { id: user.id, type: 'user' },
+      context: {},
+      organizationId: scope.organizationId,
+      target: {
+        id: subscription.providerSubscriptionId,
+        type: 'subscription',
+      },
+    });
     const portalUrl = await this.portal.createSession({
       idempotencyKey: `portal-session:${scope.organizationId}:${idempotencyKey}`,
       customerId: subscription.providerCustomerId,
-      returnUrl: this.allowlistedReturnUrl(input.returnUrl),
+      returnUrl,
     });
     return { portalUrl };
   }
@@ -78,6 +91,13 @@ export class BillingService {
     }
     const successUrl = this.allowlistedReturnUrl(input.successUrl);
     const cancelUrl = this.allowlistedReturnUrl(input.cancelUrl);
+    await this.auditEvents.record({
+      action: 'billing.checkout-session.create-requested',
+      actor: { id: user.id, type: 'user' },
+      context: { planId: input.planId },
+      organizationId: scope.organizationId,
+      target: { id: scope.organizationId, type: 'organization' },
+    });
     const checkoutUrl = await this.checkout.createSession({
       cancelUrl,
       idempotencyKey: `checkout-session:${scope.organizationId}`,

@@ -14,11 +14,8 @@ import type {
   CapabilityPolicy,
   OrganizationStatePolicy,
 } from '../authorization/authorization.js';
-import { AuditEventsModule } from '../audit-events/audit-events.module.js';
-import type { AuditEventRepository } from '../audit-events/audit-event.js';
 
 export interface OrganizationModuleOptions {
-  auditEventRepository: AuditEventRepository;
   directory: OrganizationDirectory;
   repository: OrganizationRepository;
   capabilityPolicy?: CapabilityPolicy;
@@ -36,12 +33,6 @@ export class OrganizationsModule {
           capabilityPolicy: options.capabilityPolicy,
           organizationStatePolicy: options.organizationStatePolicy,
           repository: options.repository,
-        }),
-        AuditEventsModule.register({
-          authorizationRepository: options.repository,
-          capabilityPolicy: options.capabilityPolicy,
-          organizationStatePolicy: options.organizationStatePolicy,
-          repository: options.auditEventRepository,
         }),
       ],
       controllers: [
