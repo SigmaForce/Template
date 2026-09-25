@@ -75,6 +75,7 @@ describe('AppController (e2e)', () => {
           organizations: {
             directory,
             onboarding: new MemoryOrganizationOnboardingUnitOfWork(
+              (record) => repository.validateOnboarding(record),
               (record) => repository.completeOnboarding(record),
               auditEvents,
             ),
@@ -1974,6 +1975,63 @@ describe('AppController (e2e)', () => {
         .set('authorization', owner)
         .send({ action: 'tampered' })
         .expect(404);
+    });
+
+    it('does not record organization creation when onboarding validation fails', async () => {
+      const auditEvents = new MemoryAuditEventRepository();
+      const repository = new MemoryOrganizationRepository({
+        organizations: [
+          {
+            id: 'org_existing_slug',
+            locale: 'en-US',
+            name: 'Existing Organization',
+            slug: 'duplicate-onboarding',
+            state: 'active',
+            timeZone: 'UTC',
+          },
+        ],
+      });
+      await app.close();
+      app = await createApp(
+        [],
+        undefined,
+        repository,
+        new MemoryOrganizationDirectory(),
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        auditEvents,
+      );
+      const onboardingAuthorization = `Bearer ${createSessionToken({
+        userId: 'user_slug_conflict',
+      })}`;
+
+      await request(app.getHttpServer())
+        .post('/v1/organizations')
+        .set('authorization', onboardingAuthorization)
+        .set('idempotency-key', 'audit-onboarding-slug-conflict')
+        .send({
+          locale: 'en-US',
+          name: 'Duplicate Organization',
+          slug: 'duplicate-onboarding',
+          timeZone: 'UTC',
+        })
+        .expect(409);
+
+      expect(
+        await auditEvents.list({
+          limit: 10,
+          organizationId: 'org_duplicate_onboarding',
+        }),
+      ).toEqual([]);
+      await request(app.getHttpServer())
+        .get('/v1/organizations/onboarding')
+        .set('authorization', onboardingAuthorization)
+        .expect(200)
+        .expect({ status: 'required' });
     });
 
     it('does not perform a sensitive action when its Audit Event cannot be recorded', async () => {

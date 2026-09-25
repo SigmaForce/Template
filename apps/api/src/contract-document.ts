@@ -17,7 +17,6 @@ import { MemoryAuditEventRepository } from './audit-events/memory-audit-events.j
 
 export async function buildContractDocument() {
   const organizationRepository = new MemoryOrganizationRepository();
-  const auditEventRepository = new MemoryAuditEventRepository();
   const app = await NestFactory.create(
     AppModule.register({
       auditEvents: { repository: new MemoryAuditEventRepository() },
@@ -40,8 +39,9 @@ export async function buildContractDocument() {
       organizations: {
         directory: new MemoryOrganizationDirectory(),
         onboarding: new MemoryOrganizationOnboardingUnitOfWork(
+          (record) => organizationRepository.validateOnboarding(record),
           (record) => organizationRepository.completeOnboarding(record),
-          auditEventRepository,
+          new MemoryAuditEventRepository(),
         ),
         repository: organizationRepository,
       },

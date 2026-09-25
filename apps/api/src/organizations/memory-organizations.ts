@@ -288,10 +288,7 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
     requestHash: string;
     userId: string;
   }) {
-    const slugOwner = this.organizationSlugs.get(record.organization.slug);
-    if (slugOwner && slugOwner !== record.organization.id) {
-      throw new OrganizationSlugConflictError();
-    }
+    await this.validateOnboarding(record);
     const result = {
       organization: record.organization,
       membership: { role: 'owner' as const },
@@ -322,6 +319,15 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
       requestHash: record.requestHash,
       result,
     });
+  }
+
+  async validateOnboarding(record: {
+    organization: Pick<OrganizationRecord, 'id' | 'slug'>;
+  }) {
+    const slugOwner = this.organizationSlugs.get(record.organization.slug);
+    if (slugOwner && slugOwner !== record.organization.id) {
+      throw new OrganizationSlugConflictError();
+    }
   }
 
   async findOnboarding(userId: string) {

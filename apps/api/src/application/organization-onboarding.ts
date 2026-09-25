@@ -23,6 +23,9 @@ export abstract class OrganizationOnboardingUnitOfWork {
 
 export class MemoryOrganizationOnboardingUnitOfWork extends OrganizationOnboardingUnitOfWork {
   constructor(
+    private readonly validateOrganization: (
+      record: CompleteFirstOrganizationRecord,
+    ) => Promise<void>,
     private readonly completeOrganization: (
       record: CompleteFirstOrganizationRecord,
     ) => Promise<void>,
@@ -32,6 +35,7 @@ export class MemoryOrganizationOnboardingUnitOfWork extends OrganizationOnboardi
   }
 
   async complete(record: CompleteFirstOrganizationRecord) {
+    await this.validateOrganization(record);
     await this.auditEvents.append(record.auditEvent);
     await this.completeOrganization(record);
   }
