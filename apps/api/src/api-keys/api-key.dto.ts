@@ -59,3 +59,8 @@ export class IssuedApiKeyDto {
   @ApiProperty()
   plaintext!: string;
 }
+
+export class ApiKeyListDto {
+  @ApiProperty({ type: [ApiKeyDto] })
+  items!: ApiKeyDto[];
+}

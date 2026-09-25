@@ -60,6 +60,8 @@
               "enum": [
                 "organization:audit-events:read",
                 "organization:api-keys:manage",
+                "organization:files:manage",
+                "organization:files:read",
                 "organization:settings:read",
                 "organization:settings:update",
                 "organization:memberships:manage",
@@ -136,6 +138,20 @@
         ],
         "type": "object"
       },
+      "ApiKeyListDto": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ApiKeyDto"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
       "AuditActorDto": {
         "properties": {
           "id": {
@@ -168,6 +184,9 @@
               "organization.api-key.rotate-requested",
               "organization.created",
               "organization.data-export.requested",
+              "organization.file.delete-requested",
+              "organization.file.download-requested",
+              "organization.file.upload-requested",
               "organization.invitation.accept-requested",
               "organization.invitation.create-requested",
               "organization.invitation.resend-requested",
@@ -235,6 +254,7 @@
           "type": {
             "enum": [
               "api-key",
+              "file",
               "invitation",
               "membership",
               "organization",
@@ -519,6 +539,69 @@
           "name",
           "critical",
           "status"
+        ],
+        "type": "object"
+      },
+      "FileDownloadDto": {
+        "properties": {
+          "expiresAt": {
+            "example": "2026-09-24T12:01:00.000Z",
+            "type": "string"
+          },
+          "url": {
+            "example": "https://bucket.example/file?signature=short-lived",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expiresAt",
+          "url"
+        ],
+        "type": "object"
+      },
+      "FileDto": {
+        "properties": {
+          "contentType": {
+            "example": "application/pdf",
+            "type": "string"
+          },
+          "createdAt": {
+            "example": "2026-09-24T12:00:00.000Z",
+            "type": "string"
+          },
+          "id": {
+            "example": "d4387e49-1d96-4a25-885c-5609ea8d19bb",
+            "type": "string"
+          },
+          "name": {
+            "example": "quarterly-report.pdf",
+            "type": "string"
+          },
+          "size": {
+            "example": 2048,
+            "type": "number"
+          }
+        },
+        "required": [
+          "contentType",
+          "createdAt",
+          "id",
+          "name",
+          "size"
+        ],
+        "type": "object"
+      },
+      "FileListDto": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FileDto"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
         ],
         "type": "object"
       },
@@ -1570,6 +1653,40 @@
       }
     },
     "/v1/organizations/{organizationId}/api-keys": {
+      "get": {
+        "operationId": "listOrganizationApiKeys",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organizationId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiKeyListDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "clerk-session": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "api-keys"
+        ]
+      },
       "post": {
         "operationId": "createOrganizationApiKey",
         "parameters": [
@@ -2072,6 +2189,176 @@
         "summary": "",
         "tags": [
           "organizations"
+        ]
+      }
+    },
+    "/v1/organizations/{organizationId}/files": {
+      "get": {
+        "operationId": "listOrganizationFiles",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organizationId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileListDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "clerk-session": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "files"
+        ]
+      },
+      "post": {
+        "operationId": "uploadOrganizationFile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organizationId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "clerk-session": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/organizations/{organizationId}/files/{fileId}": {
+      "delete": {
+        "operationId": "deleteOrganizationFile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organizationId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "fileId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "clerk-session": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/organizations/{organizationId}/files/{fileId}/download": {
+      "get": {
+        "operationId": "downloadOrganizationFile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organizationId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "fileId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileDownloadDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "clerk-session": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "files"
         ]
       }
     },

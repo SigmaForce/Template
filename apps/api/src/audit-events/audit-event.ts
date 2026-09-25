@@ -8,6 +8,9 @@ export const auditActions = [
   'organization.api-key.rotate-requested',
   'organization.created',
   'organization.data-export.requested',
+  'organization.file.delete-requested',
+  'organization.file.download-requested',
+  'organization.file.upload-requested',
   'organization.invitation.accept-requested',
   'organization.invitation.create-requested',
   'organization.invitation.resend-requested',
@@ -19,6 +22,7 @@ export const auditActions = [
 export type AuditAction = (typeof auditActions)[number];
 export const auditTargetTypes = [
   'api-key',
+  'file',
   'invitation',
   'membership',
   'organization',

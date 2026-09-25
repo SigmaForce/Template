@@ -1,6 +1,8 @@
 export const Permission = {
   organizationAuditEventsRead: 'organization:audit-events:read',
   organizationApiKeysManage: 'organization:api-keys:manage',
+  organizationFilesManage: 'organization:files:manage',
+  organizationFilesRead: 'organization:files:read',
   organizationSettingsRead: 'organization:settings:read',
   organizationSettingsUpdate: 'organization:settings:update',
   organizationMembershipsManage: 'organization:memberships:manage',
@@ -65,6 +67,7 @@ export function organizationStateAllows(
 
   return (
     permission === Permission.organizationAuditEventsRead ||
+    permission === Permission.organizationFilesRead ||
     permission === Permission.organizationSettingsRead ||
     permission === Permission.organizationMembershipsManage ||
     permission === Permission.organizationMembershipsLeave ||

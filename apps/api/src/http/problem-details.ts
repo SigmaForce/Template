@@ -117,6 +117,15 @@ export class PublicProblemException extends HttpException {
     });
   }
 
+  static fileUnavailable() {
+    return new PublicProblemException({
+      type: 'urn:problem:next-nest-saas-starter:file-unavailable',
+      title: 'File unavailable',
+      status: 404,
+      detail: 'No File is available in this Organization.',
+    });
+  }
+
   static apiKeyUnavailable() {
     return new PublicProblemException({
       type: 'urn:problem:next-nest-saas-starter:api-key-unavailable',

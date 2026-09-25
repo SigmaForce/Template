@@ -2,11 +2,8 @@ import {
   type CanActivate,
   type ExecutionContext,
   Injectable,
-  Optional,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { createHash, timingSafeEqual } from 'node:crypto';
-import { ApiKeyRepository } from '../api-keys/api-key.js';
 import { PublicProblemException } from '../http/problem-details.js';
 import {
   RequestRateLimiter,
@@ -14,7 +11,8 @@ import {
 } from './request-rate-limiter.js';
 import {
   AUTHENTICATED_USER,
-  type AuthenticatedUser,
+  ApiKeyTokenVerifier,
+  type AuthenticatedPrincipal,
   type AuthenticatedRequest,
   PUBLIC_ROUTE,
   SessionTokenVerifier,
@@ -26,7 +24,7 @@ export class AuthenticationGuard implements CanActivate {
     private readonly reflector: Reflector,
     private readonly tokens: SessionTokenVerifier,
     private readonly rateLimiter: RequestRateLimiter,
-    @Optional() private readonly apiKeys?: ApiKeyRepository,
+    private readonly apiKeys: ApiKeyTokenVerifier,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -63,10 +61,10 @@ export class AuthenticationGuard implements CanActivate {
       throw PublicProblemException.authenticationRequired();
     }
 
-    let user: AuthenticatedUser;
+    let principal: AuthenticatedPrincipal;
     try {
-      user = match[1].startsWith('sak_')
-        ? await this.verifyApiKey(match[1])
+      principal = match[1].startsWith('sak_')
+        ? await this.apiKeys.verify(match[1])
         : await this.tokens.verify(match[1]);
     } catch {
       this.enforceRateLimit(
@@ -79,42 +77,21 @@ export class AuthenticationGuard implements CanActivate {
       throw PublicProblemException.authenticationRequired();
     }
 
-    request[AUTHENTICATED_USER] = user;
-    this.enforceRateLimit(response, this.rateLimiter.consume('user', user.id));
-    if (user.activeOrganization) {
+    request[AUTHENTICATED_USER] = principal;
+    this.enforceRateLimit(
+      response,
+      this.rateLimiter.consume('user', principal.id),
+    );
+    if (principal.activeOrganization) {
       this.enforceRateLimit(
         response,
-        this.rateLimiter.consume('organization', user.activeOrganization.id),
+        this.rateLimiter.consume(
+          'organization',
+          principal.activeOrganization.id,
+        ),
       );
     }
     return true;
-  }
-
-  private async verifyApiKey(token: string): Promise<AuthenticatedUser> {
-    const match = token.match(
-      /^sak_([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.[A-Za-z0-9_-]{43}$/,
-    );
-    if (!match) throw new Error('Invalid API Key.');
-    if (!this.apiKeys) throw new Error('API Keys are unavailable.');
-    const apiKey = await this.apiKeys.find(match[1]);
-    const presentedHash = createHash('sha256').update(token).digest();
-    const storedHash = apiKey
-      ? Buffer.from(apiKey.secretHash, 'hex')
-      : Buffer.alloc(presentedHash.length);
-    if (
-      !apiKey ||
-      storedHash.length !== presentedHash.length ||
-      !timingSafeEqual(storedHash, presentedHash) ||
-      apiKey.revokedAt ||
-      (apiKey.expiresAt && apiKey.expiresAt <= new Date())
-    ) {
-      throw new Error('Invalid API Key.');
-    }
-    return {
-      activeOrganization: { id: apiKey.organizationId },
-      apiKey: { scopes: apiKey.scopes },
-      id: apiKey.id,
-    };
   }
 
   private enforceRateLimit(

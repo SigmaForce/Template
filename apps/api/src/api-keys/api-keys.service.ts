@@ -46,6 +46,19 @@ export class ApiKeysService {
     };
   }
 
+  async list(user: AuthenticatedUser, organizationId: string) {
+    const scope = await this.authorization.authorize({
+      permission: Permission.organizationApiKeysManage,
+      targetOrganizationId: organizationId,
+      user,
+    });
+    return {
+      items: (await this.repository.list(scope.organizationId)).map((apiKey) =>
+        this.toDto(apiKey),
+      ),
+    };
+  }
+
   async rotate(
     user: AuthenticatedUser,
     organizationId: string,

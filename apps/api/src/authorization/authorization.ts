@@ -62,13 +62,14 @@ export interface AuthorizeOrganizationOperation {
   user:
     | {
         activeOrganization?: { id: string; role?: OrganizationRole };
-        apiKey?: { scopes: PermissionId[] };
         id: string;
+        kind?: 'api-key' | 'user';
+        scopes?: PermissionId[];
       }
     | undefined;
 }
 
 export interface AuthorizedOrganizationScope {
   organizationId: string;
-  role: OrganizationRole;
+  role?: OrganizationRole;
 }

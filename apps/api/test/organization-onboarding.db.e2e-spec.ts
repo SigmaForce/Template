@@ -17,6 +17,11 @@ import {
 import { MemoryBillingCheckoutGateway } from '../src/billing/checkout.js';
 import { MemoryBillingPortalGateway } from '../src/billing/portal.js';
 import { MemoryAuditEventRepository } from '../src/audit-events/memory-audit-events.js';
+import {
+  MemoryFileRepository,
+  MemoryFileStorage,
+} from '../src/files/memory-files.js';
+import { MemoryApiKeyRepository } from '../src/api-keys/memory-api-keys.js';
 
 const planMappings = {
   launch: { priceId: 'price_launchTest', productId: 'prod_launchTest' },
@@ -45,7 +50,12 @@ describe.skipIf(!databaseUrl)('Organization onboarding with PostgreSQL', () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
         AppModule.register({
+          apiKeys: { repository: new MemoryApiKeyRepository() },
           auditEvents: { repository: new MemoryAuditEventRepository() },
+          files: {
+            repository: new MemoryFileRepository(),
+            storage: new MemoryFileStorage(),
+          },
           authentication: {
             authorizedParties: ['http://localhost:3000'],
             jwtKey: authenticationPublicKey,

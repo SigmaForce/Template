@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import type { AuthenticatedUser } from '../authentication/authentication.js';
+import type { AuthenticatedPrincipal } from '../authentication/authentication.js';
 import { AuthorizationService } from '../authorization/authorization.service.js';
 import { Permission } from '../authorization/permission.js';
 import { PublicProblemException } from '../http/problem-details.js';
@@ -26,7 +26,7 @@ export class AuditEventsService {
   }
 
   async list(
-    user: AuthenticatedUser,
+    user: AuthenticatedPrincipal,
     organizationId: string,
     query: ListAuditEventsQuery,
   ) {

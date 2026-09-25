@@ -5,7 +5,9 @@ import {
   type OrganizationStatePolicy,
 } from '../authorization/authorization.js';
 import { AuthorizationModule } from '../authorization/authorization.module.js';
+import { ApiKeyTokenVerifier } from '../authentication/authentication.js';
 import { ApiKeyRepository } from './api-key.js';
+import { ApiKeyVerifier } from './api-key.verifier.js';
 import { ApiKeysController } from './api-keys.controller.js';
 import { ApiKeysService } from './api-keys.service.js';
 
@@ -32,9 +34,11 @@ export class ApiKeysModule {
       controllers: [ApiKeysController],
       providers: [
         ApiKeysService,
+        ApiKeyVerifier,
         { provide: ApiKeyRepository, useValue: options.repository },
+        { provide: ApiKeyTokenVerifier, useExisting: ApiKeyVerifier },
       ],
-      exports: [ApiKeyRepository],
+      exports: [ApiKeyTokenVerifier],
     };
   }
 }

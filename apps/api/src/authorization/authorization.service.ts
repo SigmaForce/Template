@@ -22,7 +22,7 @@ interface OrganizationAccessContext {
   apiKeyScopes?: PermissionId[];
   organizationId: string;
   organization: OrganizationAccess;
-  role: OrganizationRole;
+  role?: OrganizationRole;
 }
 
 @Injectable()
@@ -133,7 +133,11 @@ export class AuthorizationService {
     ) {
       return false;
     }
-    return roleHasPermission(context.role, permission);
+    return context.apiKeyScopes
+      ? true
+      : context.role
+        ? roleHasPermission(context.role, permission)
+        : false;
   }
 
   private capabilityForPermission(permission: PermissionId) {
@@ -157,8 +161,9 @@ export class AuthorizationService {
     user:
       | {
           activeOrganization?: { id: string; role?: OrganizationRole };
-          apiKey?: { scopes: PermissionId[] };
           id: string;
+          kind?: 'api-key' | 'user';
+          scopes?: PermissionId[];
         }
       | undefined,
   ): Promise<OrganizationAccessContext | undefined> {
@@ -171,13 +176,13 @@ export class AuthorizationService {
       throw PublicProblemException.activeOrganizationRequired();
     }
 
-    if (user.apiKey) {
+    if (user.kind === 'api-key') {
       const storedOrganization = await this.repository.findOrganization(
         activeOrganization.id,
       );
       if (!storedOrganization) return undefined;
       return {
-        apiKeyScopes: user.apiKey.scopes,
+        apiKeyScopes: user.scopes ?? [],
         organization: {
           ...storedOrganization,
           state: await this.organizationStates.resolve({
@@ -186,7 +191,6 @@ export class AuthorizationService {
           }),
         },
         organizationId: activeOrganization.id,
-        role: 'owner',
       };
     }
 

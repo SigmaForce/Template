@@ -7,9 +7,18 @@ import type { PermissionId } from '../authorization/permission.js';
 
 export interface AuthenticatedUser {
   activeOrganization?: ActiveOrganization;
-  apiKey?: { scopes: PermissionId[] };
   id: string;
+  kind?: 'user';
 }
+
+export interface AuthenticatedApiKey {
+  activeOrganization: Pick<ActiveOrganization, 'id'>;
+  id: string;
+  kind: 'api-key';
+  scopes: PermissionId[];
+}
+
+export type AuthenticatedPrincipal = AuthenticatedApiKey | AuthenticatedUser;
 
 export interface ActiveOrganization {
   id: string;
@@ -35,11 +44,15 @@ export abstract class SessionTokenVerifier {
   abstract verify(token: string): Promise<AuthenticatedUser>;
 }
 
+export abstract class ApiKeyTokenVerifier {
+  abstract verify(token: string): Promise<AuthenticatedApiKey>;
+}
+
 export const PUBLIC_ROUTE = Symbol('public-route');
 export const AUTHENTICATED_USER = Symbol('authenticated-user');
 
 export type AuthenticatedRequest = Request & {
-  [AUTHENTICATED_USER]?: AuthenticatedUser;
+  [AUTHENTICATED_USER]?: AuthenticatedPrincipal;
 };
 
 export const Public = () => SetMetadata(PUBLIC_ROUTE, true);
@@ -49,11 +62,20 @@ export const CurrentUser = createParamDecorator(
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const user = request[AUTHENTICATED_USER];
 
-    if (!user) {
+    if (!user || user.kind === 'api-key') {
       throw new Error('Authenticated User is unavailable.');
     }
 
     return user;
+  },
+);
+
+export const CurrentPrincipal = createParamDecorator(
+  (_data: unknown, context: ExecutionContext): AuthenticatedPrincipal => {
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const principal = request[AUTHENTICATED_USER];
+    if (!principal) throw new Error('Authenticated principal is unavailable.');
+    return principal;
   },
 );
 

@@ -2,6 +2,7 @@ import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
+import { MemoryOrganizationOnboardingUnitOfWork } from '../src/application/organization-onboarding.js';
 import { MemoryApiKeyRepository } from '../src/api-keys/memory-api-keys.js';
 import { MemoryAuditEventRepository } from '../src/audit-events/memory-audit-events.js';
 import type { AuthenticationOptions } from '../src/authentication/authentication.js';
@@ -89,7 +90,12 @@ describe('API Keys (e2e)', () => {
           },
           organizations: {
             directory: new MemoryOrganizationDirectory(),
-            onboarding: repository,
+            onboarding: new MemoryOrganizationOnboardingUnitOfWork(
+              (record) => repository.reserveOnboarding(record),
+              (record) => repository.completeOnboarding(record),
+              (record) => repository.releaseOnboardingReservation(record),
+              input?.auditEvents ?? new MemoryAuditEventRepository(),
+            ),
             repository,
           },
         }),
@@ -131,6 +137,12 @@ describe('API Keys (e2e)', () => {
     const stored = [...apiKeys.apiKeys.values()][0];
     expect(stored).not.toHaveProperty('plaintext');
     expect(JSON.stringify(stored)).not.toContain(response.body.plaintext);
+    const list = await request(app.getHttpServer())
+      .get(`/v1/organizations/${organization.id}/api-keys`)
+      .set('authorization', owner)
+      .expect(200);
+    expect(list.body.items).toEqual([response.body.apiKey]);
+    expect(JSON.stringify(list.body)).not.toContain(response.body.plaintext);
     expect(
       JSON.stringify(
         await auditEvents.list({

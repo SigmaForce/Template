@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  Get,
   HttpCode,
   Param,
   Post,
@@ -10,6 +11,7 @@ import {
   ApiBearerAuth,
   ApiCreatedResponse,
   ApiNoContentResponse,
+  ApiOkResponse,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
@@ -17,7 +19,11 @@ import {
   CurrentUser,
   type AuthenticatedUser,
 } from '../authentication/authentication.js';
-import { CreateApiKeyDto, IssuedApiKeyDto } from './api-key.dto.js';
+import {
+  ApiKeyListDto,
+  CreateApiKeyDto,
+  IssuedApiKeyDto,
+} from './api-key.dto.js';
 import { ApiKeysService } from './api-keys.service.js';
 
 @ApiTags('api-keys')
@@ -35,6 +41,16 @@ export class ApiKeysController {
     @Body() input: CreateApiKeyDto,
   ) {
     return this.apiKeys.create(user, organizationId, input);
+  }
+
+  @Get()
+  @ApiOperation({ operationId: 'listOrganizationApiKeys' })
+  @ApiOkResponse({ type: ApiKeyListDto })
+  list(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('organizationId') organizationId: string,
+  ) {
+    return this.apiKeys.list(user, organizationId);
   }
 
   @Post(':apiKeyId/rotate')

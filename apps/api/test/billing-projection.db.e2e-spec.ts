@@ -15,6 +15,12 @@ import {
 } from '../src/organizations/memory-organizations.js';
 import { authenticationPublicKey } from './session-token.js';
 import { MemoryAuditEventRepository } from '../src/audit-events/memory-audit-events.js';
+import { MemoryOrganizationOnboardingUnitOfWork } from '../src/application/organization-onboarding.js';
+import {
+  MemoryFileRepository,
+  MemoryFileStorage,
+} from '../src/files/memory-files.js';
+import { MemoryApiKeyRepository } from '../src/api-keys/memory-api-keys.js';
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
 const organization = {
@@ -47,7 +53,12 @@ describe.skipIf(!databaseUrl)(
       const moduleFixture = await Test.createTestingModule({
         imports: [
           AppModule.register({
+            apiKeys: { repository: new MemoryApiKeyRepository() },
             auditEvents: { repository: new MemoryAuditEventRepository() },
+            files: {
+              repository: new MemoryFileRepository(),
+              storage: new MemoryFileStorage(),
+            },
             authentication: {
               authorizedParties: ['http://localhost:3000'],
               jwtKey: authenticationPublicKey,
@@ -63,7 +74,12 @@ describe.skipIf(!databaseUrl)(
             },
             organizations: {
               directory: new MemoryOrganizationDirectory(),
-              onboarding: organizationRepository,
+              onboarding: new MemoryOrganizationOnboardingUnitOfWork(
+                () => {},
+                async () => {},
+                async () => {},
+                new MemoryAuditEventRepository(),
+              ),
               repository: organizationRepository,
             },
           }),

@@ -15,6 +15,8 @@ import { StripeCheckoutGateway } from './billing/checkout.js';
 import { SubscriptionCapabilityPolicy } from './billing/subscription-capability-policy.js';
 import { StripeBillingPortalGateway } from './billing/portal.js';
 import { PrismaAuditEventRepository } from './audit-events/prisma-audit-event.repository.js';
+import { PrismaFileRepository } from './files/prisma-file.repository.js';
+import { RailwayFileStorage } from './files/railway-file-storage.js';
 import { PrismaApiKeyRepository } from './api-keys/prisma-api-key.repository.js';
 
 async function bootstrap() {
@@ -46,6 +48,10 @@ async function bootstrap() {
       auditEvents: { repository: auditEventRepository },
       authentication: config.authentication,
       capabilityPolicy: new SubscriptionCapabilityPolicy(billingRepository),
+      files: {
+        repository: new PrismaFileRepository(config.databaseUrl.toString()),
+        storage: new RailwayFileStorage(config.bucket),
+      },
       billing: {
         checkoutGateway: new StripeCheckoutGateway(config.stripeSecretKey),
         checkoutReturnOrigins: config.authentication.authorizedParties,

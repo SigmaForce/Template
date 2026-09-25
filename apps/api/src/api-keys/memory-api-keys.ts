@@ -12,6 +12,14 @@ export class MemoryApiKeyRepository extends ApiKeyRepository {
     return this.apiKeys.get(id);
   }
 
+  async list(organizationId: string) {
+    return [...this.apiKeys.values()]
+      .filter((apiKey) => apiKey.organizationId === organizationId)
+      .sort(
+        (left, right) => right.createdAt.getTime() - left.createdAt.getTime(),
+      );
+  }
+
   async revoke(input: { id: string; organizationId: string; revokedAt: Date }) {
     const apiKey = this.apiKeys.get(input.id);
     if (

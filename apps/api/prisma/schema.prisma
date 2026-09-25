@@ -58,6 +58,7 @@ model Organization {
   subscription       Subscription?
   auditEvents        AuditEvent[]
   apiKeys            ApiKey[]
+  files              File[]
 
   @@map("organizations")
 }
@@ -65,13 +66,13 @@ model Organization {
 model AuditEvent {
   id             String   @id @default(uuid()) @db.Uuid
   organizationId String   @map("organization_id") @db.VarChar(64)
-  actorType       String   @map("actor_type") @db.VarChar(16)
-  actorId         String   @map("actor_id") @db.VarChar(64)
-  action          String   @db.VarChar(100)
-  targetType      String   @map("target_type") @db.VarChar(64)
-  targetId        String   @map("target_id") @db.VarChar(255)
-  context         Json     @default("{}")
-  occurredAt      DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  actorType      String   @map("actor_type") @db.VarChar(16)
+  actorId        String   @map("actor_id") @db.VarChar(64)
+  action         String   @db.VarChar(100)
+  targetType     String   @map("target_type") @db.VarChar(64)
+  targetId       String   @map("target_id") @db.VarChar(255)
+  context        Json     @default("{}")
+  occurredAt     DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
@@ -94,6 +95,22 @@ model ApiKey {
 
   @@index([organizationId, createdAt(sort: Desc), id(sort: Desc)])
   @@map("api_keys")
+}
+
+model File {
+  id              String   @id @default(uuid()) @db.Uuid
+  organizationId  String   @map("organization_id") @db.VarChar(64)
+  name            String   @db.VarChar(255)
+  contentType     String   @map("content_type") @db.VarChar(100)
+  size            Int
+  objectKey       String   @unique @map("object_key") @db.VarChar(255)
+  createdByUserId String   @map("created_by_user_id") @db.VarChar(64)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt(sort: Desc), id(sort: Desc)])
+  @@map("files")
 }
 
 model BillingInboxEvent {

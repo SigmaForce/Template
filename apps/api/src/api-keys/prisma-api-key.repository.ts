@@ -26,6 +26,15 @@ export class PrismaApiKeyRepository
     return apiKey ? this.fromRecord(apiKey) : undefined;
   }
 
+  async list(organizationId: string) {
+    return (
+      await this.client.apiKey.findMany({
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        where: { organizationId },
+      })
+    ).map((apiKey) => this.fromRecord(apiKey));
+  }
+
   async revoke(input: { id: string; organizationId: string; revokedAt: Date }) {
     const result = await this.client.apiKey.updateMany({
       data: { revokedAt: input.revokedAt },

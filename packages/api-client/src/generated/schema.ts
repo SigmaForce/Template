@@ -170,7 +170,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: operations["listOrganizationApiKeys"];
         put?: never;
         post: operations["createOrganizationApiKey"];
         delete?: never;
@@ -299,6 +299,54 @@ export interface paths {
             cookie?: never;
         };
         get: operations["exportOrganizationData"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/organizations/{organizationId}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listOrganizationFiles"];
+        put?: never;
+        post: operations["uploadOrganizationFile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/organizations/{organizationId}/files/{fileId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteOrganizationFile"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/organizations/{organizationId}/files/{fileId}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["downloadOrganizationFile"];
         put?: never;
         post?: never;
         delete?: never;
@@ -440,7 +488,7 @@ export interface components {
         ActiveOrganizationDto: {
             /** @example org_2abc */
             id: string;
-            permissions: ("organization:audit-events:read" | "organization:api-keys:manage" | "organization:settings:read" | "organization:settings:update" | "organization:memberships:manage" | "organization:memberships:leave" | "billing:manage" | "organization:ownership:manage" | "organization:delete" | "organization:data:export")[];
+            permissions: ("organization:audit-events:read" | "organization:api-keys:manage" | "organization:files:manage" | "organization:files:read" | "organization:settings:read" | "organization:settings:update" | "organization:memberships:manage" | "organization:memberships:leave" | "billing:manage" | "organization:ownership:manage" | "organization:delete" | "organization:data:export")[];
             /** @enum {string} */
             role: "admin" | "member" | "owner";
             /** @example northstar-labs */
@@ -455,6 +503,9 @@ export interface components {
             revokedAt?: string | null;
             scopes: ("organization:audit-events:read" | "organization:settings:read")[];
         };
+        ApiKeyListDto: {
+            items: components["schemas"]["ApiKeyDto"][];
+        };
         AuditActorDto: {
             /** @example user_2abc */
             id: string;
@@ -466,7 +517,7 @@ export interface components {
              * @example organization.membership.update-requested
              * @enum {string}
              */
-            action: "billing.checkout-session.create-requested" | "billing.portal-session.create-requested" | "billing.subscription.replay-requested" | "organization.api-key.create-requested" | "organization.api-key.revoke-requested" | "organization.api-key.rotate-requested" | "organization.created" | "organization.data-export.requested" | "organization.invitation.accept-requested" | "organization.invitation.create-requested" | "organization.invitation.resend-requested" | "organization.invitation.revoke-requested" | "organization.membership.remove-requested" | "organization.membership.update-requested" | "organization.settings.update-requested";
+            action: "billing.checkout-session.create-requested" | "billing.portal-session.create-requested" | "billing.subscription.replay-requested" | "organization.api-key.create-requested" | "organization.api-key.revoke-requested" | "organization.api-key.rotate-requested" | "organization.created" | "organization.data-export.requested" | "organization.file.delete-requested" | "organization.file.download-requested" | "organization.file.upload-requested" | "organization.invitation.accept-requested" | "organization.invitation.create-requested" | "organization.invitation.resend-requested" | "organization.invitation.revoke-requested" | "organization.membership.remove-requested" | "organization.membership.update-requested" | "organization.settings.update-requested";
             actor: components["schemas"]["AuditActorDto"];
             context: {
                 [key: string]: unknown;
@@ -488,7 +539,7 @@ export interface components {
              * @example membership
              * @enum {string}
              */
-            type: "api-key" | "invitation" | "membership" | "organization" | "subscription";
+            type: "api-key" | "file" | "invitation" | "membership" | "organization" | "subscription";
         };
         AuthenticatedUserDto: {
             /** @example user_2RfWKJREkjKbHZy0Wqa5qrHeAnb */
@@ -597,6 +648,27 @@ export interface components {
             name: string;
             /** @enum {string} */
             status: "up" | "down" | "configured" | "disabled" | "misconfigured";
+        };
+        FileDownloadDto: {
+            /** @example 2026-09-24T12:01:00.000Z */
+            expiresAt: string;
+            /** @example https://bucket.example/file?signature=short-lived */
+            url: string;
+        };
+        FileDto: {
+            /** @example application/pdf */
+            contentType: string;
+            /** @example 2026-09-24T12:00:00.000Z */
+            createdAt: string;
+            /** @example d4387e49-1d96-4a25-885c-5609ea8d19bb */
+            id: string;
+            /** @example quarterly-report.pdf */
+            name: string;
+            /** @example 2048 */
+            size: number;
+        };
+        FileListDto: {
+            items: components["schemas"]["FileDto"][];
         };
         IssuedApiKeyDto: {
             apiKey: components["schemas"]["ApiKeyDto"];
@@ -1100,6 +1172,27 @@ export interface operations {
             };
         };
     };
+    listOrganizationApiKeys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKeyListDto"];
+                };
+            };
+        };
+    };
     createOrganizationApiKey: {
         parameters: {
             query?: never;
@@ -1391,6 +1484,97 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
+    listOrganizationFiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileListDto"];
+                };
+            };
+        };
+    };
+    uploadOrganizationFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileDto"];
+                };
+            };
+        };
+    };
+    deleteOrganizationFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+                fileId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    downloadOrganizationFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+                fileId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileDownloadDto"];
                 };
             };
         };

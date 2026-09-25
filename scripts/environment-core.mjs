@@ -309,6 +309,37 @@ function parseStripeSecretKey(environment, errors) {
   return value;
 }
 
+function parseBucket(environment, errors) {
+  const accessKeyId = environment.ACCESS_KEY_ID?.trim();
+  const bucket = environment.BUCKET?.trim();
+  const endpoint = parseUrl('ENDPOINT', environment.ENDPOINT, ['http:', 'https:'], errors);
+  const region = environment.REGION?.trim();
+  const secretAccessKey = environment.SECRET_ACCESS_KEY?.trim();
+  const urlStyle = parseChoice(
+    'S3_URL_STYLE',
+    environment.S3_URL_STYLE,
+    ['path', 'virtual'],
+    'virtual',
+    errors,
+  );
+  for (const [name, value] of [
+    ['ACCESS_KEY_ID', accessKeyId],
+    ['BUCKET', bucket],
+    ['REGION', region],
+    ['SECRET_ACCESS_KEY', secretAccessKey],
+  ]) {
+    if (!value) errors.push(`${name} is required`);
+  }
+  return {
+    accessKeyId,
+    bucket,
+    endpoint,
+    forcePathStyle: urlStyle === 'path',
+    region,
+    secretAccessKey,
+  };
+}
+
 function parsePostHog(environment) {
   const key = environment.POSTHOG_KEY;
   const host = environment.POSTHOG_HOST;
@@ -411,6 +442,7 @@ export function parseApiEnvironment(environment) {
   }
 
   const authentication = parseAuthentication(environment, errors);
+  const bucket = parseBucket(environment, errors);
   const stripePlanMappings = parseStripePlanMappings(environment, errors);
   const stripePortalConfigurationId = parseStripeId(
     environment,
@@ -428,6 +460,7 @@ export function parseApiEnvironment(environment) {
   return {
     ...runtime,
     authentication,
+    bucket,
     stripePlanMappings,
     stripePortalConfigurationId,
     stripeSecretKey,

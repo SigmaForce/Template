@@ -9,8 +9,8 @@ import {
   getSchemaPath,
 } from '@nestjs/swagger';
 import {
-  CurrentUser,
-  type AuthenticatedUser,
+  CurrentPrincipal,
+  type AuthenticatedPrincipal,
 } from '../authentication/authentication.js';
 import { ProblemDetailsDto } from '../http/problem-details.js';
 import { AuditEventListDto } from './audit-event.dto.js';
@@ -36,7 +36,7 @@ export class AuditEventsController {
     },
   })
   list(
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentPrincipal() user: AuthenticatedPrincipal,
     @Param('organizationId') organizationId: string,
     @Query() query: ListAuditEventsQuery,
   ) {

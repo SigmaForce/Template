@@ -27,6 +27,11 @@ import { SubscriptionCapabilityPolicy } from './../src/billing/subscription-capa
 import type { CapabilityPolicy } from './../src/authorization/authorization.js';
 import { MemoryBillingPortalGateway } from './../src/billing/portal.js';
 import { MemoryAuditEventRepository } from './../src/audit-events/memory-audit-events.js';
+import {
+  MemoryFileRepository,
+  MemoryFileStorage,
+} from './../src/files/memory-files.js';
+import { MemoryApiKeyRepository } from './../src/api-keys/memory-api-keys.js';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication;
@@ -43,10 +48,13 @@ describe('AppController (e2e)', () => {
     capabilityPolicy?: CapabilityPolicy,
     portalGateway = new MemoryBillingPortalGateway(),
     auditEvents = new MemoryAuditEventRepository(),
+    fileRepository = new MemoryFileRepository(),
+    fileStorage = new MemoryFileStorage(),
   ) {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
         AppModule.register({
+          apiKeys: { repository: new MemoryApiKeyRepository() },
           capabilityPolicy,
           authentication: {
             authorizedParties: ['http://localhost:3000'],
@@ -72,6 +80,7 @@ describe('AppController (e2e)', () => {
             stripeWebhookSecret: 'whsec_testWebhookSecret',
           },
           auditEvents: { repository: auditEvents },
+          files: { repository: fileRepository, storage: fileStorage },
           organizations: {
             directory,
             onboarding: new MemoryOrganizationOnboardingUnitOfWork(
@@ -1650,6 +1659,7 @@ describe('AppController (e2e)', () => {
         .expect(200);
       expect(active.body.permissions).toEqual([
         'organization:audit-events:read',
+        'organization:files:read',
         'organization:settings:read',
         'organization:memberships:manage',
         'organization:memberships:leave',
@@ -2098,6 +2108,144 @@ describe('AppController (e2e)', () => {
         .set('authorization', owner)
         .expect(200);
       expect(settings.body.name).toBe(organization.name);
+    });
+  });
+
+  describe('Files', () => {
+    const organization = {
+      id: 'org_files',
+      name: 'File Labs',
+      slug: 'file-labs',
+      locale: 'en-US',
+      timeZone: 'UTC',
+      state: 'active' as const,
+    };
+    const otherOrganization = {
+      ...organization,
+      id: 'org_other_files',
+      slug: 'other-file-labs',
+    };
+    const tokenFor = (activeOrganization: typeof organization) =>
+      `Bearer ${createSessionToken({
+        organization: activeOrganization,
+        organizationRole: 'owner',
+        userId: 'user_file_owner',
+      })}`;
+
+    it('keeps the File lifecycle inside the Active Organization', async () => {
+      const files = new MemoryFileRepository();
+      const storage = new MemoryFileStorage();
+      const auditEvents = new MemoryAuditEventRepository();
+      await app.close();
+      app = await createApp(
+        [],
+        undefined,
+        new MemoryOrganizationRepository({
+          organizations: [organization, otherOrganization],
+          memberships: [organization, otherOrganization].map(({ id }) => ({
+            organizationId: id,
+            role: 'owner' as const,
+            status: 'active' as const,
+            userId: 'user_file_owner',
+          })),
+        }),
+        new MemoryOrganizationDirectory(),
+        undefined,
+        new MemoryBillingRepository(),
+        new MemoryBillingProjectionQueue(),
+        new MemoryBillingCheckoutGateway(),
+        undefined,
+        new MemoryBillingPortalGateway(),
+        auditEvents,
+        files,
+        storage,
+      );
+
+      await request(app.getHttpServer())
+        .post(`/v1/organizations/${organization.id}/files`)
+        .set('authorization', tokenFor(organization))
+        .attach('file', Buffer.from('not a PDF'), {
+          contentType: 'application/pdf',
+          filename: ' report.pdf',
+        })
+        .expect(400);
+      await request(app.getHttpServer())
+        .post(`/v1/organizations/${organization.id}/files`)
+        .set('authorization', tokenFor(organization))
+        .attach(
+          'file',
+          Buffer.concat([Buffer.from('%PDF-'), Buffer.alloc(10 * 1024 * 1024)]),
+          { contentType: 'application/pdf', filename: 'too-large.pdf' },
+        )
+        .expect(413);
+      expect(storage.accesses).toHaveLength(0);
+
+      const upload = await request(app.getHttpServer())
+        .post(`/v1/organizations/${organization.id}/files`)
+        .set('authorization', tokenFor(organization))
+        .attach('file', Buffer.from('%PDF-1.7\nfile contents'), {
+          contentType: 'application/pdf',
+          filename: 'quarterly-report.pdf',
+        })
+        .expect(201);
+      expect(upload.body).toMatchObject({
+        contentType: 'application/pdf',
+        name: 'quarterly-report.pdf',
+        size: 22,
+      });
+
+      const list = await request(app.getHttpServer())
+        .get(`/v1/organizations/${organization.id}/files`)
+        .set('authorization', tokenFor(organization))
+        .expect(200);
+      expect(list.body.items).toEqual([
+        expect.objectContaining({ id: upload.body.id }),
+      ]);
+
+      const storageAccesses = storage.accesses.length;
+      await request(app.getHttpServer())
+        .get(
+          `/v1/organizations/${otherOrganization.id}/files/${upload.body.id}/download`,
+        )
+        .set('authorization', tokenFor(otherOrganization))
+        .expect(404);
+      expect(storage.accesses).toHaveLength(storageAccesses);
+
+      const download = await request(app.getHttpServer())
+        .get(
+          `/v1/organizations/${organization.id}/files/${upload.body.id}/download`,
+        )
+        .set('authorization', tokenFor(organization))
+        .expect(200);
+      expect(download.body).toMatchObject({
+        url: expect.stringMatching(/^https:\/\/files\.test\//),
+      });
+      expect(
+        new Date(download.body.expiresAt).getTime() - Date.now(),
+      ).toBeLessThanOrEqual(60_000);
+
+      await request(app.getHttpServer())
+        .delete(`/v1/organizations/${organization.id}/files/${upload.body.id}`)
+        .set('authorization', tokenFor(organization))
+        .expect(204);
+      await request(app.getHttpServer())
+        .get(`/v1/organizations/${organization.id}/files`)
+        .set('authorization', tokenFor(organization))
+        .expect(200)
+        .expect({ items: [] });
+
+      expect(
+        (
+          await auditEvents.list({
+            limit: 10,
+            organizationId: organization.id,
+          })
+        ).map(({ action }) => action),
+      ).toEqual([
+        'organization.file.delete-requested',
+        'organization.file.download-requested',
+        'organization.file.upload-requested',
+      ]);
     });
   });
 

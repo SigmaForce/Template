@@ -25,6 +25,14 @@ export interface ApiEnvironment extends RuntimeEnvironment {
     jwtKey?: string;
     secretKey?: string;
   };
+  bucket: {
+    accessKeyId: string;
+    bucket: string;
+    endpoint: URL;
+    forcePathStyle: boolean;
+    region: string;
+    secretAccessKey: string;
+  };
   stripePlanMappings: Record<
     "launch" | "scale",
     {
