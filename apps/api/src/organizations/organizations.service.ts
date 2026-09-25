@@ -20,7 +20,7 @@ import type { UpdateOrganizationSettingsDto } from './update-organization-settin
 import type { CreateInvitationDto } from './create-invitation.dto.js';
 import type { OrganizationInvitation } from './organization.js';
 import { AuditEventsService } from '../audit-events/audit-events.service.js';
-import { AuditEventRepository } from '../audit-events/audit-event.js';
+import { OrganizationOnboardingUnitOfWork } from '../application/organization-onboarding.js';
 
 @Injectable()
 export class OrganizationsService {
@@ -30,7 +30,7 @@ export class OrganizationsService {
     private readonly authorization: AuthorizationService,
     private readonly seats: SeatAllowancePolicy,
     private readonly auditEvents: AuditEventsService,
-    private readonly auditEventRepository: AuditEventRepository,
+    private readonly onboarding: OrganizationOnboardingUnitOfWork,
   ) {}
 
   async createFirstOrganization(
@@ -87,24 +87,21 @@ export class OrganizationsService {
     };
 
     try {
-      await this.repository.completeOnboarding(
-        {
-          auditEvent: {
-            action: 'organization.created',
-            actor: { id: user.id, type: 'user' },
-            context: {},
-            id: randomUUID(),
-            occurredAt: new Date(),
-            organizationId: result.organization.id,
-            target: { id: result.organization.id, type: 'organization' },
-          },
-          idempotencyKey,
-          organization: result.organization,
-          requestHash,
-          userId: user.id,
+      await this.onboarding.complete({
+        auditEvent: {
+          action: 'organization.created',
+          actor: { id: user.id, type: 'user' },
+          context: {},
+          id: randomUUID(),
+          occurredAt: new Date(),
+          organizationId: result.organization.id,
+          target: { id: result.organization.id, type: 'organization' },
         },
-        this.auditEventRepository,
-      );
+        idempotencyKey,
+        organization: result.organization,
+        requestHash,
+        userId: user.id,
+      });
     } catch (error) {
       await Promise.allSettled([
         this.directory.delete(directoryOrganization.id),

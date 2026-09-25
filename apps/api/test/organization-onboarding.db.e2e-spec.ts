@@ -61,6 +61,7 @@ describe.skipIf(!databaseUrl)('Organization onboarding with PostgreSQL', () => {
           },
           organizations: {
             directory,
+            onboarding: repository,
             repository,
           },
         }),

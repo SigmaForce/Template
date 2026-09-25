@@ -6,6 +6,7 @@ import {
   MemoryOrganizationDirectory,
   MemoryOrganizationRepository,
 } from './organizations/memory-organizations.js';
+import { MemoryOrganizationOnboardingUnitOfWork } from './application/organization-onboarding.js';
 import {
   MemoryBillingProjectionQueue,
   MemoryBillingRepository,
@@ -15,6 +16,8 @@ import { MemoryBillingPortalGateway } from './billing/portal.js';
 import { MemoryAuditEventRepository } from './audit-events/memory-audit-events.js';
 
 export async function buildContractDocument() {
+  const organizationRepository = new MemoryOrganizationRepository();
+  const auditEventRepository = new MemoryAuditEventRepository();
   const app = await NestFactory.create(
     AppModule.register({
       auditEvents: { repository: new MemoryAuditEventRepository() },
@@ -36,7 +39,11 @@ export async function buildContractDocument() {
       },
       organizations: {
         directory: new MemoryOrganizationDirectory(),
-        repository: new MemoryOrganizationRepository(),
+        onboarding: new MemoryOrganizationOnboardingUnitOfWork(
+          (record) => organizationRepository.completeOnboarding(record),
+          auditEventRepository,
+        ),
+        repository: organizationRepository,
       },
     }),
     { logger: false, rawBody: true },

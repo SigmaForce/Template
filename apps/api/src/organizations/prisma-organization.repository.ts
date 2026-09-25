@@ -16,16 +16,18 @@ import {
   MembershipStateConflictError,
   SeatAllowanceExceededError,
   OrganizationSlugConflictError,
-  type CompleteFirstOrganizationRecord,
   type OrganizationOnboardingClaim,
   type OrganizationOnboardingResult,
   type OrganizationInvitation,
 } from './organization.js';
-import type { AuditEventRepository } from '../audit-events/audit-event.js';
+import {
+  OrganizationOnboardingUnitOfWork,
+  type CompleteFirstOrganizationRecord,
+} from '../application/organization-onboarding.js';
 
 export class PrismaOrganizationRepository
   extends OrganizationRepository
-  implements OnModuleDestroy
+  implements OrganizationOnboardingUnitOfWork, OnModuleDestroy
 {
   private readonly client: PrismaClient;
 
@@ -374,10 +376,7 @@ export class PrismaOrganizationRepository
     }
   }
 
-  async completeOnboarding(
-    record: CompleteFirstOrganizationRecord,
-    _auditEvents: AuditEventRepository,
-  ) {
+  async complete(record: CompleteFirstOrganizationRecord) {
     try {
       await this.client.$transaction(async (transaction) => {
         await transaction.organization.create({

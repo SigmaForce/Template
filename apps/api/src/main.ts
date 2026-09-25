@@ -34,6 +34,9 @@ async function bootstrap() {
   const auditEventRepository = new PrismaAuditEventRepository(
     config.databaseUrl.toString(),
   );
+  const organizationRepository = new PrismaOrganizationRepository(
+    config.databaseUrl.toString(),
+  );
   const app = await NestFactory.create(
     AppModule.register({
       auditEvents: { repository: auditEventRepository },
@@ -55,9 +58,8 @@ async function bootstrap() {
         directory: new ClerkOrganizationDirectory(
           config.authentication.secretKey,
         ),
-        repository: new PrismaOrganizationRepository(
-          config.databaseUrl.toString(),
-        ),
+        onboarding: organizationRepository,
+        repository: organizationRepository,
       },
     }),
     { logger, rawBody: true },

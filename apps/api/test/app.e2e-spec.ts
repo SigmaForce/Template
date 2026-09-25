@@ -12,6 +12,7 @@ import {
   MemoryOrganizationRepository,
   type MemoryOrganizationRepositorySeed,
 } from './../src/organizations/memory-organizations.js';
+import { MemoryOrganizationOnboardingUnitOfWork } from './../src/application/organization-onboarding.js';
 import {
   authenticationPublicKey,
   createSessionToken,
@@ -73,6 +74,10 @@ describe('AppController (e2e)', () => {
           auditEvents: { repository: auditEvents },
           organizations: {
             directory,
+            onboarding: new MemoryOrganizationOnboardingUnitOfWork(
+              (record) => repository.completeOnboarding(record),
+              auditEvents,
+            ),
             repository,
           },
         }),

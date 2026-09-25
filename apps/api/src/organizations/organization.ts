@@ -3,10 +3,6 @@ import {
   type OrganizationAccessState,
 } from '../authorization/authorization.js';
 import type { OrganizationRole } from '../authorization/permission.js';
-import type {
-  AuditEvent,
-  AuditEventRepository,
-} from '../audit-events/audit-event.js';
 
 export interface OrganizationProfile {
   billingContactEmail: string | null;
@@ -31,14 +27,6 @@ export interface MembershipRecord {
   organizationId: string;
   role: OrganizationRole;
   status: 'active' | 'removed' | 'suspended';
-  userId: string;
-}
-
-export interface CompleteFirstOrganizationRecord {
-  auditEvent: AuditEvent;
-  idempotencyKey: string;
-  organization: OrganizationProfile;
-  requestHash: string;
   userId: string;
 }
 
@@ -123,11 +111,6 @@ export abstract class OrganizationRepository extends AuthorizationRepository {
     requestHash: string;
     userId: string;
   }): Promise<OrganizationOnboardingClaim>;
-
-  abstract completeOnboarding(
-    record: CompleteFirstOrganizationRecord,
-    auditEvents: AuditEventRepository,
-  ): Promise<void>;
 
   abstract findOnboarding(
     userId: string,

@@ -6,13 +6,11 @@ import {
   LastOwnerRequiredError,
   MembershipStateConflictError,
   SeatAllowanceExceededError,
-  type CompleteFirstOrganizationRecord,
   type OrganizationOnboardingClaim,
   type OrganizationOnboardingResult,
   type OrganizationInvitation,
   type OrganizationRecord,
 } from './organization.js';
-import type { AuditEventRepository } from '../audit-events/audit-event.js';
 import type {
   MembershipAccess,
   MembershipIdentity,
@@ -284,15 +282,16 @@ export class MemoryOrganizationRepository extends OrganizationRepository {
     return true;
   }
 
-  async completeOnboarding(
-    record: CompleteFirstOrganizationRecord,
-    auditEvents: AuditEventRepository,
-  ) {
+  async completeOnboarding(record: {
+    idempotencyKey: string;
+    organization: Omit<OrganizationRecord, 'state'>;
+    requestHash: string;
+    userId: string;
+  }) {
     const slugOwner = this.organizationSlugs.get(record.organization.slug);
     if (slugOwner && slugOwner !== record.organization.id) {
       throw new OrganizationSlugConflictError();
     }
-    await auditEvents.append(record.auditEvent);
     const result = {
       organization: record.organization,
       membership: { role: 'owner' as const },

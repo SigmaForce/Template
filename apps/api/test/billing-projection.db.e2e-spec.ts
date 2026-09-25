@@ -63,6 +63,7 @@ describe.skipIf(!databaseUrl)(
             },
             organizations: {
               directory: new MemoryOrganizationDirectory(),
+              onboarding: organizationRepository,
               repository: organizationRepository,
             },
           }),

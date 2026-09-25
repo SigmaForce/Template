@@ -14,10 +14,12 @@ import type {
   CapabilityPolicy,
   OrganizationStatePolicy,
 } from '../authorization/authorization.js';
+import { OrganizationOnboardingUnitOfWork } from '../application/organization-onboarding.js';
 
 export interface OrganizationModuleOptions {
   directory: OrganizationDirectory;
   repository: OrganizationRepository;
+  onboarding: OrganizationOnboardingUnitOfWork;
   capabilityPolicy?: CapabilityPolicy;
   organizationStatePolicy: OrganizationStatePolicy;
   seatAllowancePolicy: SeatAllowancePolicy;
@@ -45,6 +47,10 @@ export class OrganizationsModule {
         OrganizationsService,
         { provide: OrganizationDirectory, useValue: options.directory },
         { provide: OrganizationRepository, useValue: options.repository },
+        {
+          provide: OrganizationOnboardingUnitOfWork,
+          useValue: options.onboarding,
+        },
         {
           provide: SeatAllowancePolicy,
           useValue: options.seatAllowancePolicy,
