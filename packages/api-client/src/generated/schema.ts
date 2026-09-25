@@ -488,7 +488,7 @@ export interface components {
         ActiveOrganizationDto: {
             /** @example org_2abc */
             id: string;
-            permissions: ("organization:audit-events:read" | "organization:api-keys:manage" | "organization:files:manage" | "organization:files:read" | "organization:settings:read" | "organization:settings:update" | "organization:memberships:manage" | "organization:memberships:leave" | "billing:manage" | "organization:ownership:manage" | "organization:delete" | "organization:data:export")[];
+            permissions: ("organization:audit-events:read" | "organization:api-keys:manage" | "organization:files:manage" | "organization:files:read" | "organization:webhooks:manage" | "organization:settings:read" | "organization:settings:update" | "organization:memberships:manage" | "organization:memberships:leave" | "billing:manage" | "organization:ownership:manage" | "organization:delete" | "organization:data:export")[];
             /** @enum {string} */
             role: "admin" | "member" | "owner";
             /** @example northstar-labs */
@@ -505,6 +505,7 @@ export interface components {
         };
         ApiKeyListDto: {
             items: components["schemas"]["ApiKeyDto"][];
+            pageInfo: components["schemas"]["PageInfoDto"];
         };
         AuditActorDto: {
             /** @example user_2abc */
@@ -1174,7 +1175,11 @@ export interface operations {
     };
     listOrganizationApiKeys: {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number;
+                /** @description Opaque cursor returned by the previous page. */
+                cursor?: string;
+            };
             header?: never;
             path: {
                 organizationId: string;

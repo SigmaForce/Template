@@ -6,6 +6,7 @@ import {
   HttpCode,
   Param,
   Post,
+  Query,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -25,6 +26,7 @@ import {
   IssuedApiKeyDto,
 } from './api-key.dto.js';
 import { ApiKeysService } from './api-keys.service.js';
+import { ListApiKeysQuery } from './list-api-keys.query.js';
 
 @ApiTags('api-keys')
 @ApiBearerAuth('clerk-session')
@@ -49,8 +51,9 @@ export class ApiKeysController {
   list(
     @CurrentUser() user: AuthenticatedUser,
     @Param('organizationId') organizationId: string,
+    @Query() query: ListApiKeysQuery,
   ) {
-    return this.apiKeys.list(user, organizationId);
+    return this.apiKeys.list(user, organizationId, query);
   }
 
   @Post(':apiKeyId/rotate')

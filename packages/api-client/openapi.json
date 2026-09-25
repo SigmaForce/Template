@@ -62,6 +62,7 @@
                 "organization:api-keys:manage",
                 "organization:files:manage",
                 "organization:files:read",
+                "organization:webhooks:manage",
                 "organization:settings:read",
                 "organization:settings:update",
                 "organization:memberships:manage",
@@ -145,10 +146,14 @@
               "$ref": "#/components/schemas/ApiKeyDto"
             },
             "type": "array"
+          },
+          "pageInfo": {
+            "$ref": "#/components/schemas/PageInfoDto"
           }
         },
         "required": [
-          "items"
+          "items",
+          "pageInfo"
         ],
         "type": "object"
       },
@@ -1660,6 +1665,26 @@
             "in": "path",
             "name": "organizationId",
             "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque cursor returned by the previous page.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
             "schema": {
               "type": "string"
             }

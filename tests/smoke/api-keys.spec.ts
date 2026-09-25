@@ -15,7 +15,17 @@ authenticatedTest(
         revokedAt: null,
         scopes: ["organization:audit-events:read"],
       },
+      {
+        createdAt: now,
+        expiresAt: null,
+        id: "key_other",
+        name: "Other",
+        organizationId: "org_test",
+        revokedAt: null,
+        scopes: ["organization:settings:read"],
+      },
     ];
+    let failNextCreate = false;
     await page.route(
       /\/v1\/organizations\/[^/]+\/api-keys(?:\/.*)?$/,
       async (route) => {
@@ -28,7 +38,10 @@ authenticatedTest(
         if (request.method() === "GET") {
           await route.fulfill({
             contentType: "application/json",
-            body: JSON.stringify({ items: apiKeys }),
+            body: JSON.stringify({
+              items: apiKeys,
+              pageInfo: { hasNextPage: false, nextCursor: null },
+            }),
           });
           return;
         }
@@ -41,6 +54,12 @@ authenticatedTest(
         }
 
         const rotating = segments.at(-1) === "rotate";
+        if (!rotating && failNextCreate) {
+          failNextCreate = false;
+          await new Promise((resolve) => setTimeout(resolve, 250));
+          await route.fulfill({ status: 500 });
+          return;
+        }
         const apiKey = {
           createdAt: now,
           expiresAt: null,
@@ -75,6 +94,10 @@ authenticatedTest(
     await expect(card.getByTestId("api-key-plaintext")).toHaveText(
       "sak_created-once",
     );
+    await card.getByRole("button", { name: "Revoke Other" }).click();
+    await expect(card.getByTestId("api-key-plaintext")).toHaveText(
+      "sak_created-once",
+    );
     await card.getByRole("button", { name: "Dismiss secret" }).click();
     await expect(card).not.toContainText("sak_created-once");
 
@@ -85,5 +108,12 @@ authenticatedTest(
     await card.getByRole("button", { name: "Revoke Existing" }).click();
     await expect(card).not.toContainText("sak_rotated-once");
     await expect(card).toContainText("Revoked");
+
+    await card.getByLabel("Name").fill("Failure");
+    failNextCreate = true;
+    const createButton = card.getByRole("button", { name: "Create API Key" });
+    await createButton.click();
+    await expect(createButton).toBeDisabled();
+    await expect(card).toContainText("API Key could not be created.");
   },
 );

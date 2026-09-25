@@ -8,6 +8,7 @@ import {
   Length,
 } from 'class-validator';
 import { Permission, type PermissionId } from '../authorization/permission.js';
+import { PageInfoDto } from '../http/page-info.dto.js';
 
 // ponytail: read-only machine scopes; add mutations with API-Key audit actors.
 export const apiKeyScopes = [
@@ -63,4 +64,7 @@ export class IssuedApiKeyDto {
 export class ApiKeyListDto {
   @ApiProperty({ type: [ApiKeyDto] })
   items!: ApiKeyDto[];
+
+  @ApiProperty({ type: PageInfoDto })
+  pageInfo!: PageInfoDto;
 }

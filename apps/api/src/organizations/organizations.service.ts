@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
-import type { AuthenticatedUser } from '../authentication/authentication.js';
+import type {
+  AuthenticatedPrincipal,
+  AuthenticatedUser,
+} from '../authentication/authentication.js';
 import type { CreateOrganizationDto } from './create-organization.dto.js';
 import { PublicProblemException } from '../http/problem-details.js';
 import {
@@ -525,7 +528,7 @@ export class OrganizationsService {
     return updated;
   }
 
-  async getSettings(user: AuthenticatedUser, organizationId: string) {
+  async getSettings(user: AuthenticatedPrincipal, organizationId: string) {
     const scope = await this.authorization.authorize({
       user,
       targetOrganizationId: organizationId,

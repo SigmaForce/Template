@@ -7,8 +7,10 @@ import { Permission } from '../authorization/permission.js';
 import { PublicProblemException } from '../http/problem-details.js';
 import { ApiKeyRepository, type OrganizationApiKey } from './api-key.js';
 import type { CreateApiKeyDto } from './api-key.dto.js';
+import type { ListApiKeysQuery } from './list-api-keys.query.js';
 
 const rotationOverlapMs = 5 * 60_000;
+const cursorScope = 'organization-api-keys';
 
 @Injectable()
 export class ApiKeysService {
@@ -46,16 +48,36 @@ export class ApiKeysService {
     };
   }
 
-  async list(user: AuthenticatedUser, organizationId: string) {
+  async list(
+    user: AuthenticatedUser,
+    organizationId: string,
+    query: ListApiKeysQuery,
+  ) {
     const scope = await this.authorization.authorize({
       permission: Permission.organizationApiKeysManage,
       targetOrganizationId: organizationId,
       user,
     });
+    const before = query.cursor
+      ? this.decodeCursor(query.cursor, scope.organizationId)
+      : undefined;
+    const apiKeys = await this.repository.list({
+      before,
+      limit: query.limit + 1,
+      organizationId: scope.organizationId,
+    });
+    const hasNextPage = apiKeys.length > query.limit;
+    const page = apiKeys.slice(0, query.limit);
+    const lastApiKey = page.at(-1);
     return {
-      items: (await this.repository.list(scope.organizationId)).map((apiKey) =>
-        this.toDto(apiKey),
-      ),
+      items: page.map((apiKey) => this.toDto(apiKey)),
+      pageInfo: {
+        hasNextPage,
+        nextCursor:
+          hasNextPage && lastApiKey
+            ? this.encodeCursor(lastApiKey, scope.organizationId)
+            : null,
+      },
     };
   }
 
@@ -69,7 +91,7 @@ export class ApiKeysService {
       targetOrganizationId: organizationId,
       user,
     });
-    const current = await this.repository.find(apiKeyId);
+    const current = await this.repository.find(apiKeyId, scope.organizationId);
     if (
       !current ||
       current.organizationId !== scope.organizationId ||
@@ -117,7 +139,7 @@ export class ApiKeysService {
       targetOrganizationId: organizationId,
       user,
     });
-    const apiKey = await this.repository.find(apiKeyId);
+    const apiKey = await this.repository.find(apiKeyId, scope.organizationId);
     if (
       !apiKey ||
       apiKey.organizationId !== scope.organizationId ||
@@ -164,6 +186,54 @@ export class ApiKeysService {
       } satisfies OrganizationApiKey,
       plaintext,
     };
+  }
+
+  private encodeCursor(apiKey: OrganizationApiKey, organizationId: string) {
+    return Buffer.from(
+      JSON.stringify({
+        createdAt: apiKey.createdAt.toISOString(),
+        id: apiKey.id,
+        organizationId,
+        scope: cursorScope,
+        version: 1,
+      }),
+    ).toString('base64url');
+  }
+
+  private decodeCursor(cursor: string, organizationId: string) {
+    try {
+      const payload: unknown = JSON.parse(
+        Buffer.from(cursor, 'base64url').toString('utf8'),
+      );
+      if (
+        typeof payload !== 'object' ||
+        payload === null ||
+        !('version' in payload) ||
+        payload.version !== 1 ||
+        !('scope' in payload) ||
+        payload.scope !== cursorScope ||
+        !('organizationId' in payload) ||
+        payload.organizationId !== organizationId ||
+        !('id' in payload) ||
+        typeof payload.id !== 'string' ||
+        !('createdAt' in payload) ||
+        typeof payload.createdAt !== 'string'
+      ) {
+        throw new Error('Invalid API Key cursor.');
+      }
+      const createdAt = new Date(payload.createdAt);
+      if (Number.isNaN(createdAt.getTime())) {
+        throw new Error('Invalid API Key cursor time.');
+      }
+      return { createdAt, id: payload.id };
+    } catch {
+      throw PublicProblemException.validation([
+        {
+          detail: 'cursor is invalid for the requested API Key collection',
+          pointer: '#/query/cursor',
+        },
+      ]);
+    }
   }
 
   private toDto(apiKey: OrganizationApiKey) {

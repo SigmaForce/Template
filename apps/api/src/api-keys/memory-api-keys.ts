@@ -8,16 +8,33 @@ export class MemoryApiKeyRepository extends ApiKeyRepository {
     return apiKey;
   }
 
-  async find(id: string) {
-    return this.apiKeys.get(id);
+  async find(id: string, organizationId?: string) {
+    const apiKey = this.apiKeys.get(id);
+    return !organizationId || apiKey?.organizationId === organizationId
+      ? apiKey
+      : undefined;
   }
 
-  async list(organizationId: string) {
+  async list(input: {
+    before?: Pick<OrganizationApiKey, 'createdAt' | 'id'>;
+    limit: number;
+    organizationId: string;
+  }) {
     return [...this.apiKeys.values()]
-      .filter((apiKey) => apiKey.organizationId === organizationId)
+      .filter((apiKey) => apiKey.organizationId === input.organizationId)
       .sort(
-        (left, right) => right.createdAt.getTime() - left.createdAt.getTime(),
-      );
+        (left, right) =>
+          right.createdAt.getTime() - left.createdAt.getTime() ||
+          (right.id < left.id ? -1 : right.id > left.id ? 1 : 0),
+      )
+      .filter(
+        (apiKey) =>
+          !input.before ||
+          apiKey.createdAt < input.before.createdAt ||
+          (apiKey.createdAt.getTime() === input.before.createdAt.getTime() &&
+            apiKey.id < input.before.id),
+      )
+      .slice(0, input.limit);
   }
 
   async revoke(input: { id: string; organizationId: string; revokedAt: Date }) {

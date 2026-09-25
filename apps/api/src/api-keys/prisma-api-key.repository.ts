@@ -21,16 +21,34 @@ export class PrismaApiKeyRepository
     return this.fromRecord(await this.client.apiKey.create({ data: apiKey }));
   }
 
-  async find(id: string) {
-    const apiKey = await this.client.apiKey.findUnique({ where: { id } });
+  async find(id: string, organizationId?: string) {
+    const apiKey = await this.client.apiKey.findFirst({
+      where: { id, organizationId },
+    });
     return apiKey ? this.fromRecord(apiKey) : undefined;
   }
 
-  async list(organizationId: string) {
+  async list(input: {
+    before?: Pick<OrganizationApiKey, 'createdAt' | 'id'>;
+    limit: number;
+    organizationId: string;
+  }) {
     return (
       await this.client.apiKey.findMany({
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        where: { organizationId },
+        take: input.limit,
+        where: {
+          organizationId: input.organizationId,
+          ...(input.before && {
+            OR: [
+              { createdAt: { lt: input.before.createdAt } },
+              {
+                createdAt: input.before.createdAt,
+                id: { lt: input.before.id },
+              },
+            ],
+          }),
+        },
       })
     ).map((apiKey) => this.fromRecord(apiKey));
   }

@@ -23,7 +23,9 @@ import {
   getSchemaPath,
 } from '@nestjs/swagger';
 import {
+  CurrentPrincipal,
   CurrentUser,
+  type AuthenticatedPrincipal,
   type AuthenticatedUser,
 } from '../authentication/authentication.js';
 import { CreateOrganizationDto } from './create-organization.dto.js';
@@ -176,7 +178,7 @@ export class OrganizationsController {
     },
   })
   getSettings(
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentPrincipal() user: AuthenticatedPrincipal,
     @Param('organizationId') organizationId: string,
   ) {
     return this.organizations.getSettings(user, organizationId);

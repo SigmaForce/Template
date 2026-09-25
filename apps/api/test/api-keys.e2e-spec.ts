@@ -137,12 +137,37 @@ describe('API Keys (e2e)', () => {
     const stored = [...apiKeys.apiKeys.values()][0];
     expect(stored).not.toHaveProperty('plaintext');
     expect(JSON.stringify(stored)).not.toContain(response.body.plaintext);
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(Date.now() + 1_000));
+    const later = await request(app.getHttpServer())
+      .post(`/v1/organizations/${organization.id}/api-keys`)
+      .set('authorization', owner)
+      .send({
+        name: 'Later reporting',
+        scopes: ['organization:audit-events:read'],
+      })
+      .expect(201);
+    vi.useRealTimers();
     const list = await request(app.getHttpServer())
       .get(`/v1/organizations/${organization.id}/api-keys`)
+      .query({ limit: 1 })
       .set('authorization', owner)
       .expect(200);
-    expect(list.body.items).toEqual([response.body.apiKey]);
+    expect(list.body).toMatchObject({
+      items: [later.body.apiKey],
+      pageInfo: { hasNextPage: true },
+    });
+    const nextPage = await request(app.getHttpServer())
+      .get(`/v1/organizations/${organization.id}/api-keys`)
+      .query({ cursor: list.body.pageInfo.nextCursor, limit: 1 })
+      .set('authorization', owner)
+      .expect(200);
+    expect(nextPage.body).toEqual({
+      items: [response.body.apiKey],
+      pageInfo: { hasNextPage: false, nextCursor: null },
+    });
     expect(JSON.stringify(list.body)).not.toContain(response.body.plaintext);
+    expect(JSON.stringify(list.body)).not.toContain(later.body.plaintext);
     expect(
       JSON.stringify(
         await auditEvents.list({
@@ -181,6 +206,10 @@ describe('API Keys (e2e)', () => {
       .get(`/v1/organizations/${organization.id}/audit-events`)
       .set('authorization', `Bearer ${settingsReader}`)
       .expect(403);
+    await request(app.getHttpServer())
+      .get(`/v1/organizations/${organization.id}/settings`)
+      .set('authorization', `Bearer ${settingsReader}`)
+      .expect(200);
     await request(app.getHttpServer())
       .get(`/v1/organizations/${otherOrganization.id}/audit-events`)
       .set('authorization', `Bearer ${auditReader}`)
@@ -241,6 +270,35 @@ describe('API Keys (e2e)', () => {
       'organization.api-key.rotate-requested',
       'organization.api-key.create-requested',
     ]);
+  });
+
+  it('allows security revocation while the Organization is read-only', async () => {
+    const apiKeys = new MemoryApiKeyRepository();
+    app = await createApp({ apiKeys });
+    const issued = await request(app.getHttpServer())
+      .post(`/v1/organizations/${organization.id}/api-keys`)
+      .set('authorization', owner)
+      .send({
+        name: 'Emergency revoke',
+        scopes: ['organization:audit-events:read'],
+      })
+      .expect(201);
+
+    await app.close();
+    app = await createApp({
+      apiKeys,
+      organizations: [{ ...organization, state: 'read-only' }],
+    });
+    await request(app.getHttpServer())
+      .delete(
+        `/v1/organizations/${organization.id}/api-keys/${issued.body.apiKey.id}`,
+      )
+      .set('authorization', owner)
+      .expect(204);
+    await request(app.getHttpServer())
+      .get(`/v1/organizations/${organization.id}/audit-events`)
+      .set('authorization', `Bearer ${issued.body.plaintext}`)
+      .expect(401);
   });
 
   it('rate limits each verified API Key', async () => {

@@ -18,7 +18,7 @@ async function fetchApiKeys(
     {
       cache: "no-store",
       headers: { authorization: `Bearer ${token}` },
-      params: { path: { organizationId } },
+      params: { path: { organizationId }, query: { limit: 100 } },
     },
   );
   if (!data) throw new Error("API Keys could not be loaded.");
@@ -41,7 +41,11 @@ export function OrganizationApiKeys({
   const [scope, setScope] = useState<ApiKeyScope>(
     "organization:audit-events:read",
   );
-  const [plaintext, setPlaintext] = useState<string>();
+  const [plaintext, setPlaintext] = useState<{
+    apiKeyId: string;
+    value: string;
+  }>();
+  const [pending, setPending] = useState(false);
   const [problem, setProblem] = useState<string>();
 
   async function authorizedClient() {
@@ -88,6 +92,7 @@ export function OrganizationApiKeys({
   async function create(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setProblem(undefined);
+    setPending(true);
     try {
       const { client, headers } = await authorizedClient();
       const { data } = await client.POST(
@@ -99,7 +104,7 @@ export function OrganizationApiKeys({
         },
       );
       if (!data) throw new Error("API Key could not be created.");
-      setPlaintext(data.plaintext);
+      setPlaintext({ apiKeyId: data.apiKey.id, value: data.plaintext });
       setName("");
       await load();
     } catch (error) {
@@ -108,11 +113,14 @@ export function OrganizationApiKeys({
           ? error.message
           : "API Key could not be created.",
       );
+    } finally {
+      setPending(false);
     }
   }
 
   async function rotate(apiKeyId: string) {
     setProblem(undefined);
+    setPending(true);
     try {
       const { client, headers } = await authorizedClient();
       const { data } = await client.POST(
@@ -123,7 +131,7 @@ export function OrganizationApiKeys({
         },
       );
       if (!data) throw new Error("API Key could not be rotated.");
-      setPlaintext(data.plaintext);
+      setPlaintext({ apiKeyId: data.apiKey.id, value: data.plaintext });
       await load();
     } catch (error) {
       setProblem(
@@ -131,11 +139,14 @@ export function OrganizationApiKeys({
           ? error.message
           : "API Key could not be rotated.",
       );
+    } finally {
+      setPending(false);
     }
   }
 
   async function revoke(apiKeyId: string) {
     setProblem(undefined);
+    setPending(true);
     try {
       const { client, headers } = await authorizedClient();
       const { response } = await client.DELETE(
@@ -143,7 +154,9 @@ export function OrganizationApiKeys({
         { headers, params: { path: { apiKeyId, organizationId } } },
       );
       if (!response.ok) throw new Error("API Key could not be revoked.");
-      setPlaintext(undefined);
+      setPlaintext((current) =>
+        current?.apiKeyId === apiKeyId ? undefined : current,
+      );
       await load();
     } catch (error) {
       setProblem(
@@ -151,6 +164,8 @@ export function OrganizationApiKeys({
           ? error.message
           : "API Key could not be revoked.",
       );
+    } finally {
+      setPending(false);
     }
   }
 
@@ -177,7 +192,7 @@ export function OrganizationApiKeys({
         <div className="mb-5 grid gap-3 rounded-control border border-border p-3">
           <strong>Copy this API Key now. It will not be shown again.</strong>
           <code className="break-all" data-testid="api-key-plaintext">
-            {plaintext}
+            {plaintext.value}
           </code>
           <Button
             onClick={() => setPlaintext(undefined)}
@@ -195,6 +210,7 @@ export function OrganizationApiKeys({
         <label>
           Name
           <input
+            disabled={pending}
             maxLength={100}
             minLength={1}
             onChange={(event) => setName(event.target.value)}
@@ -205,6 +221,7 @@ export function OrganizationApiKeys({
         <label>
           Scope
           <select
+            disabled={pending}
             onChange={(event) => setScope(event.target.value as ApiKeyScope)}
             value={scope}
           >
@@ -216,7 +233,9 @@ export function OrganizationApiKeys({
             </option>
           </select>
         </label>
-        <Button type="submit">Create API Key</Button>
+        <Button disabled={pending} type="submit">
+          Create API Key
+        </Button>
       </form>
       {loading ? (
         <p role="status">Loading API Keys...</p>
@@ -241,6 +260,7 @@ export function OrganizationApiKeys({
               {!apiKey.revokedAt && !apiKey.expiresAt ? (
                 <div className="flex gap-2">
                   <Button
+                    disabled={pending}
                     onClick={() => void rotate(apiKey.id)}
                     type="button"
                     variant="secondary"
@@ -248,6 +268,7 @@ export function OrganizationApiKeys({
                     Rotate {apiKey.name}
                   </Button>
                   <Button
+                    disabled={pending}
                     onClick={() => void revoke(apiKey.id)}
                     type="button"
                     variant="secondary"
