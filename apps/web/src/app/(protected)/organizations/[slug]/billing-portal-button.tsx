@@ -4,28 +4,41 @@ import { useAuth } from "@clerk/nextjs";
 import { createApiClient } from "@saas/api-client";
 import { Button } from "@saas/ui";
 import { useRef, useState } from "react";
+import type { SupportedLocale } from "../../../../organization-localization";
 
 type PortalState = "idle" | "pending" | "unavailable" | "unauthorized";
 
 export function BillingPortalButton({
   apiUrl,
   canManage,
+  locale,
   organizationId,
 }: {
   apiUrl: string;
   canManage: boolean;
+  locale: SupportedLocale;
   organizationId: string;
 }) {
+  const copy =
+    locale === "pt-BR"
+      ? {
+          loading: "Abrindo o portal do cliente",
+          manage: "Gerenciar assinatura",
+          restricted: "Somente um proprietário pode abrir o portal do cliente.",
+          unavailable: "O portal do cliente está indisponível no momento.",
+        }
+      : {
+          loading: "Opening Customer Portal",
+          manage: "Manage Subscription",
+          restricted: "Only an Owner can open Customer Portal.",
+          unavailable: "Customer Portal is currently unavailable.",
+        };
   const { getToken } = useAuth();
   const idempotencyKey = useRef<string | null>(null);
   const [state, setState] = useState<PortalState>("idle");
 
   if (!canManage || state === "unauthorized") {
-    return (
-      <p data-testid="billing-portal-unauthorized">
-        Only an Owner can open Customer Portal.
-      </p>
-    );
+    return <p data-testid="billing-portal-unauthorized">{copy.restricted}</p>;
   }
 
   async function openPortal() {
@@ -61,15 +74,15 @@ export function BillingPortalButton({
     <div className="mt-4">
       <Button
         loading={state === "pending"}
-        loadingLabel="Opening Customer Portal"
+        loadingLabel={copy.loading}
         onClick={() => void openPortal()}
         type="button"
       >
-        Manage Subscription
+        {copy.manage}
       </Button>
       {state === "unavailable" ? (
         <p className="mt-2 text-sm text-muted" role="status">
-          Customer Portal is currently unavailable.
+          {copy.unavailable}
         </p>
       ) : null}
     </div>

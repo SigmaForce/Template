@@ -6,8 +6,8 @@ Organization timezone semantics.
 
 **Blocked by:** Commerce 07 — Certify Commerce reconciliation and isolation.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Supported locale selection is explicit and has a safe fallback.
-- [ ] Accessible labels, errors, and product states are covered in the locale.
-- [ ] Tests prove locale presentation does not alter authorization, API contracts, or stored temporal values.
+- [x] Supported locale selection is explicit and has a safe fallback.
+- [x] Accessible labels, errors, and product states are covered in the locale.
+- [x] Tests prove locale presentation does not alter authorization, API contracts, or stored temporal values.

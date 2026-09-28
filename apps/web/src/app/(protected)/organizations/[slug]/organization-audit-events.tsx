@@ -4,16 +4,51 @@ import { useAuth } from "@clerk/nextjs";
 import { createApiClient, type components } from "@saas/api-client";
 import { Button, Card, ErrorState } from "@saas/ui";
 import { useEffect, useState } from "react";
+import {
+  formatInstant,
+  type SupportedLocale,
+} from "../../../../organization-localization";
 
 type AuditEvent = components["schemas"]["AuditEventDto"];
+
+const copy = {
+  "en-US": {
+    description:
+      "Immutable security-sensitive and administrative activity for this Organization.",
+    empty: "No Audit Events recorded yet.",
+    error: "Audit Events could not be loaded.",
+    errorTitle: "Audit Events unavailable",
+    loadMore: "Load more Audit Events",
+    loading: "Loading Audit Events…",
+    loadingMore: "Loading more Audit Events",
+    restricted: "Only an Owner can review sensitive administrative activity.",
+    session: "Your session is unavailable. Sign in again.",
+    title: "Audit Events",
+  },
+  "pt-BR": {
+    description:
+      "Atividade administrativa e sensível à segurança, preservada para esta organização.",
+    empty: "Nenhum evento de auditoria registrado.",
+    error: "Não foi possível carregar os eventos de auditoria.",
+    errorTitle: "Eventos de auditoria indisponíveis",
+    loadMore: "Carregar mais eventos de auditoria",
+    loading: "Carregando eventos de auditoria…",
+    loadingMore: "Carregando mais eventos de auditoria",
+    restricted:
+      "Somente um proprietário pode revisar atividades administrativas sensíveis.",
+    session: "Sua sessão está indisponível. Entre novamente.",
+    title: "Eventos de auditoria",
+  },
+} as const;
 
 async function fetchAuditEvents(
   apiUrl: string,
   organizationId: string,
   token: string,
+  errorMessage: string,
   cursor?: string,
 ) {
-  const { data, error } = await createApiClient(apiUrl).GET(
+  const { data } = await createApiClient(apiUrl).GET(
     "/v1/organizations/{organizationId}/audit-events",
     {
       cache: "no-store",
@@ -24,20 +59,24 @@ async function fetchAuditEvents(
       },
     },
   );
-  if (!data)
-    throw new Error(error?.detail ?? "Audit Events could not be loaded.");
+  if (!data) throw new Error(errorMessage);
   return data;
 }
 
 export function OrganizationAuditEvents({
   apiUrl,
   canReview,
+  locale,
   organizationId,
+  timeZone,
 }: {
   apiUrl: string;
   canReview: boolean;
+  locale: SupportedLocale;
   organizationId: string;
+  timeZone: string;
 }) {
+  const messages = copy[locale];
   const { getToken } = useAuth();
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [loading, setLoading] = useState(canReview);
@@ -52,20 +91,20 @@ export function OrganizationAuditEvents({
     void (async () => {
       try {
         const token = await getToken();
-        if (!token)
-          throw new Error("Your session is unavailable. Sign in again.");
-        const page = await fetchAuditEvents(apiUrl, organizationId, token);
+        if (!token) throw new Error(messages.session);
+        const page = await fetchAuditEvents(
+          apiUrl,
+          organizationId,
+          token,
+          messages.error,
+        );
         if (active) {
           setEvents(page.items);
           setNextCursor(page.pageInfo.nextCursor);
         }
       } catch (error) {
         if (active)
-          setProblem(
-            error instanceof Error
-              ? error.message
-              : "Audit Events could not be loaded.",
-          );
+          setProblem(error instanceof Error ? error.message : messages.error);
       } finally {
         if (active) setLoading(false);
       }
@@ -74,7 +113,7 @@ export function OrganizationAuditEvents({
     return () => {
       active = false;
     };
-  }, [apiUrl, canReview, getToken, organizationId]);
+  }, [apiUrl, canReview, getToken, messages, organizationId]);
 
   async function loadMore() {
     if (!nextCursor) return;
@@ -82,49 +121,37 @@ export function OrganizationAuditEvents({
     setProblem(undefined);
     try {
       const token = await getToken();
-      if (!token)
-        throw new Error("Your session is unavailable. Sign in again.");
+      if (!token) throw new Error(messages.session);
       const page = await fetchAuditEvents(
         apiUrl,
         organizationId,
         token,
+        messages.error,
         nextCursor,
       );
       setEvents((current) => [...current, ...page.items]);
       setNextCursor(page.pageInfo.nextCursor);
     } catch (error) {
-      setProblem(
-        error instanceof Error
-          ? error.message
-          : "Audit Events could not be loaded.",
-      );
+      setProblem(error instanceof Error ? error.message : messages.error);
     } finally {
       setLoadingMore(false);
     }
   }
 
   if (!canReview) {
-    return (
-      <Card
-        description="Only an Owner can review sensitive administrative activity."
-        title="Audit Events"
-      />
-    );
+    return <Card description={messages.restricted} title={messages.title} />;
   }
 
   return (
-    <Card
-      description="Immutable security-sensitive and administrative activity for this Organization."
-      title="Audit Events"
-    >
+    <Card description={messages.description} title={messages.title}>
       {problem ? (
         <div className="mb-5">
-          <ErrorState description={problem} title="Audit Events unavailable" />
+          <ErrorState description={problem} title={messages.errorTitle} />
         </div>
       ) : null}
       {loading ? (
         <p className="text-sm text-muted" role="status">
-          Loading Audit Eventsâ€¦
+          {messages.loading}
         </p>
       ) : events.length ? (
         <>
@@ -138,11 +165,11 @@ export function OrganizationAuditEvents({
                   {event.action}
                 </strong>
                 <span className="break-all text-muted">
-                  {event.actor.type} {event.actor.id} â†’ {event.target.type}{" "}
+                  {event.actor.type} {event.actor.id} → {event.target.type}{" "}
                   {event.target.id}
                 </span>
                 <time className="text-muted" dateTime={event.occurredAt}>
-                  {new Date(event.occurredAt).toLocaleString()}
+                  {formatInstant(event.occurredAt, locale, timeZone)}
                 </time>
               </li>
             ))}
@@ -151,17 +178,17 @@ export function OrganizationAuditEvents({
             <Button
               className="mt-4"
               loading={loadingMore}
-              loadingLabel="Loading more Audit Events"
+              loadingLabel={messages.loadingMore}
               onClick={() => void loadMore()}
               type="button"
               variant="secondary"
             >
-              Load more Audit Events
+              {messages.loadMore}
             </Button>
           ) : null}
         </>
       ) : (
-        <p className="text-sm text-muted">No Audit Events recorded yet.</p>
+        <p className="text-sm text-muted">{messages.empty}</p>
       )}
     </Card>
   );

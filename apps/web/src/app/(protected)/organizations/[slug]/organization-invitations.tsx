@@ -4,22 +4,33 @@ import { useAuth } from "@clerk/nextjs";
 import { createApiClient, type components } from "@saas/api-client";
 import { Button, Card, ErrorState, FormField, Input, Select } from "@saas/ui";
 import { useEffect, useState, type FormEvent } from "react";
+import {
+  localizeProductState,
+  type SupportedLocale,
+} from "../../../../organization-localization";
 
 type Invitation = components["schemas"]["OrganizationInvitationDto"];
 type InvitationRole = components["schemas"]["CreateInvitationDto"]["role"];
 
-const roleOptions = [
-  { label: "Member", value: "member" },
-  { label: "Admin", value: "admin" },
-];
+function text(locale: SupportedLocale, english: string, portuguese: string) {
+  return locale === "pt-BR" ? portuguese : english;
+}
 
 export function OrganizationInvitations({
   apiUrl,
+  locale,
   organizationId,
 }: {
   apiUrl: string;
+  locale: SupportedLocale;
   organizationId: string;
 }) {
+  const t = (english: string, portuguese: string) =>
+    text(locale, english, portuguese);
+  const roleOptions = [
+    { label: t("Member", "Membro"), value: "member" },
+    { label: t("Admin", "Administrador"), value: "admin" },
+  ];
   const { getToken } = useAuth();
   const [emailAddress, setEmailAddress] = useState("");
   const [role, setRole] = useState<InvitationRole>("member");
@@ -35,7 +46,13 @@ export function OrganizationInvitations({
       try {
         const token = await getToken();
         if (!token)
-          throw new Error("Your session is unavailable. Sign in again.");
+          throw new Error(
+            text(
+              locale,
+              "Your session is unavailable. Sign in again.",
+              "Sua sessão está indisponível. Entre novamente.",
+            ),
+          );
         const { data } = await createApiClient(apiUrl).GET(
           "/v1/organizations/{organizationId}/invitations",
           {
@@ -44,14 +61,25 @@ export function OrganizationInvitations({
             params: { path: { organizationId } },
           },
         );
-        if (!data) throw new Error("Invitations could not be loaded.");
+        if (!data)
+          throw new Error(
+            text(
+              locale,
+              "Invitations could not be loaded.",
+              "Não foi possível carregar os convites.",
+            ),
+          );
         if (active) setInvitations(data.items);
       } catch (error) {
         if (active) {
           setProblem(
             error instanceof Error
               ? error.message
-              : "Invitations could not be loaded.",
+              : text(
+                  locale,
+                  "Invitations could not be loaded.",
+                  "Não foi possível carregar os convites.",
+                ),
           );
         }
       } finally {
@@ -62,11 +90,17 @@ export function OrganizationInvitations({
     return () => {
       active = false;
     };
-  }, [apiUrl, getToken, organizationId]);
+  }, [apiUrl, getToken, locale, organizationId]);
 
   async function authorization() {
     const token = await getToken();
-    if (!token) throw new Error("Your session is unavailable. Sign in again.");
+    if (!token)
+      throw new Error(
+        t(
+          "Your session is unavailable. Sign in again.",
+          "Sua sessão está indisponível. Entre novamente.",
+        ),
+      );
     return { authorization: `Bearer ${token}` };
   }
 
@@ -75,7 +109,7 @@ export function OrganizationInvitations({
     setPendingAction("create");
     setProblem(undefined);
     try {
-      const { data, error } = await createApiClient(apiUrl).POST(
+      const { data } = await createApiClient(apiUrl).POST(
         "/v1/organizations/{organizationId}/invitations",
         {
           body: { emailAddress, role },
@@ -84,7 +118,12 @@ export function OrganizationInvitations({
         },
       );
       if (!data)
-        throw new Error(error?.detail ?? "Invitation could not be sent.");
+        throw new Error(
+          t(
+            "Invitation could not be sent.",
+            "Não foi possível enviar o convite.",
+          ),
+        );
       setInvitations((current) => [
         data,
         ...current.filter((item) => item.id !== data.id),
@@ -94,7 +133,10 @@ export function OrganizationInvitations({
       setProblem(
         error instanceof Error
           ? error.message
-          : "Invitation could not be sent.",
+          : t(
+              "Invitation could not be sent.",
+              "Não foi possível enviar o convite.",
+            ),
       );
     } finally {
       setPendingAction(undefined);
@@ -105,7 +147,7 @@ export function OrganizationInvitations({
     setPendingAction(invitationId);
     setProblem(undefined);
     try {
-      const { data, error } = await createApiClient(apiUrl).POST(
+      const { data } = await createApiClient(apiUrl).POST(
         "/v1/organizations/{organizationId}/invitations/{invitationId}/resend",
         {
           headers: await authorization(),
@@ -113,7 +155,12 @@ export function OrganizationInvitations({
         },
       );
       if (!data)
-        throw new Error(error?.detail ?? "Invitation could not be resent.");
+        throw new Error(
+          t(
+            "Invitation could not be resent.",
+            "Não foi possível reenviar o convite.",
+          ),
+        );
       setInvitations((current) =>
         current.map((item) => (item.id === data.id ? data : item)),
       );
@@ -121,7 +168,10 @@ export function OrganizationInvitations({
       setProblem(
         error instanceof Error
           ? error.message
-          : "Invitation could not be resent.",
+          : t(
+              "Invitation could not be resent.",
+              "Não foi possível reenviar o convite.",
+            ),
       );
     } finally {
       setPendingAction(undefined);
@@ -132,7 +182,7 @@ export function OrganizationInvitations({
     setPendingAction(invitationId);
     setProblem(undefined);
     try {
-      const { data, error } = await createApiClient(apiUrl).DELETE(
+      const { data } = await createApiClient(apiUrl).DELETE(
         "/v1/organizations/{organizationId}/invitations/{invitationId}",
         {
           headers: await authorization(),
@@ -140,7 +190,12 @@ export function OrganizationInvitations({
         },
       );
       if (!data)
-        throw new Error(error?.detail ?? "Invitation could not be revoked.");
+        throw new Error(
+          t(
+            "Invitation could not be revoked.",
+            "Não foi possível revogar o convite.",
+          ),
+        );
       setInvitations((current) =>
         current.map((item) => (item.id === data.id ? data : item)),
       );
@@ -148,7 +203,10 @@ export function OrganizationInvitations({
       setProblem(
         error instanceof Error
           ? error.message
-          : "Invitation could not be revoked.",
+          : t(
+              "Invitation could not be revoked.",
+              "Não foi possível revogar o convite.",
+            ),
       );
     } finally {
       setPendingAction(undefined);
@@ -157,11 +215,14 @@ export function OrganizationInvitations({
 
   return (
     <Card
-      description="Invite people without consuming a seat until they accept."
-      title="Team invitations"
+      description={t(
+        "Invite people without consuming a seat until they accept.",
+        "Convide pessoas sem ocupar um assento até que elas aceitem.",
+      )}
+      title={t("Team invitations", "Convites da equipe")}
     >
       <form className="grid gap-4" onSubmit={submit}>
-        <FormField label="Email address" required>
+        <FormField label={t("Email address", "Endereço de e-mail")} required>
           <Input
             autoComplete="email"
             name="emailAddress"
@@ -171,9 +232,9 @@ export function OrganizationInvitations({
             value={emailAddress}
           />
         </FormField>
-        <FormField label="Role" required>
+        <FormField label={t("Role", "Função")} required>
           <Select
-            label="Role"
+            label={t("Role", "Função")}
             name="role"
             onValueChange={(value) => {
               if (value === "admin" || value === "member") setRole(value);
@@ -186,26 +247,31 @@ export function OrganizationInvitations({
         <Button
           className="justify-self-start"
           loading={pendingAction === "create"}
-          loadingLabel="Sending invitation"
+          loadingLabel={t("Sending invitation", "Enviando convite")}
           type="submit"
         >
-          Send invitation
+          {t("Send invitation", "Enviar convite")}
         </Button>
       </form>
 
       {problem ? (
         <div className="mt-5">
-          <ErrorState description={problem} title="Invitation action failed" />
+          <ErrorState
+            description={problem}
+            title={t("Invitation action failed", "A ação no convite falhou")}
+          />
         </div>
       ) : null}
 
       <div className="mt-6 border-t border-border pt-5">
         {loading ? (
           <p className="text-sm text-muted" role="status">
-            Loading invitations…
+            {t("Loading invitations…", "Carregando convites…")}
           </p>
         ) : invitations.length === 0 ? (
-          <p className="text-sm text-muted">No invitations yet.</p>
+          <p className="text-sm text-muted">
+            {t("No invitations yet.", "Nenhum convite até agora.")}
+          </p>
         ) : (
           <ul className="grid gap-3">
             {invitations.map((invitation) => (
@@ -218,33 +284,40 @@ export function OrganizationInvitations({
                     {invitation.emailAddress}
                   </strong>
                   <p className="mt-1 capitalize text-muted">
-                    {invitation.role} · {invitation.status}
+                    {localizeProductState(invitation.role, locale)} ·{" "}
+                    {localizeProductState(invitation.status, locale)}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {invitation.status === "pending" ? (
                     <Button
                       loading={pendingAction === invitation.id}
-                      loadingLabel="Revoking invitation"
+                      loadingLabel={t(
+                        "Revoking invitation",
+                        "Revogando convite",
+                      )}
                       onClick={() => void revoke(invitation.id)}
                       size="sm"
                       type="button"
                       variant="danger"
                     >
-                      Revoke
+                      {t("Revoke", "Revogar")}
                     </Button>
                   ) : null}
                   {invitation.status === "expired" ||
                   invitation.status === "revoked" ? (
                     <Button
                       loading={pendingAction === invitation.id}
-                      loadingLabel="Resending invitation"
+                      loadingLabel={t(
+                        "Resending invitation",
+                        "Reenviando convite",
+                      )}
                       onClick={() => void resend(invitation.id)}
                       size="sm"
                       type="button"
                       variant="secondary"
                     >
-                      Resend
+                      {t("Resend", "Reenviar")}
                     </Button>
                   ) : null}
                 </div>

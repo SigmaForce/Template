@@ -12,6 +12,13 @@ import { OrganizationMemberships } from "./organization-memberships";
 import { BillingPortalButton } from "./billing-portal-button";
 import { OrganizationAuditEvents } from "./organization-audit-events";
 import { OrganizationApiKeys } from "./organization-api-keys";
+import {
+  formatCivilDate,
+  formatMoney,
+  localize,
+  localizeProductState,
+  resolveSupportedLocale,
+} from "../../../../organization-localization";
 
 type Money = components["schemas"]["MoneyDto"];
 type PermissionId =
@@ -326,18 +333,6 @@ async function getApiAvailability(): Promise<ApiAvailability> {
   }
 }
 
-function formatMoney({ amountMinor, currency }: Money) {
-  const negative = amountMinor.startsWith("-");
-  const digits = (negative ? amountMinor.slice(1) : amountMinor).padStart(
-    3,
-    "0",
-  );
-  const whole = digits.slice(0, -2);
-  const fraction = digits.slice(-2);
-
-  return `${currency} ${negative ? "-" : ""}${whole}.${fraction}`;
-}
-
 export default async function Home({
   params,
 }: {
@@ -432,20 +427,32 @@ export default async function Home({
           { available: false as const },
           { available: false as const },
         ];
+  const locale = resolveSupportedLocale(
+    organizationSettings.available
+      ? organizationSettings.value.locale
+      : undefined,
+  );
+  const timeZone = organizationSettings.available
+    ? organizationSettings.value.timeZone
+    : "UTC";
+  const t = (english: string, portuguese: string) =>
+    localize(locale, english, portuguese);
 
   return (
-    <div className="dashboard-page" id="overview">
+    <div className="dashboard-page" id="overview" lang={locale}>
       <header className="dashboard-intro">
         <div>
-          <p className="eyebrow">Monday · September 15</p>
-          <h1 id="page-title">Good morning, Alex.</h1>
+          <p className="eyebrow">{formatCivilDate("2026-09-15", locale)}</p>
+          <h1 id="page-title">{t("Good morning, Alex.", "Bom dia, Alex.")}</h1>
           <p className="lede">
-            Here is what deserves your attention across {brand.organizationName}{" "}
-            today.
+            {t(
+              `Here is what deserves your attention across ${brand.organizationName} today.`,
+              `Veja o que merece sua atenção na ${brand.organizationName} hoje.`,
+            )}
           </p>
         </div>
         <a className="primary-action" href="#activity">
-          Review activity
+          {t("Review activity", "Revisar atividade")}
           <span aria-hidden="true">→</span>
         </a>
       </header>
@@ -454,19 +461,26 @@ export default async function Home({
         <div className="dashboard-main-column">
           <section className="spotlight-card" aria-labelledby="focus-title">
             <div>
-              <p className="eyebrow">This week</p>
-              <h2 id="focus-title">Momentum is building.</h2>
+              <p className="eyebrow">{t("This week", "Nesta semana")}</p>
+              <h2 id="focus-title">
+                {t("Momentum is building.", "O ritmo está aumentando.")}
+              </h2>
               <p>
-                Eighteen priorities moved forward and your team closed two
-                long-running decisions.
+                {t(
+                  "Eighteen priorities moved forward and your team closed two long-running decisions.",
+                  "Dezoito prioridades avançaram e sua equipe concluiu duas decisões de longa duração.",
+                )}
               </p>
             </div>
             <div
               className="momentum-score"
-              aria-label="84 percent weekly momentum"
+              aria-label={t(
+                "84 percent weekly momentum",
+                "84 por cento de ritmo semanal",
+              )}
             >
               <strong>84%</strong>
-              <span>momentum</span>
+              <span>{t("momentum", "ritmo")}</span>
             </div>
           </section>
 
@@ -477,10 +491,14 @@ export default async function Home({
           >
             <div className="section-heading">
               <div>
-                <p className="eyebrow">Latest signals</p>
-                <h2 id="activity-title">Team activity</h2>
+                <p className="eyebrow">
+                  {t("Latest signals", "Sinais recentes")}
+                </p>
+                <h2 id="activity-title">
+                  {t("Team activity", "Atividade da equipe")}
+                </h2>
               </div>
-              <a href="#activity">View all</a>
+              <a href="#activity">{t("View all", "Ver tudo")}</a>
             </div>
             <ol className="activity-list">
               <li>
@@ -488,30 +506,54 @@ export default async function Home({
                   LM
                 </span>
                 <div>
-                  <strong>Launch milestone approved</strong>
-                  <p>Leadership · 12 minutes ago</p>
+                  <strong>
+                    {t(
+                      "Launch milestone approved",
+                      "Marco de lançamento aprovado",
+                    )}
+                  </strong>
+                  <p>
+                    {t(
+                      "Leadership · 12 minutes ago",
+                      "Liderança · há 12 minutos",
+                    )}
+                  </p>
                 </div>
-                <span className="activity-tag">Decision</span>
+                <span className="activity-tag">{t("Decision", "Decisão")}</span>
               </li>
               <li>
                 <span className="activity-mark" aria-hidden="true">
                   PS
                 </span>
                 <div>
-                  <strong>Product scorecard shared</strong>
-                  <p>Product · 48 minutes ago</p>
+                  <strong>
+                    {t(
+                      "Product scorecard shared",
+                      "Painel do produto compartilhado",
+                    )}
+                  </strong>
+                  <p>
+                    {t("Product · 48 minutes ago", "Produto · há 48 minutos")}
+                  </p>
                 </div>
-                <span className="activity-tag">Update</span>
+                <span className="activity-tag">
+                  {t("Update", "Atualização")}
+                </span>
               </li>
               <li>
                 <span className="activity-mark" aria-hidden="true">
                   CS
                 </span>
                 <div>
-                  <strong>Customer review completed</strong>
-                  <p>Success · 2 hours ago</p>
+                  <strong>
+                    {t(
+                      "Customer review completed",
+                      "Revisão do cliente concluída",
+                    )}
+                  </strong>
+                  <p>{t("Success · 2 hours ago", "Sucesso · há 2 horas")}</p>
                 </div>
-                <span className="activity-tag">Insight</span>
+                <span className="activity-tag">{t("Insight", "Análise")}</span>
               </li>
             </ol>
           </section>
@@ -519,7 +561,7 @@ export default async function Home({
 
         <aside
           className="dashboard-side-column"
-          aria-label="Organization summary"
+          aria-label={t("Organization summary", "Resumo da organização")}
         >
           <section
             className="status-card"
@@ -528,28 +570,38 @@ export default async function Home({
           >
             <div className="status-heading">
               <span className="status-dot" aria-hidden="true" />
-              <p>Authentication</p>
+              <p>{t("Authentication", "Autenticação")}</p>
             </div>
             <div>
               <h2>
-                {identity.available ? "Verified User" : "Identity unavailable"}
+                {identity.available
+                  ? t("Verified User", "Usuário verificado")
+                  : t("Identity unavailable", "Identidade indisponível")}
               </h2>
               <p>
                 {identity.available
-                  ? "The generated client reached the protected API with a verified session token."
-                  : "The protected API could not verify this session."}
+                  ? t(
+                      "The generated client reached the protected API with a verified session token.",
+                      "O cliente gerado acessou a API protegida com um token de sessão verificado.",
+                    )
+                  : t(
+                      "The protected API could not verify this session.",
+                      "A API protegida não conseguiu verificar esta sessão.",
+                    )}
               </p>
               {identity.available ? (
                 <>
                   <div className="contract-example">
-                    <span>User</span>
+                    <span>{t("User", "Usuário")}</span>
                     <span data-testid="authenticated-user-id">
                       {identity.id}
                     </span>
                   </div>
                   {activeOrganization.available ? (
                     <div className="contract-example">
-                      <span>Active Organization</span>
+                      <span>
+                        {t("Active Organization", "Organização ativa")}
+                      </span>
                       <span data-testid="active-organization-slug">
                         {activeOrganization.organization.slug}
                       </span>
@@ -567,18 +619,27 @@ export default async function Home({
           >
             <div className="status-heading">
               <span className="status-dot" aria-hidden="true" />
-              <p>System status</p>
+              <p>{t("System status", "Status do sistema")}</p>
             </div>
             <div>
               <h2>
                 {api.available
-                  ? "API contract is available"
-                  : "API contract is unavailable"}
+                  ? t("API contract is available", "Contrato da API disponível")
+                  : t(
+                      "API contract is unavailable",
+                      "Contrato da API indisponível",
+                    )}
               </h2>
               <p>
                 {api.available
-                  ? "The generated client reached the versioned backend contract."
-                  : "Start the API or check NEXT_PUBLIC_API_URL, then try again."}
+                  ? t(
+                      "The generated client reached the versioned backend contract.",
+                      "O cliente gerado acessou o contrato versionado do backend.",
+                    )
+                  : t(
+                      "Start the API or check NEXT_PUBLIC_API_URL, then try again.",
+                      "Inicie a API ou verifique NEXT_PUBLIC_API_URL e tente novamente.",
+                    )}
               </p>
               {api.available ? (
                 <div className="contract-example">
@@ -586,7 +647,7 @@ export default async function Home({
                     {api.example.name}
                   </span>
                   <span data-testid="contract-example-price">
-                    {formatMoney(api.example.price)}
+                    {formatMoney(api.example.price, locale)}
                   </span>
                 </div>
               ) : null}
@@ -598,42 +659,62 @@ export default async function Home({
             id="billing"
             aria-labelledby="billing-title"
           >
-            <p className="eyebrow">Billing</p>
-            <h2 id="billing-title">Plan catalog</h2>
+            <p className="eyebrow">{t("Billing", "Cobrança")}</p>
+            <h2 id="billing-title">
+              {t("Plan catalog", "Catálogo de planos")}
+            </h2>
             {billingSubscription.available ? (
               <>
                 <div className="contract-example">
-                  <span>Active Subscription</span>
+                  <span>{t("Active Subscription", "Assinatura ativa")}</span>
                   <span data-testid="active-subscription">
                     {billingSubscription.value.planId} v
                     {billingSubscription.value.planVersion} ·{" "}
-                    {billingSubscription.value.status}
+                    {localizeProductState(
+                      billingSubscription.value.status,
+                      locale,
+                    )}
                   </span>
                 </div>
                 {billingSubscription.value.scheduledPlanId ? (
                   <p data-testid="scheduled-plan-change">
-                    Changes to {billingSubscription.value.scheduledPlanId} when
-                    the current period ends.
+                    {t("Changes to", "Muda para")}{" "}
+                    {billingSubscription.value.scheduledPlanId}{" "}
+                    {t(
+                      "when the current period ends.",
+                      "quando o período atual terminar.",
+                    )}
                   </p>
                 ) : null}
                 {billingSubscription.value.cancelAtPeriodEnd ? (
                   <p data-testid="scheduled-cancellation">
-                    Cancels when the current period ends.
+                    {t(
+                      "Cancels when the current period ends.",
+                      "Será cancelada quando o período atual terminar.",
+                    )}
                   </p>
                 ) : null}
               </>
             ) : null}
             {billingCatalog.available ? (
               <>
-                <p>Catalog version {billingCatalog.value.version}</p>
+                <p>
+                  {t("Catalog version", "Versão do catálogo")}{" "}
+                  {billingCatalog.value.version}
+                </p>
                 <ul className="plan-catalog">
                   {billingCatalog.value.plans.map((plan) => (
                     <li key={`${plan.id}-v${plan.version}`}>
                       <h3>
                         {plan.name} v{plan.version}
                       </h3>
-                      <p>{plan.seatAllowance} Seats included</p>
-                      <ul aria-label={`${plan.name} Capabilities`}>
+                      <p>
+                        {plan.seatAllowance}{" "}
+                        {t("Seats included", "assentos incluídos")}
+                      </p>
+                      <ul
+                        aria-label={`${plan.name} ${t("Capabilities", "recursos")}`}
+                      >
                         {plan.capabilities.map((capabilityId) => (
                           <li key={capabilityId}>
                             {billingCatalog.value.capabilities.find(
@@ -647,15 +728,24 @@ export default async function Home({
                 </ul>
               </>
             ) : canManageBilling ? (
-              <p role="status">The Plan catalog is currently unavailable.</p>
+              <p role="status">
+                {t(
+                  "The Plan catalog is currently unavailable.",
+                  "O catálogo de planos está indisponível no momento.",
+                )}
+              </p>
             ) : (
               <p data-testid="billing-permission-required">
-                An Owner can view and manage Plans.
+                {t(
+                  "An Owner can view and manage Plans.",
+                  "Um proprietário pode ver e gerenciar os planos.",
+                )}
               </p>
             )}
             <BillingPortalButton
               apiUrl={getWebEnvironment().apiUrl.toString()}
               canManage={canManageBilling}
+              locale={locale}
               organizationId={
                 activeOrganization.available
                   ? activeOrganization.organization.id
@@ -669,10 +759,15 @@ export default async function Home({
             id="settings"
             aria-labelledby="settings-title"
           >
-            <p className="eyebrow">Organization</p>
-            <h2 id="settings-title">Make it yours</h2>
+            <p className="eyebrow">{t("Organization", "Organização")}</p>
+            <h2 id="settings-title">
+              {t("Make it yours", "Deixe do seu jeito")}
+            </h2>
             <p>
-              Manage the identity and regional defaults for this Organization.
+              {t(
+                "Manage the identity and regional defaults for this Organization.",
+                "Gerencie a identidade e os padrões regionais desta organização.",
+              )}
             </p>
             {canUpdateOrganizationSettings && organizationSettings.available ? (
               <form
@@ -684,7 +779,7 @@ export default async function Home({
                 className="organization-settings-form"
               >
                 <label>
-                  Organization name
+                  {t("Organization name", "Nome da organização")}
                   <input
                     defaultValue={organizationSettings.value.name}
                     maxLength={100}
@@ -694,7 +789,7 @@ export default async function Home({
                   />
                 </label>
                 <label>
-                  Organization URL slug
+                  {t("Organization URL slug", "Slug da URL da organização")}
                   <input
                     defaultValue={organizationSettings.value.slug}
                     maxLength={48}
@@ -705,7 +800,7 @@ export default async function Home({
                   />
                 </label>
                 <label>
-                  Billing contact
+                  {t("Billing contact", "Contato de cobrança")}
                   <input
                     defaultValue={
                       organizationSettings.value.billingContactEmail ?? ""
@@ -715,7 +810,7 @@ export default async function Home({
                   />
                 </label>
                 <label>
-                  Locale
+                  {t("Locale", "Idioma")}
                   <select
                     defaultValue={organizationSettings.value.locale}
                     name="locale"
@@ -725,7 +820,7 @@ export default async function Home({
                   </select>
                 </label>
                 <label>
-                  Time zone
+                  {t("Time zone", "Fuso horário")}
                   <select
                     defaultValue={organizationSettings.value.timeZone}
                     name="timeZone"
@@ -736,36 +831,46 @@ export default async function Home({
                   </select>
                 </label>
                 <button className="primary-action" type="submit">
-                  Save settings
+                  {t("Save settings", "Salvar configurações")}
                 </button>
               </form>
             ) : organizationSettings.available ? (
               <>
                 <dl className="organization-settings-values">
-                  <dt>Name</dt>
+                  <dt>{t("Name", "Nome")}</dt>
                   <dd>{organizationSettings.value.name}</dd>
                   <dt>Slug</dt>
                   <dd>{organizationSettings.value.slug}</dd>
-                  <dt>Billing contact</dt>
+                  <dt>{t("Billing contact", "Contato de cobrança")}</dt>
                   <dd>
                     {organizationSettings.value.billingContactEmail ??
-                      "Not set"}
+                      t("Not set", "Não definido")}
                   </dd>
-                  <dt>Locale</dt>
+                  <dt>{t("Locale", "Idioma")}</dt>
                   <dd>{organizationSettings.value.locale}</dd>
-                  <dt>Time zone</dt>
+                  <dt>{t("Time zone", "Fuso horário")}</dt>
                   <dd>{organizationSettings.value.timeZone}</dd>
                 </dl>
                 <p data-testid="settings-permission-required">
-                  You can view these settings, but cannot change them.
+                  {t(
+                    "You can view these settings, but cannot change them.",
+                    "Você pode ver estas configurações, mas não pode alterá-las.",
+                  )}
                 </p>
               </>
             ) : (
-              <p>Organization settings are unavailable.</p>
+              <p>
+                {t(
+                  "Organization settings are unavailable.",
+                  "As configurações da organização estão indisponíveis.",
+                )}
+              </p>
             )}
             <p data-testid="future-organization-settings">
-              Logo and custom domain support are future capabilities and are not
-              configurable yet.
+              {t(
+                "Logo and custom domain support are future capabilities and are not configurable yet.",
+                "Logo e domínio personalizado são recursos futuros e ainda não podem ser configurados.",
+              )}
             </p>
           </section>
 
@@ -774,23 +879,28 @@ export default async function Home({
               <OrganizationAuditEvents
                 apiUrl={getWebEnvironment().apiUrl.toString()}
                 canReview={canReviewAuditEvents}
+                locale={locale}
                 organizationId={activeOrganization.organization.id}
+                timeZone={timeZone}
               />
               <OrganizationApiKeys
                 apiUrl={getWebEnvironment().apiUrl.toString()}
                 canIssue={canIssueApiKeys}
                 canManage={canManageApiKeys}
+                locale={locale}
                 organizationId={activeOrganization.organization.id}
               />
               <OrganizationMemberships
                 actorRole={activeOrganization.organization.role}
                 apiUrl={getWebEnvironment().apiUrl.toString()}
                 canManage={canManageMemberships}
+                locale={locale}
                 organizationId={activeOrganization.organization.id}
               />
               {canManageMemberships ? (
                 <OrganizationInvitations
                   apiUrl={getWebEnvironment().apiUrl.toString()}
+                  locale={locale}
                   organizationId={activeOrganization.organization.id}
                 />
               ) : null}

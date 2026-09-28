@@ -4,25 +4,27 @@ import { useAuth, useOrganizationList } from "@clerk/nextjs";
 import { createApiClient, type components } from "@saas/api-client";
 import { Button, Card, ErrorState, Select } from "@saas/ui";
 import { useEffect, useState } from "react";
+import {
+  localizeProductState,
+  type SupportedLocale,
+} from "../../../../organization-localization";
 
 type Membership = components["schemas"]["MembershipDto"];
 type MembershipRole = Membership["role"];
 type MembershipUpdate = components["schemas"]["UpdateMembershipDto"];
 
-const ownerRoleOptions = [
-  { label: "Owner", value: "owner" },
-  { label: "Admin", value: "admin" },
-  { label: "Member", value: "member" },
-];
-const adminRoleOptions = ownerRoleOptions.slice(1);
+function text(locale: SupportedLocale, english: string, portuguese: string) {
+  return locale === "pt-BR" ? portuguese : english;
+}
 
 async function fetchMembershipPage(
   apiUrl: string,
   organizationId: string,
   token: string,
+  errorMessage: string,
   cursor?: string,
 ) {
-  const { data, error } = await createApiClient(apiUrl).GET(
+  const { data } = await createApiClient(apiUrl).GET(
     "/v1/organizations/{organizationId}/memberships",
     {
       cache: "no-store",
@@ -33,8 +35,7 @@ async function fetchMembershipPage(
       },
     },
   );
-  if (!data)
-    throw new Error(error?.detail ?? "Memberships could not be loaded.");
+  if (!data) throw new Error(errorMessage);
   return data;
 }
 
@@ -42,13 +43,23 @@ export function OrganizationMemberships({
   actorRole,
   apiUrl,
   canManage,
+  locale,
   organizationId,
 }: {
   actorRole: MembershipRole;
   apiUrl: string;
   canManage: boolean;
+  locale: SupportedLocale;
   organizationId: string;
 }) {
+  const t = (english: string, portuguese: string) =>
+    text(locale, english, portuguese);
+  const ownerRoleOptions = [
+    { label: t("Owner", "Proprietário"), value: "owner" },
+    { label: t("Admin", "Administrador"), value: "admin" },
+    { label: t("Member", "Membro"), value: "member" },
+  ];
+  const adminRoleOptions = ownerRoleOptions.slice(1);
   const { getToken, userId } = useAuth();
   const { setActive } = useOrganizationList({ userMemberships: true });
   const [memberships, setMemberships] = useState<Membership[]>([]);
@@ -65,8 +76,23 @@ export function OrganizationMemberships({
       try {
         const token = await getToken();
         if (!token)
-          throw new Error("Your session is unavailable. Sign in again.");
-        const page = await fetchMembershipPage(apiUrl, organizationId, token);
+          throw new Error(
+            text(
+              locale,
+              "Your session is unavailable. Sign in again.",
+              "Sua sessão está indisponível. Entre novamente.",
+            ),
+          );
+        const page = await fetchMembershipPage(
+          apiUrl,
+          organizationId,
+          token,
+          text(
+            locale,
+            "Memberships could not be loaded.",
+            "Não foi possível carregar os vínculos.",
+          ),
+        );
         if (active) {
           setMemberships(page.items);
           setNextCursor(page.pageInfo.nextCursor);
@@ -76,7 +102,11 @@ export function OrganizationMemberships({
           setProblem(
             error instanceof Error
               ? error.message
-              : "Memberships could not be loaded.",
+              : text(
+                  locale,
+                  "Memberships could not be loaded.",
+                  "Não foi possível carregar os vínculos.",
+                ),
           );
       } finally {
         if (active) setLoading(false);
@@ -86,11 +116,17 @@ export function OrganizationMemberships({
     return () => {
       active = false;
     };
-  }, [apiUrl, canManage, getToken, organizationId]);
+  }, [apiUrl, canManage, getToken, locale, organizationId]);
 
   async function authorization() {
     const token = await getToken();
-    if (!token) throw new Error("Your session is unavailable. Sign in again.");
+    if (!token)
+      throw new Error(
+        t(
+          "Your session is unavailable. Sign in again.",
+          "Sua sessão está indisponível. Entre novamente.",
+        ),
+      );
     return { authorization: `Bearer ${token}` };
   }
 
@@ -106,11 +142,20 @@ export function OrganizationMemberships({
     try {
       const token = await getToken();
       if (!token)
-        throw new Error("Your session is unavailable. Sign in again.");
+        throw new Error(
+          t(
+            "Your session is unavailable. Sign in again.",
+            "Sua sessão está indisponível. Entre novamente.",
+          ),
+        );
       const page = await fetchMembershipPage(
         apiUrl,
         organizationId,
         token,
+        t(
+          "Memberships could not be loaded.",
+          "Não foi possível carregar os vínculos.",
+        ),
         nextCursor,
       );
       setMemberships((current) => [...current, ...page.items]);
@@ -119,7 +164,10 @@ export function OrganizationMemberships({
       setProblem(
         error instanceof Error
           ? error.message
-          : "Memberships could not be loaded.",
+          : t(
+              "Memberships could not be loaded.",
+              "Não foi possível carregar os vínculos.",
+            ),
       );
     } finally {
       setPendingAction(undefined);
@@ -130,7 +178,7 @@ export function OrganizationMemberships({
     setPendingAction(userIdToUpdate);
     setProblem(undefined);
     try {
-      const { data, error } = await createApiClient(apiUrl).PATCH(
+      const { data } = await createApiClient(apiUrl).PATCH(
         "/v1/organizations/{organizationId}/memberships/{userId}",
         {
           body,
@@ -139,7 +187,12 @@ export function OrganizationMemberships({
         },
       );
       if (!data)
-        throw new Error(error?.detail ?? "Membership could not be updated.");
+        throw new Error(
+          t(
+            "Membership could not be updated.",
+            "Não foi possível atualizar o vínculo.",
+          ),
+        );
       setMemberships((current) =>
         current.map((membership) =>
           membership.userId === data.userId ? data : membership,
@@ -153,7 +206,10 @@ export function OrganizationMemberships({
       setProblem(
         error instanceof Error
           ? error.message
-          : "Membership could not be updated.",
+          : t(
+              "Membership could not be updated.",
+              "Não foi possível atualizar o vínculo.",
+            ),
       );
     } finally {
       setPendingAction(undefined);
@@ -164,7 +220,9 @@ export function OrganizationMemberships({
     const isSelf = userIdToRemove === userId;
     if (
       !window.confirm(
-        isSelf ? "Leave this Organization?" : "Remove this Membership?",
+        isSelf
+          ? t("Leave this Organization?", "Sair desta organização?")
+          : t("Remove this Membership?", "Remover este vínculo?"),
       )
     )
       return;
@@ -172,7 +230,7 @@ export function OrganizationMemberships({
     setPendingAction(userIdToRemove);
     setProblem(undefined);
     try {
-      const { data, error } = await createApiClient(apiUrl).DELETE(
+      const { data } = await createApiClient(apiUrl).DELETE(
         "/v1/organizations/{organizationId}/memberships/{userId}",
         {
           headers: await authorization(),
@@ -180,7 +238,12 @@ export function OrganizationMemberships({
         },
       );
       if (!data)
-        throw new Error(error?.detail ?? "Membership could not be removed.");
+        throw new Error(
+          t(
+            "Membership could not be removed.",
+            "Não foi possível remover o vínculo.",
+          ),
+        );
       setMemberships((current) =>
         current.map((membership) =>
           membership.userId === data.userId ? data : membership,
@@ -191,7 +254,10 @@ export function OrganizationMemberships({
       setProblem(
         error instanceof Error
           ? error.message
-          : "Membership could not be removed.",
+          : t(
+              "Membership could not be removed.",
+              "Não foi possível remover o vínculo.",
+            ),
       );
     } finally {
       setPendingAction(undefined);
@@ -201,24 +267,29 @@ export function OrganizationMemberships({
   if (!canManage) {
     return (
       <Card
-        description="You can leave without deleting Organization data."
-        title="Your Membership"
+        description={t(
+          "You can leave without deleting Organization data.",
+          "Você pode sair sem excluir os dados da organização.",
+        )}
+        title={t("Your Membership", "Seu vínculo")}
       >
-        <p className="mb-4 text-sm capitalize text-muted">Role: {actorRole}</p>
+        <p className="mb-4 text-sm capitalize text-muted">
+          {t("Role", "Função")}: {localizeProductState(actorRole, locale)}
+        </p>
         <Button
           loading={pendingAction === userId}
-          loadingLabel="Leaving Organization"
+          loadingLabel={t("Leaving Organization", "Saindo da organização")}
           onClick={() => userId && void remove(userId)}
           type="button"
           variant="danger"
         >
-          Leave Organization
+          {t("Leave Organization", "Sair da organização")}
         </Button>
         {problem ? (
           <div className="mt-5">
             <ErrorState
               description={problem}
-              title="Membership action failed"
+              title={t("Membership action failed", "A ação no vínculo falhou")}
             />
           </div>
         ) : null}
@@ -228,17 +299,23 @@ export function OrganizationMemberships({
 
   return (
     <Card
-      description="Change Roles, suspend access, restore, or remove Memberships."
-      title="Team Memberships"
+      description={t(
+        "Change Roles, suspend access, restore, or remove Memberships.",
+        "Altere funções, suspenda acessos, restaure ou remova vínculos.",
+      )}
+      title={t("Team Memberships", "Vínculos da equipe")}
     >
       {problem ? (
         <div className="mb-5">
-          <ErrorState description={problem} title="Membership action failed" />
+          <ErrorState
+            description={problem}
+            title={t("Membership action failed", "A ação no vínculo falhou")}
+          />
         </div>
       ) : null}
       {loading ? (
         <p className="text-sm text-muted" role="status">
-          Loading Memberships…
+          {t("Loading Memberships…", "Carregando vínculos…")}
         </p>
       ) : (
         <>
@@ -257,10 +334,11 @@ export function OrganizationMemberships({
                   <div>
                     <strong className="break-all text-foreground">
                       {membership.userId}
-                      {isSelf ? " (you)" : ""}
+                      {isSelf ? t(" (you)", " (você)") : ""}
                     </strong>
                     <p className="mt-1 capitalize text-muted">
-                      {membership.role} · {membership.status}
+                      {localizeProductState(membership.role, locale)} ·{" "}
+                      {localizeProductState(membership.status, locale)}
                     </p>
                   </div>
                   <div className="grid gap-2 sm:grid-cols-[minmax(0,12rem)_1fr]">
@@ -268,7 +346,7 @@ export function OrganizationMemberships({
                       disabled={
                         !canChange || pendingAction === membership.userId
                       }
-                      label={`Role for ${membership.userId}`}
+                      label={`${t("Role for", "Função de")} ${membership.userId}`}
                       onValueChange={(value) => {
                         if (
                           value === "owner" ||
@@ -291,8 +369,11 @@ export function OrganizationMemberships({
                           loading={pendingAction === membership.userId}
                           loadingLabel={
                             membership.status === "active"
-                              ? "Suspending Membership"
-                              : "Restoring Membership"
+                              ? t(
+                                  "Suspending Membership",
+                                  "Suspendendo vínculo",
+                                )
+                              : t("Restoring Membership", "Restaurando vínculo")
                           }
                           onClick={() =>
                             void update(membership.userId, {
@@ -307,8 +388,8 @@ export function OrganizationMemberships({
                           variant="secondary"
                         >
                           {membership.status === "active"
-                            ? "Suspend"
-                            : "Restore"}
+                            ? t("Suspend", "Suspender")
+                            : t("Restore", "Restaurar")}
                         </Button>
                       ) : null}
                       {canChange && membership.status !== "removed" ? (
@@ -319,7 +400,9 @@ export function OrganizationMemberships({
                           type="button"
                           variant="danger"
                         >
-                          {isSelf ? "Leave" : "Remove Membership"}
+                          {isSelf
+                            ? t("Leave", "Sair")
+                            : t("Remove Membership", "Remover vínculo")}
                         </Button>
                       ) : null}
                     </div>
@@ -332,12 +415,15 @@ export function OrganizationMemberships({
             <Button
               className="mt-4"
               loading={pendingAction === "load-more"}
-              loadingLabel="Loading more Memberships"
+              loadingLabel={t(
+                "Loading more Memberships",
+                "Carregando mais vínculos",
+              )}
               onClick={() => void loadMore()}
               type="button"
               variant="secondary"
             >
-              Load more
+              {t("Load more", "Carregar mais")}
             </Button>
           ) : null}
         </>
