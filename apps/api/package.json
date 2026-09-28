@@ -10,6 +10,10 @@
     "./billing-worker": {
       "types": "./billing-worker.d.ts",
       "default": "./dist/billing/billing-worker.js"
+    },
+    "./webhook-worker": {
+      "types": "./webhook-worker.d.ts",
+      "default": "./dist/webhooks/webhook-worker.js"
     }
   },
   "scripts": {

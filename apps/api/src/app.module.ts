@@ -26,6 +26,11 @@ import { FilesModule } from './files/files.module.js';
 import type { FileRepository, FileStorage } from './files/file.js';
 import { ApiKeysModule } from './api-keys/api-keys.module.js';
 import type { ApiKeyRepository } from './api-keys/api-key.js';
+import { WebhooksModule } from './webhooks/webhooks.module.js';
+import type {
+  WebhookDeliveryQueue,
+  WebhookRepository,
+} from './webhooks/webhook.js';
 
 export interface AppModuleOptions {
   apiKeys: { repository: ApiKeyRepository };
@@ -33,6 +38,7 @@ export interface AppModuleOptions {
   authentication: AuthenticationOptions;
   capabilityPolicy?: CapabilityPolicy;
   files?: { repository: FileRepository; storage: FileStorage };
+  webhooks?: { repository: WebhookRepository; queue: WebhookDeliveryQueue };
   billing: {
     projectionQueue: BillingProjectionQueue;
     repository: BillingRepository;
@@ -78,6 +84,17 @@ export class AppModule {
                 organizationStatePolicy,
                 repository: options.files.repository,
                 storage: options.files.storage,
+              }),
+            ]
+          : []),
+        ...(options.webhooks
+          ? [
+              WebhooksModule.register({
+                authorizationRepository: options.organizations.repository,
+                capabilityPolicy: options.capabilityPolicy,
+                organizationStatePolicy,
+                repository: options.webhooks.repository,
+                queue: options.webhooks.queue,
               }),
             ]
           : []),

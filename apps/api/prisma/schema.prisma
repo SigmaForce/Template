@@ -59,6 +59,7 @@ model Organization {
   auditEvents        AuditEvent[]
   apiKeys            ApiKey[]
   files              File[]
+  webhookEndpoints   WebhookEndpoint[]
 
   @@map("organizations")
 }
@@ -111,6 +112,58 @@ model File {
 
   @@index([organizationId, createdAt(sort: Desc), id(sort: Desc)])
   @@map("files")
+}
+
+model WebhookEndpoint {
+  id              String            @id @default(uuid()) @db.Uuid
+  organizationId  String            @map("organization_id") @db.VarChar(64)
+  url             String            @db.VarChar(2048)
+  events          String[]
+  secret          String            @db.VarChar(255)
+  enabled         Boolean           @default(true)
+  createdByUserId String            @map("created_by_user_id") @db.VarChar(64)
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  deliveries   WebhookDelivery[]
+
+  @@index([organizationId, createdAt(sort: Desc), id(sort: Desc)])
+  @@map("webhook_endpoints")
+}
+
+model WebhookDelivery {
+  id            String                  @id @db.VarChar(255)
+  endpointId    String                  @map("endpoint_id") @db.Uuid
+  organizationId String                 @map("organization_id") @db.VarChar(64)
+  eventType     String                  @map("event_type") @db.VarChar(120)
+  version       String                  @db.VarChar(32)
+  payload       Json
+  occurredAt    DateTime                @map("occurred_at") @db.Timestamptz(3)
+  status        String                  @db.VarChar(24)
+  attemptCount  Int                     @default(0) @map("attempt_count")
+  createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastAttemptAt DateTime?               @map("last_attempt_at") @db.Timestamptz(3)
+
+  endpoint WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  attempts WebhookDeliveryAttempt[]
+
+  @@index([organizationId, createdAt(sort: Desc), id(sort: Desc)])
+  @@map("webhook_deliveries")
+}
+
+model WebhookDeliveryAttempt {
+  id             String           @id @default(uuid()) @db.Uuid
+  deliveryId     String           @map("delivery_id") @db.VarChar(255)
+  number         Int
+  status         String           @db.VarChar(16)
+  responseStatus Int?             @map("response_status")
+  error          String?          @db.VarChar(1000)
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  delivery WebhookDelivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  @@unique([deliveryId, number])
+  @@map("webhook_delivery_attempts")
 }
 
 model BillingInboxEvent {

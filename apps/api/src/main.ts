@@ -18,6 +18,8 @@ import { PrismaAuditEventRepository } from './audit-events/prisma-audit-event.re
 import { PrismaFileRepository } from './files/prisma-file.repository.js';
 import { RailwayFileStorage } from './files/railway-file-storage.js';
 import { PrismaApiKeyRepository } from './api-keys/prisma-api-key.repository.js';
+import { PrismaWebhookRepository } from './webhooks/prisma-webhook.repository.js';
+import { BullMqWebhookDeliveryQueue } from './webhooks/bullmq-webhook.queue.js';
 
 async function bootstrap() {
   const config = parseApiEnvironment(process.env);
@@ -51,6 +53,10 @@ async function bootstrap() {
       files: {
         repository: new PrismaFileRepository(config.databaseUrl.toString()),
         storage: new RailwayFileStorage(config.bucket),
+      },
+      webhooks: {
+        repository: new PrismaWebhookRepository(config.databaseUrl.toString()),
+        queue: new BullMqWebhookDeliveryQueue(config.redisUrl),
       },
       billing: {
         checkoutGateway: new StripeCheckoutGateway(config.stripeSecretKey),

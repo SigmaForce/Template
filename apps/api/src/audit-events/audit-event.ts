@@ -11,6 +11,9 @@ export const auditActions = [
   'organization.file.delete-requested',
   'organization.file.download-requested',
   'organization.file.upload-requested',
+  'organization.webhook-endpoint.create-requested',
+  'organization.webhook-endpoint.update-requested',
+  'organization.webhook-delivery.replay-requested',
   'organization.invitation.accept-requested',
   'organization.invitation.create-requested',
   'organization.invitation.resend-requested',
@@ -27,6 +30,8 @@ export const auditTargetTypes = [
   'membership',
   'organization',
   'subscription',
+  'webhook-delivery',
+  'webhook-endpoint',
 ] as const;
 export type AuditTarget = {
   id: string;

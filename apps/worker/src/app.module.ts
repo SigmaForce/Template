@@ -5,6 +5,7 @@ import { ReadinessService } from '@saas/tooling-config/readiness';
 import type { JsonLogger } from '@saas/tooling-config/logging';
 import type { StripePlanMappings } from '@saas/api/billing-worker';
 import { BillingProjectionWorker } from './billing/billing-projection.worker.js';
+import { WebhookDeliveryWorker } from './webhooks/webhook-delivery.worker.js';
 
 @Module({
   imports: [],
@@ -29,6 +30,10 @@ export class AppModule {
         {
           provide: BillingProjectionWorker,
           useFactory: () => new BillingProjectionWorker(options),
+        },
+        {
+          provide: WebhookDeliveryWorker,
+          useFactory: () => new WebhookDeliveryWorker(options),
         },
       ],
     };
