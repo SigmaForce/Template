@@ -31,6 +31,11 @@ import type {
   WebhookDeliveryQueue,
   WebhookRepository,
 } from './webhooks/webhook.js';
+import { NotificationsModule } from './notifications/notifications.module.js';
+import type {
+  NotificationQueue,
+  NotificationRepository,
+} from './notifications/notification.js';
 import {
   OperatorsModule,
   type OperatorsModuleOptions,
@@ -43,6 +48,10 @@ export interface AppModuleOptions {
   capabilityPolicy?: CapabilityPolicy;
   files?: { repository: FileRepository; storage: FileStorage };
   webhooks?: { repository: WebhookRepository; queue: WebhookDeliveryQueue };
+  notifications?: {
+    repository: NotificationRepository;
+    queue: NotificationQueue;
+  };
   operators?: Omit<OperatorsModuleOptions, 'planMappings'>;
   billing: {
     projectionQueue: BillingProjectionQueue;
@@ -102,6 +111,9 @@ export class AppModule {
                 queue: options.webhooks.queue,
               }),
             ]
+          : []),
+        ...(options.notifications
+          ? [NotificationsModule.register(options.notifications)]
           : []),
         ...(options.operators
           ? [

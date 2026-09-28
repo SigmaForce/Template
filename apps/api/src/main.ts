@@ -20,6 +20,8 @@ import { RailwayFileStorage } from './files/railway-file-storage.js';
 import { PrismaApiKeyRepository } from './api-keys/prisma-api-key.repository.js';
 import { PrismaWebhookRepository } from './webhooks/prisma-webhook.repository.js';
 import { BullMqWebhookDeliveryQueue } from './webhooks/bullmq-webhook.queue.js';
+import { PrismaNotificationRepository } from './notifications/prisma-notification.repository.js';
+import { BullMqNotificationQueue } from './notifications/bullmq-notification.queue.js';
 import { JwtOperatorSessionVerifier } from './operators/jwt-operator-session.verifier.js';
 import { PrismaOperatorSessionRepository } from './operators/prisma-operator-session.repository.js';
 import { StripeSubscriptionAuthority } from './billing/subscription-reconciliation.js';
@@ -61,6 +63,12 @@ async function bootstrap() {
       webhooks: {
         repository: new PrismaWebhookRepository(config.databaseUrl.toString()),
         queue: new BullMqWebhookDeliveryQueue(config.redisUrl),
+      },
+      notifications: {
+        repository: new PrismaNotificationRepository(
+          config.databaseUrl.toString(),
+        ),
+        queue: new BullMqNotificationQueue(config.redisUrl),
       },
       ...(config.operatorAuthentication.status === 'configured'
         ? {

@@ -60,6 +60,7 @@ model Organization {
   apiKeys            ApiKey[]
   files              File[]
   webhookEndpoints   WebhookEndpoint[]
+  notifications      Notification[]
 
   @@map("organizations")
 }
@@ -177,6 +178,37 @@ model WebhookDeliveryAttempt {
 
   @@unique([deliveryId, number])
   @@map("webhook_delivery_attempts")
+}
+
+model Notification {
+  id             String           @id @default(uuid()) @db.Uuid
+  dedupeKey      String           @unique @map("dedupe_key") @db.VarChar(255)
+  organizationId String           @map("organization_id") @db.VarChar(64)
+  kind           String           @db.VarChar(80)
+  recipientEmail String           @map("recipient_email") @db.VarChar(320)
+  payload        Json
+  status         String           @db.VarChar(24)
+  attemptCount   Int              @default(0) @map("attempt_count")
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  sentAt         DateTime?        @map("sent_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  attempts NotificationAttempt[]
+  @@index([organizationId, createdAt(sort: Desc), id(sort: Desc)])
+  @@map("notifications")
+}
+
+model NotificationAttempt {
+  id             String       @id @default(uuid()) @db.Uuid
+  notificationId String       @map("notification_id") @db.Uuid
+  number         Int
+  status         String       @db.VarChar(16)
+  error          String?      @db.VarChar(1000)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  @@unique([notificationId, number])
+  @@map("notification_attempts")
 }
 
 model BillingInboxEvent {

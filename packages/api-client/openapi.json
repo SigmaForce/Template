@@ -197,6 +197,7 @@
               "organization.webhook-endpoint.create-requested",
               "organization.webhook-endpoint.update-requested",
               "organization.webhook-delivery.replay-requested",
+              "organization.notification.sent",
               "organization.invitation.accept-requested",
               "organization.invitation.create-requested",
               "organization.invitation.resend-requested",
@@ -270,7 +271,8 @@
               "organization",
               "subscription",
               "webhook-delivery",
-              "webhook-endpoint"
+              "webhook-endpoint",
+              "notification"
             ],
             "example": "membership",
             "type": "string"

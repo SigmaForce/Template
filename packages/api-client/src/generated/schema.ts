@@ -550,7 +550,7 @@ export interface components {
              * @example organization.membership.update-requested
              * @enum {string}
              */
-            action: "billing.checkout-session.create-requested" | "billing.portal-session.create-requested" | "billing.subscription.reconcile-requested" | "billing.subscription.replay-requested" | "organization.api-key.create-requested" | "organization.api-key.revoke-requested" | "organization.api-key.rotate-requested" | "organization.created" | "organization.data-export.requested" | "organization.file.delete-requested" | "organization.file.download-requested" | "organization.file.upload-requested" | "organization.webhook-endpoint.create-requested" | "organization.webhook-endpoint.update-requested" | "organization.webhook-delivery.replay-requested" | "organization.invitation.accept-requested" | "organization.invitation.create-requested" | "organization.invitation.resend-requested" | "organization.invitation.revoke-requested" | "organization.membership.remove-requested" | "organization.membership.update-requested" | "organization.settings.update-requested";
+            action: "billing.checkout-session.create-requested" | "billing.portal-session.create-requested" | "billing.subscription.reconcile-requested" | "billing.subscription.replay-requested" | "organization.api-key.create-requested" | "organization.api-key.revoke-requested" | "organization.api-key.rotate-requested" | "organization.created" | "organization.data-export.requested" | "organization.file.delete-requested" | "organization.file.download-requested" | "organization.file.upload-requested" | "organization.webhook-endpoint.create-requested" | "organization.webhook-endpoint.update-requested" | "organization.webhook-delivery.replay-requested" | "organization.notification.sent" | "organization.invitation.accept-requested" | "organization.invitation.create-requested" | "organization.invitation.resend-requested" | "organization.invitation.revoke-requested" | "organization.membership.remove-requested" | "organization.membership.update-requested" | "organization.settings.update-requested";
             actor: components["schemas"]["AuditActorDto"];
             context: {
                 [key: string]: unknown;
@@ -572,7 +572,7 @@ export interface components {
              * @example membership
              * @enum {string}
              */
-            type: "api-key" | "file" | "invitation" | "membership" | "organization" | "subscription" | "webhook-delivery" | "webhook-endpoint";
+            type: "api-key" | "file" | "invitation" | "membership" | "organization" | "subscription" | "webhook-delivery" | "webhook-endpoint" | "notification";
         };
         AuthenticatedUserDto: {
             /** @example user_2RfWKJREkjKbHZy0Wqa5qrHeAnb */

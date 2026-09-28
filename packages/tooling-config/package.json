@@ -18,6 +18,10 @@
       "types": "./src/webhook-queue.d.mts",
       "default": "./src/webhook-queue.mjs"
     },
+    "./notification-queue": {
+      "types": "./src/notification-queue.d.mts",
+      "default": "./src/notification-queue.mjs"
+    },
     "./http": {
       "types": "./src/http.d.mts",
       "default": "./src/http.mjs"

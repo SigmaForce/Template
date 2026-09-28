@@ -14,6 +14,10 @@
     "./webhook-worker": {
       "types": "./webhook-worker.d.ts",
       "default": "./dist/webhooks/webhook-worker.js"
+    },
+    "./notification-worker": {
+      "types": "./notification-worker.d.ts",
+      "default": "./dist/notifications/notification-worker.js"
     }
   },
   "scripts": {
