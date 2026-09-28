@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { logWebOperation } from "../../../../operational-log";
 import { createServerApiContext } from "../../../../server-api-context";
 import { getWebEnvironment } from "../../../../environment";
+import { getOrganizationSettings } from "../../../../organization-settings";
 import { OrganizationInvitations } from "./organization-invitations";
 import { OrganizationLinkRedirect } from "./organization-link-redirect";
 import { OrganizationMemberships } from "./organization-memberships";
@@ -53,13 +54,6 @@ type ActiveOrganizationContext =
       organization: components["schemas"]["ActiveOrganizationDto"];
     }
   | { available: false; reason: "forbidden" | "unavailable" };
-
-type OrganizationSettings =
-  | {
-      available: true;
-      value: components["schemas"]["OrganizationDto"];
-    }
-  | { available: false };
 
 type BillingCatalog =
   | {
@@ -159,7 +153,7 @@ async function updateOrganizationSettingsAction(
     );
   }
 
-  revalidatePath(`/organizations/${slug}`);
+  revalidatePath(`/organizations/${slug}`, "layout");
   redirect(`/organizations/${data.slug}`);
 }
 
@@ -206,31 +200,6 @@ async function getActiveOrganization(
     };
   } catch {
     return { available: false, reason: "unavailable" };
-  }
-}
-
-async function getOrganizationSettings(
-  token: string,
-  organizationId: string,
-): Promise<OrganizationSettings> {
-  try {
-    const { client, correlatedHeaders } = await createServerApiContext();
-    const { data } = await client.GET(
-      "/v1/organizations/{organizationId}/settings",
-      {
-        cache: "no-store",
-        headers: {
-          ...correlatedHeaders,
-          authorization: `Bearer ${token}`,
-        },
-        params: { path: { organizationId } },
-        signal: AbortSignal.timeout(3_000),
-      },
-    );
-
-    return data ? { available: true, value: data } : { available: false };
-  } catch {
-    return { available: false };
   }
 }
 

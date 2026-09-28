@@ -3,6 +3,10 @@
 import { useOrganization, useOrganizationList } from "@clerk/nextjs";
 import { Select } from "@saas/ui";
 import { useEffect, useState } from "react";
+import {
+  localize,
+  type SupportedLocale,
+} from "../../organization-localization";
 
 const activeOrganizationEventKey = "saas.active-organization.changed";
 const organizationSlugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -11,7 +15,13 @@ function organizationPath(slug: string) {
   return `/organizations/${encodeURIComponent(slug)}`;
 }
 
-export function ActiveOrganizationSwitcher() {
+export function ActiveOrganizationSwitcher({
+  locale,
+}: {
+  locale: SupportedLocale;
+}) {
+  const t = (english: string, portuguese: string) =>
+    localize(locale, english, portuguese);
   const { organization } = useOrganization();
   const { isLoaded, setActive, userMemberships } = useOrganizationList({
     userMemberships: true,
@@ -61,7 +71,12 @@ export function ActiveOrganizationSwitcher() {
     );
     const slug = membership?.organization.slug;
     if (!slug || !organizationSlugPattern.test(slug)) {
-      setError("This Organization does not have a valid navigation slug.");
+      setError(
+        t(
+          "This Organization does not have a valid navigation slug.",
+          "Esta organização não tem um slug de navegação válido.",
+        ),
+      );
       return;
     }
 
@@ -75,23 +90,32 @@ export function ActiveOrganizationSwitcher() {
       );
       window.location.replace(organizationPath(slug));
     } catch {
-      setError("The Active Organization could not be changed. Try again.");
+      setError(
+        t(
+          "The Active Organization could not be changed. Try again.",
+          "Não foi possível alterar a organização ativa. Tente novamente.",
+        ),
+      );
       setSwitching(false);
     }
   }
 
   if (!isLoaded || userMemberships.isLoading) {
-    return <span className="text-sm text-muted">Loading Organizations…</span>;
+    return (
+      <span className="text-sm text-muted">
+        {t("Loading Organizations…", "Carregando organizações…")}
+      </span>
+    );
   }
 
   return (
     <div className="grid min-w-48 gap-1">
       <Select
         disabled={switching || options.length === 0}
-        label="Active Organization"
+        label={t("Active Organization", "Organização ativa")}
         onValueChange={switchOrganization}
         options={options}
-        placeholder="Select an Organization"
+        placeholder={t("Select an Organization", "Selecione uma organização")}
         size="sm"
         value={organization?.id ?? null}
       />
