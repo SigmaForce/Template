@@ -20,6 +20,7 @@ type PermissionId =
 const permission = {
   billingManage: "billing:manage",
   organizationAuditEventsRead: "organization:audit-events:read",
+  organizationApiKeysIssue: "organization:api-keys:issue",
   organizationApiKeysManage: "organization:api-keys:manage",
   organizationMembershipsManage: "organization:memberships:manage",
   organizationSettingsUpdate: "organization:settings:update",
@@ -406,6 +407,9 @@ export default async function Home({
   const canManageApiKeys = activePermissions.includes(
     permission.organizationApiKeysManage,
   );
+  const canIssueApiKeys = activePermissions.includes(
+    permission.organizationApiKeysIssue,
+  );
   const canManageMemberships = activePermissions.includes(
     permission.organizationMembershipsManage,
   );
@@ -774,6 +778,7 @@ export default async function Home({
               />
               <OrganizationApiKeys
                 apiUrl={getWebEnvironment().apiUrl.toString()}
+                canIssue={canIssueApiKeys}
                 canManage={canManageApiKeys}
                 organizationId={activeOrganization.organization.id}
               />

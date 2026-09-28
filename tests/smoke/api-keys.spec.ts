@@ -26,6 +26,7 @@ authenticatedTest(
       },
     ];
     let failNextCreate = false;
+    const createIdempotencyKeys: string[] = [];
     await page.route(
       /\/v1\/organizations\/[^/]+\/api-keys(?:\/.*)?$/,
       async (route) => {
@@ -36,11 +37,15 @@ authenticatedTest(
           segments.at(-1) === "rotate" ? segments.at(-2) : segments.at(-1);
 
         if (request.method() === "GET") {
+          const cursor = url.searchParams.get("cursor");
           await route.fulfill({
             contentType: "application/json",
             body: JSON.stringify({
-              items: apiKeys,
-              pageInfo: { hasNextPage: false, nextCursor: null },
+              items: cursor ? apiKeys.slice(1) : apiKeys.slice(0, 1),
+              pageInfo: {
+                hasNextPage: !cursor && apiKeys.length > 1,
+                nextCursor: !cursor && apiKeys.length > 1 ? "next" : null,
+              },
             }),
           });
           return;
@@ -54,6 +59,11 @@ authenticatedTest(
         }
 
         const rotating = segments.at(-1) === "rotate";
+        if (!rotating) {
+          createIdempotencyKeys.push(
+            request.headers()["idempotency-key"] ?? "",
+          );
+        }
         if (!rotating && failNextCreate) {
           failNextCreate = false;
           await new Promise((resolve) => setTimeout(resolve, 250));
@@ -89,6 +99,7 @@ authenticatedTest(
 
     const card = page.getByRole("region", { name: "API Keys" });
     await expect(card).toContainText("Existing");
+    await expect(card).toContainText("Other");
     await card.getByLabel("Name").fill("Automation");
     await card.getByRole("button", { name: "Create API Key" }).click();
     await expect(card.getByTestId("api-key-plaintext")).toHaveText(
@@ -115,5 +126,10 @@ authenticatedTest(
     await createButton.click();
     await expect(createButton).toBeDisabled();
     await expect(card).toContainText("API Key could not be created.");
+    await createButton.click();
+    await expect(card.getByTestId("api-key-plaintext")).toHaveText(
+      "sak_created-once",
+    );
+    expect(createIdempotencyKeys.at(-1)).toBe(createIdempotencyKeys.at(-2));
   },
 );

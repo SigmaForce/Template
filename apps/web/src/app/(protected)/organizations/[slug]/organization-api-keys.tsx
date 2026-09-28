@@ -3,7 +3,7 @@
 import { useAuth } from "@clerk/nextjs";
 import { createApiClient, type components } from "@saas/api-client";
 import { Button, Card, ErrorState } from "@saas/ui";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type ApiKey = components["schemas"]["ApiKeyDto"];
 type ApiKeyScope = components["schemas"]["CreateApiKeyDto"]["scopes"][number];
@@ -13,24 +13,33 @@ async function fetchApiKeys(
   organizationId: string,
   token: string,
 ) {
-  const { data } = await createApiClient(apiUrl).GET(
-    "/v1/organizations/{organizationId}/api-keys",
-    {
-      cache: "no-store",
-      headers: { authorization: `Bearer ${token}` },
-      params: { path: { organizationId }, query: { limit: 100 } },
-    },
-  );
-  if (!data) throw new Error("API Keys could not be loaded.");
-  return data.items;
+  const client = createApiClient(apiUrl);
+  const apiKeys: ApiKey[] = [];
+  let cursor: string | undefined;
+  do {
+    const { data } = await client.GET(
+      "/v1/organizations/{organizationId}/api-keys",
+      {
+        cache: "no-store",
+        headers: { authorization: `Bearer ${token}` },
+        params: { path: { organizationId }, query: { cursor, limit: 100 } },
+      },
+    );
+    if (!data) throw new Error("API Keys could not be loaded.");
+    apiKeys.push(...data.items);
+    cursor = data.pageInfo.nextCursor ?? undefined;
+  } while (cursor);
+  return apiKeys;
 }
 
 export function OrganizationApiKeys({
   apiUrl,
+  canIssue,
   canManage,
   organizationId,
 }: {
   apiUrl: string;
+  canIssue: boolean;
   canManage: boolean;
   organizationId: string;
 }) {
@@ -47,6 +56,8 @@ export function OrganizationApiKeys({
   }>();
   const [pending, setPending] = useState(false);
   const [problem, setProblem] = useState<string>();
+  const createIdempotencyKey = useRef<string | undefined>(undefined);
+  const rotationIdempotencyKeys = useRef(new Map<string, string>());
 
   async function authorizedClient() {
     const token = await getToken();
@@ -94,16 +105,22 @@ export function OrganizationApiKeys({
     setProblem(undefined);
     setPending(true);
     try {
+      const idempotencyKey = (createIdempotencyKey.current ??=
+        crypto.randomUUID());
       const { client, headers } = await authorizedClient();
       const { data } = await client.POST(
         "/v1/organizations/{organizationId}/api-keys",
         {
           headers,
-          params: { path: { organizationId } },
+          params: {
+            header: { "Idempotency-Key": idempotencyKey },
+            path: { organizationId },
+          },
           body: { name, scopes: [scope] },
         },
       );
       if (!data) throw new Error("API Key could not be created.");
+      createIdempotencyKey.current = undefined;
       setPlaintext({ apiKeyId: data.apiKey.id, value: data.plaintext });
       setName("");
       await load();
@@ -122,15 +139,22 @@ export function OrganizationApiKeys({
     setProblem(undefined);
     setPending(true);
     try {
+      const idempotencyKey =
+        rotationIdempotencyKeys.current.get(apiKeyId) ?? crypto.randomUUID();
+      rotationIdempotencyKeys.current.set(apiKeyId, idempotencyKey);
       const { client, headers } = await authorizedClient();
       const { data } = await client.POST(
         "/v1/organizations/{organizationId}/api-keys/{apiKeyId}/rotate",
         {
           headers,
-          params: { path: { apiKeyId, organizationId } },
+          params: {
+            header: { "Idempotency-Key": idempotencyKey },
+            path: { apiKeyId, organizationId },
+          },
         },
       );
       if (!data) throw new Error("API Key could not be rotated.");
+      rotationIdempotencyKeys.current.delete(apiKeyId);
       setPlaintext({ apiKeyId: data.apiKey.id, value: data.plaintext });
       await load();
     } catch (error) {
@@ -203,40 +227,42 @@ export function OrganizationApiKeys({
           </Button>
         </div>
       ) : null}
-      <form
-        className="mb-5 grid gap-3"
-        onSubmit={(event) => void create(event)}
-      >
-        <label>
-          Name
-          <input
-            disabled={pending}
-            maxLength={100}
-            minLength={1}
-            onChange={(event) => setName(event.target.value)}
-            required
-            value={name}
-          />
-        </label>
-        <label>
-          Scope
-          <select
-            disabled={pending}
-            onChange={(event) => setScope(event.target.value as ApiKeyScope)}
-            value={scope}
-          >
-            <option value="organization:audit-events:read">
-              Read Audit Events
-            </option>
-            <option value="organization:settings:read">
-              Read Organization settings
-            </option>
-          </select>
-        </label>
-        <Button disabled={pending} type="submit">
-          Create API Key
-        </Button>
-      </form>
+      {canIssue ? (
+        <form
+          className="mb-5 grid gap-3"
+          onSubmit={(event) => void create(event)}
+        >
+          <label>
+            Name
+            <input
+              disabled={pending}
+              maxLength={100}
+              minLength={1}
+              onChange={(event) => setName(event.target.value)}
+              required
+              value={name}
+            />
+          </label>
+          <label>
+            Scope
+            <select
+              disabled={pending}
+              onChange={(event) => setScope(event.target.value as ApiKeyScope)}
+              value={scope}
+            >
+              <option value="organization:audit-events:read">
+                Read Audit Events
+              </option>
+              <option value="organization:settings:read">
+                Read Organization settings
+              </option>
+            </select>
+          </label>
+          <Button disabled={pending} type="submit">
+            Create API Key
+          </Button>
+        </form>
+      ) : null}
       {loading ? (
         <p role="status">Loading API Keys...</p>
       ) : apiKeys.length ? (
@@ -259,14 +285,16 @@ export function OrganizationApiKeys({
               </span>
               {!apiKey.revokedAt && !apiKey.expiresAt ? (
                 <div className="flex gap-2">
-                  <Button
-                    disabled={pending}
-                    onClick={() => void rotate(apiKey.id)}
-                    type="button"
-                    variant="secondary"
-                  >
-                    Rotate {apiKey.name}
-                  </Button>
+                  {canIssue ? (
+                    <Button
+                      disabled={pending}
+                      onClick={() => void rotate(apiKey.id)}
+                      type="button"
+                      variant="secondary"
+                    >
+                      Rotate {apiKey.name}
+                    </Button>
+                  ) : null}
                   <Button
                     disabled={pending}
                     onClick={() => void revoke(apiKey.id)}

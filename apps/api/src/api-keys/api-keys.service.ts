@@ -24,16 +24,26 @@ export class ApiKeysService {
     user: AuthenticatedUser,
     organizationId: string,
     input: CreateApiKeyDto,
+    idempotencyKey: string,
   ) {
     const scope = await this.authorization.authorize({
-      permission: Permission.organizationApiKeysManage,
+      permission: Permission.organizationApiKeysIssue,
       targetOrganizationId: organizationId,
       user,
     });
+    const id = this.idempotentId(
+      scope.organizationId,
+      'create',
+      idempotencyKey,
+    );
+    if (await this.repository.find(id, scope.organizationId)) {
+      throw PublicProblemException.idempotencyConflict();
+    }
     const { apiKey, plaintext } = this.issue(
       user.id,
       scope.organizationId,
       input,
+      id,
     );
     await this.auditEvents.record({
       action: 'organization.api-key.create-requested',
@@ -42,10 +52,9 @@ export class ApiKeysService {
       organizationId: apiKey.organizationId,
       target: { id: apiKey.id, type: 'api-key' },
     });
-    return {
-      apiKey: this.toDto(await this.repository.create(apiKey)),
-      plaintext,
-    };
+    const created = await this.repository.create(apiKey);
+    if (!created) throw PublicProblemException.idempotencyConflict();
+    return { apiKey: this.toDto(created), plaintext };
   }
 
   async list(
@@ -85,12 +94,21 @@ export class ApiKeysService {
     user: AuthenticatedUser,
     organizationId: string,
     apiKeyId: string,
+    idempotencyKey: string,
   ) {
     const scope = await this.authorization.authorize({
-      permission: Permission.organizationApiKeysManage,
+      permission: Permission.organizationApiKeysIssue,
       targetOrganizationId: organizationId,
       user,
     });
+    const replacementId = this.idempotentId(
+      scope.organizationId,
+      `rotate:${apiKeyId}`,
+      idempotencyKey,
+    );
+    if (await this.repository.find(replacementId, scope.organizationId)) {
+      throw PublicProblemException.idempotencyConflict();
+    }
     const current = await this.repository.find(apiKeyId, scope.organizationId);
     if (
       !current ||
@@ -100,10 +118,15 @@ export class ApiKeysService {
     ) {
       throw PublicProblemException.apiKeyUnavailable();
     }
-    const { apiKey, plaintext } = this.issue(user.id, scope.organizationId, {
-      name: current.name,
-      scopes: current.scopes,
-    });
+    const { apiKey, plaintext } = this.issue(
+      user.id,
+      scope.organizationId,
+      {
+        name: current.name,
+        scopes: current.scopes,
+      },
+      replacementId,
+    );
     const expiresAt = new Date(Date.now() + rotationOverlapMs);
     await this.auditEvents.record({
       action: 'organization.api-key.rotate-requested',
@@ -116,14 +139,16 @@ export class ApiKeysService {
       organizationId: scope.organizationId,
       target: { id: current.id, type: 'api-key' },
     });
-    if (
-      !(await this.repository.rotate({
-        expiresAt,
-        id: current.id,
-        organizationId: scope.organizationId,
-        replacement: apiKey,
-      }))
-    ) {
+    const rotated = await this.repository.rotate({
+      expiresAt,
+      id: current.id,
+      organizationId: scope.organizationId,
+      replacement: apiKey,
+    });
+    if (!rotated) {
+      if (await this.repository.find(replacementId, scope.organizationId)) {
+        throw PublicProblemException.idempotencyConflict();
+      }
       throw PublicProblemException.apiKeyUnavailable();
     }
     return { apiKey: this.toDto(apiKey), plaintext };
@@ -169,8 +194,8 @@ export class ApiKeysService {
     userId: string,
     organizationId: string,
     input: Pick<CreateApiKeyDto, 'name' | 'scopes'>,
+    id: string = randomUUID(),
   ) {
-    const id = randomUUID();
     const plaintext = `sak_${id}.${randomBytes(32).toString('base64url')}`;
     return {
       apiKey: {
@@ -186,6 +211,17 @@ export class ApiKeysService {
       } satisfies OrganizationApiKey,
       plaintext,
     };
+  }
+
+  private idempotentId(
+    organizationId: string,
+    operation: string,
+    idempotencyKey: string,
+  ) {
+    const hex = createHash('sha256')
+      .update(JSON.stringify([organizationId, operation, idempotencyKey]))
+      .digest('hex');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
   }
 
   private encodeCursor(apiKey: OrganizationApiKey, organizationId: string) {

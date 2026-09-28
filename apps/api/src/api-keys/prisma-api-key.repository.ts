@@ -18,7 +18,12 @@ export class PrismaApiKeyRepository
   }
 
   async create(apiKey: OrganizationApiKey) {
-    return this.fromRecord(await this.client.apiKey.create({ data: apiKey }));
+    try {
+      return this.fromRecord(await this.client.apiKey.create({ data: apiKey }));
+    } catch (error) {
+      if ((error as { code?: string }).code === 'P2002') return undefined;
+      throw error;
+    }
   }
 
   async find(id: string, organizationId?: string) {

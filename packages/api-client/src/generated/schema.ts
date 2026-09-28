@@ -488,7 +488,7 @@ export interface components {
         ActiveOrganizationDto: {
             /** @example org_2abc */
             id: string;
-            permissions: ("organization:audit-events:read" | "organization:api-keys:manage" | "organization:files:manage" | "organization:files:read" | "organization:webhooks:manage" | "organization:settings:read" | "organization:settings:update" | "organization:memberships:manage" | "organization:memberships:leave" | "billing:manage" | "organization:ownership:manage" | "organization:delete" | "organization:data:export")[];
+            permissions: ("organization:audit-events:read" | "organization:api-keys:issue" | "organization:api-keys:manage" | "organization:files:manage" | "organization:files:read" | "organization:webhooks:manage" | "organization:settings:read" | "organization:settings:update" | "organization:memberships:manage" | "organization:memberships:leave" | "billing:manage" | "organization:ownership:manage" | "organization:delete" | "organization:data:export")[];
             /** @enum {string} */
             role: "admin" | "member" | "owner";
             /** @example northstar-labs */
@@ -1201,7 +1201,9 @@ export interface operations {
     createOrganizationApiKey: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
             path: {
                 organizationId: string;
             };
@@ -1246,7 +1248,9 @@ export interface operations {
     rotateOrganizationApiKey: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
             path: {
                 organizationId: string;
                 apiKeyId: string;

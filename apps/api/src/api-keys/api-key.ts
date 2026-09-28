@@ -13,7 +13,9 @@ export interface OrganizationApiKey {
 }
 
 export abstract class ApiKeyRepository {
-  abstract create(apiKey: OrganizationApiKey): Promise<OrganizationApiKey>;
+  abstract create(
+    apiKey: OrganizationApiKey,
+  ): Promise<OrganizationApiKey | undefined>;
   abstract find(
     id: string,
     organizationId?: string,

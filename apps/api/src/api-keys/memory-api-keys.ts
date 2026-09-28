@@ -4,6 +4,7 @@ export class MemoryApiKeyRepository extends ApiKeyRepository {
   readonly apiKeys = new Map<string, OrganizationApiKey>();
 
   async create(apiKey: OrganizationApiKey) {
+    if (this.apiKeys.has(apiKey.id)) return undefined;
     this.apiKeys.set(apiKey.id, apiKey);
     return apiKey;
   }

@@ -28,13 +28,15 @@ const organization = {
   slug: 'api-key-labs',
   locale: 'en-US',
   timeZone: 'UTC',
-  state: 'active' as const,
+  state: 'active' as 'active' | 'read-only',
 };
 const owner = `Bearer ${createSessionToken({
   organization,
   organizationRole: 'owner',
   userId: 'user_api_key_owner',
 })}`;
+let idempotencySequence = 0;
+const nextIdempotencyKey = () => `api-key-test-${++idempotencySequence}`;
 
 describe('API Keys (e2e)', () => {
   let app: INestApplication;
@@ -120,11 +122,21 @@ describe('API Keys (e2e)', () => {
     const response = await request(app.getHttpServer())
       .post(`/v1/organizations/${organization.id}/api-keys`)
       .set('authorization', owner)
+      .set('idempotency-key', 'create-reporting-1')
       .send({
         name: 'Reporting',
         scopes: ['organization:audit-events:read'],
       })
       .expect(201);
+    await request(app.getHttpServer())
+      .post(`/v1/organizations/${organization.id}/api-keys`)
+      .set('authorization', owner)
+      .set('idempotency-key', 'create-reporting-1')
+      .send({
+        name: 'Reporting',
+        scopes: ['organization:audit-events:read'],
+      })
+      .expect(409);
 
     expect(response.body).toMatchObject({
       apiKey: {
@@ -142,6 +154,7 @@ describe('API Keys (e2e)', () => {
     const later = await request(app.getHttpServer())
       .post(`/v1/organizations/${organization.id}/api-keys`)
       .set('authorization', owner)
+      .set('idempotency-key', nextIdempotencyKey())
       .send({
         name: 'Later reporting',
         scopes: ['organization:audit-events:read'],
@@ -192,6 +205,7 @@ describe('API Keys (e2e)', () => {
         await request(app.getHttpServer())
           .post(`/v1/organizations/${organization.id}/api-keys`)
           .set('authorization', owner)
+          .set('idempotency-key', nextIdempotencyKey())
           .send({ name: 'Machine', scopes })
           .expect(201)
       ).body.plaintext as string;
@@ -214,6 +228,11 @@ describe('API Keys (e2e)', () => {
       .get(`/v1/organizations/${otherOrganization.id}/audit-events`)
       .set('authorization', `Bearer ${auditReader}`)
       .expect(403);
+    await request(app.getHttpServer())
+      .post(`/v1/organizations/${organization.id}/api-keys/not-a-uuid/rotate`)
+      .set('authorization', owner)
+      .set('idempotency-key', nextIdempotencyKey())
+      .expect(400);
   });
 
   it('overlaps rotation and rejects revocation immediately', async () => {
@@ -222,6 +241,7 @@ describe('API Keys (e2e)', () => {
     const issued = await request(app.getHttpServer())
       .post(`/v1/organizations/${organization.id}/api-keys`)
       .set('authorization', owner)
+      .set('idempotency-key', nextIdempotencyKey())
       .send({
         name: 'Rotating',
         scopes: ['organization:audit-events:read'],
@@ -233,7 +253,16 @@ describe('API Keys (e2e)', () => {
         `/v1/organizations/${organization.id}/api-keys/${issued.body.apiKey.id}/rotate`,
       )
       .set('authorization', owner)
+      .set('idempotency-key', 'rotate-key-test-1')
       .expect(201);
+
+    await request(app.getHttpServer())
+      .post(
+        `/v1/organizations/${organization.id}/api-keys/${issued.body.apiKey.id}/rotate`,
+      )
+      .set('authorization', owner)
+      .set('idempotency-key', 'rotate-key-test-1')
+      .expect(409);
 
     await request(app.getHttpServer())
       .get(`/v1/organizations/${organization.id}/audit-events`)
@@ -278,6 +307,7 @@ describe('API Keys (e2e)', () => {
     const issued = await request(app.getHttpServer())
       .post(`/v1/organizations/${organization.id}/api-keys`)
       .set('authorization', owner)
+      .set('idempotency-key', nextIdempotencyKey())
       .send({
         name: 'Emergency revoke',
         scopes: ['organization:audit-events:read'],
@@ -289,6 +319,22 @@ describe('API Keys (e2e)', () => {
       apiKeys,
       organizations: [{ ...organization, state: 'read-only' }],
     });
+    await request(app.getHttpServer())
+      .post(`/v1/organizations/${organization.id}/api-keys`)
+      .set('authorization', owner)
+      .set('idempotency-key', nextIdempotencyKey())
+      .send({
+        name: 'Blocked issue',
+        scopes: ['organization:audit-events:read'],
+      })
+      .expect(403);
+    await request(app.getHttpServer())
+      .post(
+        `/v1/organizations/${organization.id}/api-keys/${issued.body.apiKey.id}/rotate`,
+      )
+      .set('authorization', owner)
+      .set('idempotency-key', nextIdempotencyKey())
+      .expect(403);
     await request(app.getHttpServer())
       .delete(
         `/v1/organizations/${organization.id}/api-keys/${issued.body.apiKey.id}`,
@@ -313,6 +359,7 @@ describe('API Keys (e2e)', () => {
     const issued = await request(app.getHttpServer())
       .post(`/v1/organizations/${organization.id}/api-keys`)
       .set('authorization', owner)
+      .set('idempotency-key', nextIdempotencyKey())
       .send({
         name: 'Limited',
         scopes: ['organization:audit-events:read'],
