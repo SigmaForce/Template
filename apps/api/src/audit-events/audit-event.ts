@@ -2,6 +2,7 @@ export type AuditActor = { id: string; type: 'operator' | 'user' };
 export const auditActions = [
   'billing.checkout-session.create-requested',
   'billing.portal-session.create-requested',
+  'billing.subscription.reconcile-requested',
   'billing.subscription.replay-requested',
   'organization.api-key.create-requested',
   'organization.api-key.revoke-requested',

@@ -31,6 +31,10 @@ import type {
   WebhookDeliveryQueue,
   WebhookRepository,
 } from './webhooks/webhook.js';
+import {
+  OperatorsModule,
+  type OperatorsModuleOptions,
+} from './operators/operators.module.js';
 
 export interface AppModuleOptions {
   apiKeys: { repository: ApiKeyRepository };
@@ -39,6 +43,7 @@ export interface AppModuleOptions {
   capabilityPolicy?: CapabilityPolicy;
   files?: { repository: FileRepository; storage: FileStorage };
   webhooks?: { repository: WebhookRepository; queue: WebhookDeliveryQueue };
+  operators?: Omit<OperatorsModuleOptions, 'planMappings'>;
   billing: {
     projectionQueue: BillingProjectionQueue;
     repository: BillingRepository;
@@ -95,6 +100,15 @@ export class AppModule {
                 organizationStatePolicy,
                 repository: options.webhooks.repository,
                 queue: options.webhooks.queue,
+              }),
+            ]
+          : []),
+        ...(options.operators
+          ? [
+              OperatorsModule.register({
+                ...options.operators,
+                planMappings: options.billing.planMappings,
+                rateLimit: options.authentication.rateLimit,
               }),
             ]
           : []),

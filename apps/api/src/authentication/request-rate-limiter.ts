@@ -1,4 +1,5 @@
 import type { RequestRateLimitOptions } from './authentication.js';
+import { PublicProblemException } from '../http/problem-details.js';
 
 type RateLimitCategory = 'anonymous' | 'organization' | 'user';
 
@@ -58,4 +59,23 @@ export class RequestRateLimiter {
       resetAt: bucket.resetAt,
     };
   }
+}
+
+export function enforceRateLimit(
+  response: { setHeader(name: string, value: string): void },
+  decision: RateLimitDecision,
+) {
+  response.setHeader('ratelimit-limit', String(decision.limit));
+  response.setHeader('ratelimit-remaining', String(decision.remaining));
+  response.setHeader(
+    'ratelimit-reset',
+    String(Math.ceil(decision.resetAt / 1000)),
+  );
+  if (decision.allowed) return;
+
+  response.setHeader(
+    'retry-after',
+    String(Math.max(1, Math.ceil((decision.resetAt - Date.now()) / 1000))),
+  );
+  throw PublicProblemException.rateLimited();
 }

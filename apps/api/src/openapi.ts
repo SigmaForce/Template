@@ -13,6 +13,10 @@ const openApiConfiguration = new DocumentBuilder()
     { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
     'clerk-session',
   )
+  .addBearerAuth(
+    { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+    'operator-session',
+  )
   .build();
 
 export function createOpenApiDocument(app: INestApplication): OpenAPIObject {

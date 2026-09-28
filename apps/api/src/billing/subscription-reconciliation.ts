@@ -129,7 +129,9 @@ export type AuthorizeBillingOperator = (input: {
 }) => Promise<{ operatorId: string } | undefined>;
 
 export interface BillingReplayAuditEvent {
-  action: 'billing.subscription.replay-requested';
+  action:
+    | 'billing.subscription.reconcile-requested'
+    | 'billing.subscription.replay-requested';
   actor: { id: string; type: 'operator' };
   occurredAt: Date;
   organizationId: string;
@@ -143,11 +145,7 @@ export interface SubscriptionReconciliationInput {
 }
 
 export type SubscriptionReconciliationStatus =
-  | 'authority-organization-mismatch'
-  | 'drifted'
-  | 'in-sync'
-  | 'missing-authority'
-  | 'missing-local';
+  'drifted' | 'in-sync' | 'missing-authority' | 'missing-local';
 
 export interface SubscriptionReconciliationResult {
   differences: ReconciliationDifference[];
@@ -194,6 +192,13 @@ export class SubscriptionReconciliationService {
       organizationId: input.organizationId,
     });
     if (!operator) throw new BillingOperatorAuthorizationError();
+    await this.audit?.({
+      action: 'billing.subscription.reconcile-requested',
+      actor: { id: operator.operatorId, type: 'operator' },
+      occurredAt: this.now(),
+      organizationId: input.organizationId,
+      target: { id: input.providerSubscriptionId, type: 'subscription' },
+    });
 
     return this.compare(input);
   }
@@ -208,11 +213,6 @@ export class SubscriptionReconciliationService {
       organizationId: input.organizationId,
     });
     if (!operator) throw new BillingOperatorAuthorizationError();
-
-    const before = await this.compare(input);
-    if (before.status !== 'drifted' && before.status !== 'missing-local') {
-      return before;
-    }
     if (!this.audit) {
       throw new Error('Audit Event extension is required for repair.');
     }
@@ -223,6 +223,10 @@ export class SubscriptionReconciliationService {
       organizationId: input.organizationId,
       target: { id: input.providerSubscriptionId, type: 'subscription' },
     });
+    const before = await this.compare(input);
+    if (before.status !== 'drifted' && before.status !== 'missing-local') {
+      return before;
+    }
     await this.projections.rebuildSubscription(
       {
         organizationId: input.organizationId,
@@ -246,7 +250,7 @@ export class SubscriptionReconciliationService {
       return this.result(input, 'missing-authority');
     }
     if (authority.organizationId !== input.organizationId) {
-      return this.result(input, 'authority-organization-mismatch');
+      return this.result(input, 'missing-authority');
     }
     const local = await this.projections.findSubscription(input.organizationId);
     if (!local) return this.result(input, 'missing-local');

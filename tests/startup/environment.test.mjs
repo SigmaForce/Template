@@ -214,6 +214,33 @@ test("API environment accepts a structurally valid RSA public key", () => {
   );
 });
 
+test("API environment keeps Operator authentication on its own optional key", () => {
+  const { publicKey } = generateKeyPairSync("rsa", {
+    modulusLength: 2048,
+    publicKeyEncoding: { type: "spki", format: "pem" },
+  });
+  const base = apiEnvironment({
+    CLERK_SECRET_KEY: "sk_test_c3ludGhldGljLW5vdC1hLXJlYWwta2V5",
+  });
+
+  assert.deepEqual(parseApiEnvironment(base).operatorAuthentication, {
+    status: "disabled",
+  });
+  assert.deepEqual(
+    parseApiEnvironment({ ...base, OPERATOR_JWT_KEY: publicKey })
+      .operatorAuthentication,
+    { jwtKey: publicKey.trim(), status: "configured" },
+  );
+  assert.throws(
+    () =>
+      parseApiEnvironment({
+        ...base,
+        OPERATOR_JWT_KEY: "replace-with-operator-jwt-public-key",
+      }),
+    /OPERATOR_JWT_KEY must be a valid RSA PEM public key/,
+  );
+});
+
 test("API environment validates server-only Stripe Plan mappings", () => {
   const configuration = parseApiEnvironment(
     apiEnvironment({

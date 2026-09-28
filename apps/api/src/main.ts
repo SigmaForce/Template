@@ -20,6 +20,10 @@ import { RailwayFileStorage } from './files/railway-file-storage.js';
 import { PrismaApiKeyRepository } from './api-keys/prisma-api-key.repository.js';
 import { PrismaWebhookRepository } from './webhooks/prisma-webhook.repository.js';
 import { BullMqWebhookDeliveryQueue } from './webhooks/bullmq-webhook.queue.js';
+import { JwtOperatorSessionVerifier } from './operators/jwt-operator-session.verifier.js';
+import { PrismaOperatorSessionRepository } from './operators/prisma-operator-session.repository.js';
+import { StripeSubscriptionAuthority } from './billing/subscription-reconciliation.js';
+import { PostgresBillingProjectionRepository } from './billing/postgres-billing-projection.repository.js';
 
 async function bootstrap() {
   const config = parseApiEnvironment(process.env);
@@ -58,6 +62,25 @@ async function bootstrap() {
         repository: new PrismaWebhookRepository(config.databaseUrl.toString()),
         queue: new BullMqWebhookDeliveryQueue(config.redisUrl),
       },
+      ...(config.operatorAuthentication.status === 'configured'
+        ? {
+            operators: {
+              authority: new StripeSubscriptionAuthority(
+                config.stripeSecretKey,
+                config.stripePlanMappings,
+              ),
+              projections: new PostgresBillingProjectionRepository(
+                config.databaseUrl.toString(),
+              ),
+              sessionVerifier: new JwtOperatorSessionVerifier(
+                config.operatorAuthentication.jwtKey,
+                new PrismaOperatorSessionRepository(
+                  config.databaseUrl.toString(),
+                ),
+              ),
+            },
+          }
+        : {}),
       billing: {
         checkoutGateway: new StripeCheckoutGateway(config.stripeSecretKey),
         checkoutReturnOrigins: config.authentication.authorizedParties,

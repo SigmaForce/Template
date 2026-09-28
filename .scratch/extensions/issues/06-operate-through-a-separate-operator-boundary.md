@@ -7,6 +7,6 @@ operations without becoming an Organization Owner, Admin, or Member.
 
 **Status:** ready-for-agent
 
-- [ ] Operator identity, permissions, session handling, and audit trail are distinct from User Memberships.
-- [ ] Operator actions still require explicit Organization scope where they inspect customer data.
-- [ ] Tests prove an Organization Role cannot gain Operator authority and vice versa.
+- [x] Operator identity, permissions, session handling, and audit trail are distinct from User Memberships.
+- [x] Operator actions still require explicit Organization scope where they inspect customer data.
+- [x] Tests prove an Organization Role cannot gain Operator authority and vice versa.

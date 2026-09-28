@@ -46,6 +46,23 @@ export async function buildContractDocument() {
         repository: new MemoryBillingRepository(),
         stripeWebhookSecret: 'whsec_contractGeneration',
       },
+      operators: {
+        authority: { findSubscription: async () => undefined },
+        projections: {
+          findReplaySubscription: async () => undefined,
+          findSubscription: async () => undefined,
+          rebuildSubscription: async () => undefined,
+          project: async () => ({
+            organizationId: 'org_contract',
+            outcome: 'projected',
+          }),
+        },
+        sessionVerifier: {
+          verify: async () => {
+            throw new Error('Contract generation does not verify tokens.');
+          },
+        },
+      },
       organizations: {
         directory: new MemoryOrganizationDirectory(),
         onboarding: new MemoryOrganizationOnboardingUnitOfWork(

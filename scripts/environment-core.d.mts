@@ -25,6 +25,7 @@ export interface ApiEnvironment extends RuntimeEnvironment {
     jwtKey?: string;
     secretKey?: string;
   };
+  operatorAuthentication: OptionalIntegration<{ jwtKey: string }>;
   bucket: {
     accessKeyId: string;
     bucket: string;

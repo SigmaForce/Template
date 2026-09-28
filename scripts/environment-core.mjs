@@ -247,6 +247,16 @@ function parseAuthentication(environment, errors) {
   return { secretKey, jwtKey, authorizedParties };
 }
 
+function parseOperatorAuthentication(environment, errors) {
+  const jwtKey = environment.OPERATOR_JWT_KEY?.trim().replaceAll("\\n", "\n");
+  if (!jwtKey) return { status: "disabled" };
+  if (!isRsaPublicKeyPem(jwtKey)) {
+    errors.push("OPERATOR_JWT_KEY must be a valid RSA PEM public key");
+    return { status: "misconfigured" };
+  }
+  return { status: "configured", jwtKey };
+}
+
 function parseStripeId(environment, name, prefix, errors) {
   const value = environment[name]?.trim();
   if (!value) {
@@ -442,6 +452,10 @@ export function parseApiEnvironment(environment) {
   }
 
   const authentication = parseAuthentication(environment, errors);
+  const operatorAuthentication = parseOperatorAuthentication(
+    environment,
+    errors,
+  );
   const bucket = parseBucket(environment, errors);
   const stripePlanMappings = parseStripePlanMappings(environment, errors);
   const stripePortalConfigurationId = parseStripeId(
@@ -460,6 +474,7 @@ export function parseApiEnvironment(environment) {
   return {
     ...runtime,
     authentication,
+    operatorAuthentication,
     bucket,
     stripePlanMappings,
     stripePortalConfigurationId,

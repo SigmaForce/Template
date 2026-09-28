@@ -218,6 +218,13 @@ describe('Subscription reconciliation', () => {
         organizationId: 'org_repair',
         target: { id: 'sub_repair', type: 'subscription' },
       },
+      {
+        action: 'billing.subscription.replay-requested',
+        actor: { id: 'operator_repair', type: 'operator' },
+        occurredAt: new Date('2026-09-24T17:00:00.000Z'),
+        organizationId: 'org_repair',
+        target: { id: 'sub_repair', type: 'subscription' },
+      },
     ]);
   });
 
@@ -392,6 +399,7 @@ describe('Subscription reconciliation', () => {
       status: 'active',
     });
     const service = new SubscriptionReconciliationService({
+      audit: async () => undefined,
       authority: new ReconciliationAuthority({
         cancelAtPeriodEnd: false,
         currentPeriodEndsAt: new Date('2026-10-20T12:00:00.000Z'),
@@ -416,7 +424,7 @@ describe('Subscription reconciliation', () => {
       differences: [],
       organizationId: 'org_isolated',
       providerSubscriptionId: 'sub_isolated',
-      status: 'authority-organization-mismatch',
+      status: 'missing-authority',
     });
     expect(await projections.findSubscription()).toMatchObject({
       planId: 'launch',

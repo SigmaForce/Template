@@ -184,6 +184,7 @@
             "enum": [
               "billing.checkout-session.create-requested",
               "billing.portal-session.create-requested",
+              "billing.subscription.reconcile-requested",
               "billing.subscription.replay-requested",
               "organization.api-key.create-requested",
               "organization.api-key.revoke-requested",
@@ -193,6 +194,9 @@
               "organization.file.delete-requested",
               "organization.file.download-requested",
               "organization.file.upload-requested",
+              "organization.webhook-endpoint.create-requested",
+              "organization.webhook-endpoint.update-requested",
+              "organization.webhook-delivery.replay-requested",
               "organization.invitation.accept-requested",
               "organization.invitation.create-requested",
               "organization.invitation.resend-requested",
@@ -264,7 +268,9 @@
               "invitation",
               "membership",
               "organization",
-              "subscription"
+              "subscription",
+              "webhook-delivery",
+              "webhook-endpoint"
             ],
             "example": "membership",
             "type": "string"
@@ -1136,6 +1142,51 @@
         ],
         "type": "object"
       },
+      "SubscriptionReconciliationDto": {
+        "properties": {
+          "differences": {
+            "items": {
+              "enum": [
+                "cancelAtPeriodEnd",
+                "currentPeriodEndsAt",
+                "pastDueAt",
+                "planId",
+                "planVersion",
+                "providerCustomerId",
+                "providerSubscriptionId",
+                "scheduledPlanId",
+                "status"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "organizationId": {
+            "example": "org_2abc",
+            "type": "string"
+          },
+          "providerSubscriptionId": {
+            "example": "sub_2abc",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "drifted",
+              "in-sync",
+              "missing-authority",
+              "missing-local"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "differences",
+          "organizationId",
+          "providerSubscriptionId",
+          "status"
+        ],
+        "type": "object"
+      },
       "UpdateMembershipDto": {
         "properties": {
           "role": {
@@ -1199,6 +1250,11 @@
     },
     "securitySchemes": {
       "clerk-session": {
+        "bearerFormat": "JWT",
+        "scheme": "bearer",
+        "type": "http"
+      },
+      "operator-session": {
         "bearerFormat": "JWT",
         "scheme": "bearer",
         "type": "http"
@@ -1386,6 +1442,138 @@
         "summary": "",
         "tags": [
           "Health"
+        ]
+      }
+    },
+    "/v1/internal/organizations/{organizationId}/billing/subscriptions/{providerSubscriptionId}/reconciliation": {
+      "get": {
+        "operationId": "reconcileOperatorSubscription",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organizationId",
+            "required": true,
+            "schema": {
+              "example": "org_2abc",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "providerSubscriptionId",
+            "required": true,
+            "schema": {
+              "example": "sub_2abc",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscriptionReconciliationDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "operator-session": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "Operator billing"
+        ]
+      }
+    },
+    "/v1/internal/organizations/{organizationId}/billing/subscriptions/{providerSubscriptionId}/repair": {
+      "post": {
+        "operationId": "repairOperatorSubscription",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organizationId",
+            "required": true,
+            "schema": {
+              "example": "org_2abc",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "providerSubscriptionId",
+            "required": true,
+            "schema": {
+              "example": "sub_2abc",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscriptionReconciliationDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailsDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "operator-session": []
+          }
+        ],
+        "summary": "",
+        "tags": [
+          "Operator billing"
         ]
       }
     },

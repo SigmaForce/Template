@@ -49,6 +49,7 @@ export abstract class ApiKeyTokenVerifier {
 }
 
 export const PUBLIC_ROUTE = Symbol('public-route');
+export const OPERATOR_ROUTE = Symbol('operator-route');
 export const AUTHENTICATED_USER = Symbol('authenticated-user');
 
 export type AuthenticatedRequest = Request & {

@@ -6,14 +6,15 @@ import {
 import { Reflector } from '@nestjs/core';
 import { PublicProblemException } from '../http/problem-details.js';
 import {
+  enforceRateLimit,
   RequestRateLimiter,
-  type RateLimitDecision,
 } from './request-rate-limiter.js';
 import {
   AUTHENTICATED_USER,
   ApiKeyTokenVerifier,
   type AuthenticatedPrincipal,
   type AuthenticatedRequest,
+  OPERATOR_ROUTE,
   PUBLIC_ROUTE,
   SessionTokenVerifier,
 } from './authentication.js';
@@ -32,11 +33,19 @@ export class AuthenticationGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
+    const isOperator = this.reflector.getAllAndOverride<boolean>(
+      OPERATOR_ROUTE,
+      [context.getHandler(), context.getClass()],
+    );
 
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const response = context.switchToHttp().getResponse();
+    if (isOperator) {
+      response.setHeader('cache-control', 'private, no-store');
+      return true;
+    }
     if (isPublic) {
-      this.enforceRateLimit(
+      enforceRateLimit(
         response,
         this.rateLimiter.consume(
           'anonymous',
@@ -51,7 +60,7 @@ export class AuthenticationGuard implements CanActivate {
     const match = authorization?.match(/^Bearer ([^\s]+)$/i);
 
     if (!match) {
-      this.enforceRateLimit(
+      enforceRateLimit(
         response,
         this.rateLimiter.consume(
           'anonymous',
@@ -67,7 +76,7 @@ export class AuthenticationGuard implements CanActivate {
         ? await this.apiKeys.verify(match[1])
         : await this.tokens.verify(match[1]);
     } catch {
-      this.enforceRateLimit(
+      enforceRateLimit(
         response,
         this.rateLimiter.consume(
           'anonymous',
@@ -78,12 +87,9 @@ export class AuthenticationGuard implements CanActivate {
     }
 
     request[AUTHENTICATED_USER] = principal;
-    this.enforceRateLimit(
-      response,
-      this.rateLimiter.consume('user', principal.id),
-    );
+    enforceRateLimit(response, this.rateLimiter.consume('user', principal.id));
     if (principal.activeOrganization) {
-      this.enforceRateLimit(
+      enforceRateLimit(
         response,
         this.rateLimiter.consume(
           'organization',
@@ -92,24 +98,5 @@ export class AuthenticationGuard implements CanActivate {
       );
     }
     return true;
-  }
-
-  private enforceRateLimit(
-    response: { setHeader(name: string, value: string): void },
-    decision: RateLimitDecision,
-  ) {
-    response.setHeader('ratelimit-limit', String(decision.limit));
-    response.setHeader('ratelimit-remaining', String(decision.remaining));
-    response.setHeader(
-      'ratelimit-reset',
-      String(Math.ceil(decision.resetAt / 1000)),
-    );
-    if (decision.allowed) return;
-
-    response.setHeader(
-      'retry-after',
-      String(Math.max(1, Math.ceil((decision.resetAt - Date.now()) / 1000))),
-    );
-    throw PublicProblemException.rateLimited();
   }
 }

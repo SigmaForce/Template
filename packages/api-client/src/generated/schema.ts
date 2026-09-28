@@ -67,6 +67,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/internal/organizations/{organizationId}/billing/subscriptions/{providerSubscriptionId}/reconciliation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["reconcileOperatorSubscription"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/internal/organizations/{organizationId}/billing/subscriptions/{providerSubscriptionId}/repair": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["repairOperatorSubscription"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/invitations/{externalId}/accept": {
         parameters: {
             query?: never;
@@ -518,7 +550,7 @@ export interface components {
              * @example organization.membership.update-requested
              * @enum {string}
              */
-            action: "billing.checkout-session.create-requested" | "billing.portal-session.create-requested" | "billing.subscription.replay-requested" | "organization.api-key.create-requested" | "organization.api-key.revoke-requested" | "organization.api-key.rotate-requested" | "organization.created" | "organization.data-export.requested" | "organization.file.delete-requested" | "organization.file.download-requested" | "organization.file.upload-requested" | "organization.invitation.accept-requested" | "organization.invitation.create-requested" | "organization.invitation.resend-requested" | "organization.invitation.revoke-requested" | "organization.membership.remove-requested" | "organization.membership.update-requested" | "organization.settings.update-requested";
+            action: "billing.checkout-session.create-requested" | "billing.portal-session.create-requested" | "billing.subscription.reconcile-requested" | "billing.subscription.replay-requested" | "organization.api-key.create-requested" | "organization.api-key.revoke-requested" | "organization.api-key.rotate-requested" | "organization.created" | "organization.data-export.requested" | "organization.file.delete-requested" | "organization.file.download-requested" | "organization.file.upload-requested" | "organization.webhook-endpoint.create-requested" | "organization.webhook-endpoint.update-requested" | "organization.webhook-delivery.replay-requested" | "organization.invitation.accept-requested" | "organization.invitation.create-requested" | "organization.invitation.resend-requested" | "organization.invitation.revoke-requested" | "organization.membership.remove-requested" | "organization.membership.update-requested" | "organization.settings.update-requested";
             actor: components["schemas"]["AuditActorDto"];
             context: {
                 [key: string]: unknown;
@@ -540,7 +572,7 @@ export interface components {
              * @example membership
              * @enum {string}
              */
-            type: "api-key" | "file" | "invitation" | "membership" | "organization" | "subscription";
+            type: "api-key" | "file" | "invitation" | "membership" | "organization" | "subscription" | "webhook-delivery" | "webhook-endpoint";
         };
         AuthenticatedUserDto: {
             /** @example user_2RfWKJREkjKbHZy0Wqa5qrHeAnb */
@@ -850,6 +882,15 @@ export interface components {
              */
             status: "active" | "canceled" | "incomplete" | "incomplete_expired" | "past_due" | "paused" | "trialing" | "unpaid";
         };
+        SubscriptionReconciliationDto: {
+            differences: ("cancelAtPeriodEnd" | "currentPeriodEndsAt" | "pastDueAt" | "planId" | "planVersion" | "providerCustomerId" | "providerSubscriptionId" | "scheduledPlanId" | "status")[];
+            /** @example org_2abc */
+            organizationId: string;
+            /** @example sub_2abc */
+            providerSubscriptionId: string;
+            /** @enum {string} */
+            status: "drifted" | "in-sync" | "missing-authority" | "missing-local";
+        };
         UpdateMembershipDto: {
             /** @enum {string} */
             role?: "admin" | "member" | "owner";
@@ -995,6 +1036,82 @@ export interface operations {
                         /** @enum {string} */
                         status: "healthy";
                     };
+                };
+            };
+        };
+    };
+    reconcileOperatorSubscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+                providerSubscriptionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionReconciliationDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+        };
+    };
+    repairOperatorSubscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+                providerSubscriptionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionReconciliationDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetailsDto"];
                 };
             };
         };
