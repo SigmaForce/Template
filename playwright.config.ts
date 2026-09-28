@@ -15,7 +15,13 @@ export default defineConfig({
     {
       name: "chromium",
       dependencies: ["clerk-setup"],
-      testIgnore: /clerk\.setup\.ts/,
+      testIgnore: [/clerk\.setup\.ts/, /localization\.spec\.ts/],
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "localization",
+      dependencies: ["chromium"],
+      testMatch: /localization\.spec\.ts/,
       use: { ...devices["Desktop Chrome"] },
     },
   ],

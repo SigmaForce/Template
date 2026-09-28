@@ -5,16 +5,13 @@ import { createApiClient, type components } from "@saas/api-client";
 import { Button, Card, ErrorState, FormField, Input, Select } from "@saas/ui";
 import { useEffect, useState, type FormEvent } from "react";
 import {
+  localize,
   localizeProductState,
   type SupportedLocale,
 } from "../../../../organization-localization";
 
 type Invitation = components["schemas"]["OrganizationInvitationDto"];
 type InvitationRole = components["schemas"]["CreateInvitationDto"]["role"];
-
-function text(locale: SupportedLocale, english: string, portuguese: string) {
-  return locale === "pt-BR" ? portuguese : english;
-}
 
 export function OrganizationInvitations({
   apiUrl,
@@ -26,7 +23,7 @@ export function OrganizationInvitations({
   organizationId: string;
 }) {
   const t = (english: string, portuguese: string) =>
-    text(locale, english, portuguese);
+    localize(locale, english, portuguese);
   const roleOptions = [
     { label: t("Member", "Membro"), value: "member" },
     { label: t("Admin", "Administrador"), value: "admin" },
@@ -47,7 +44,7 @@ export function OrganizationInvitations({
         const token = await getToken();
         if (!token)
           throw new Error(
-            text(
+            localize(
               locale,
               "Your session is unavailable. Sign in again.",
               "Sua sessão está indisponível. Entre novamente.",
@@ -63,7 +60,7 @@ export function OrganizationInvitations({
         );
         if (!data)
           throw new Error(
-            text(
+            localize(
               locale,
               "Invitations could not be loaded.",
               "Não foi possível carregar os convites.",
@@ -75,7 +72,7 @@ export function OrganizationInvitations({
           setProblem(
             error instanceof Error
               ? error.message
-              : text(
+              : localize(
                   locale,
                   "Invitations could not be loaded.",
                   "Não foi possível carregar os convites.",

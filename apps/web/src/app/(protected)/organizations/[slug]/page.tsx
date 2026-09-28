@@ -16,6 +16,7 @@ import {
   formatCivilDate,
   formatMoney,
   localize,
+  localizeCapability,
   localizeProductState,
   resolveSupportedLocale,
 } from "../../../../organization-localization";
@@ -93,6 +94,9 @@ async function updateOrganizationSettingsAction(
   const name = formData.get("name");
   const nextSlug = formData.get("slug");
   const timeZone = formData.get("timeZone");
+  const actionLocale = resolveSupportedLocale(locale);
+  const actionMessage = (english: string, portuguese: string) =>
+    localize(actionLocale, english, portuguese);
   if (
     typeof billingContactEmail !== "string" ||
     typeof name !== "string" ||
@@ -102,15 +106,31 @@ async function updateOrganizationSettingsAction(
       timeZone !== "America/Sao_Paulo" &&
       timeZone !== "UTC")
   ) {
-    throw new Error("Invalid Organization settings.");
+    throw new Error(
+      actionMessage(
+        "Invalid Organization settings.",
+        "As configurações da organização são inválidas.",
+      ),
+    );
   }
 
   const session = await auth();
   if (session.orgId !== organizationId) {
-    throw new Error("Active Organization changed. Reload and try again.");
+    throw new Error(
+      actionMessage(
+        "Active Organization changed. Reload and try again.",
+        "A organização ativa mudou. Recarregue e tente novamente.",
+      ),
+    );
   }
   const token = await session.getToken();
-  if (!token) throw new Error("Authentication is required.");
+  if (!token)
+    throw new Error(
+      actionMessage(
+        "Authentication is required.",
+        "A autenticação é obrigatória.",
+      ),
+    );
 
   const { client, correlatedHeaders } = await createServerApiContext();
   const { data, error } = await client.PATCH(
@@ -131,7 +151,12 @@ async function updateOrganizationSettingsAction(
     },
   );
   if (error || !data) {
-    throw new Error("Organization settings could not be updated.");
+    throw new Error(
+      actionMessage(
+        "Organization settings could not be updated.",
+        "Não foi possível atualizar as configurações da organização.",
+      ),
+    );
   }
 
   revalidatePath(`/organizations/${slug}`);
@@ -717,9 +742,13 @@ export default async function Home({
                       >
                         {plan.capabilities.map((capabilityId) => (
                           <li key={capabilityId}>
-                            {billingCatalog.value.capabilities.find(
-                              (capability) => capability.id === capabilityId,
-                            )?.name ?? capabilityId}
+                            {localizeCapability(
+                              capabilityId,
+                              billingCatalog.value.capabilities.find(
+                                (capability) => capability.id === capabilityId,
+                              )?.name ?? capabilityId,
+                              locale,
+                            )}
                           </li>
                         ))}
                       </ul>

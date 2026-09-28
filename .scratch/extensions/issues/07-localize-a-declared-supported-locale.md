@@ -6,7 +6,7 @@ Organization timezone semantics.
 
 **Blocked by:** Commerce 07 — Certify Commerce reconciliation and isolation.
 
-**Status:** done
+**Status:** ready-for-human
 
 - [x] Supported locale selection is explicit and has a safe fallback.
 - [x] Accessible labels, errors, and product states are covered in the locale.

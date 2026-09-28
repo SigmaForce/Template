@@ -5,6 +5,7 @@ import { createApiClient, type components } from "@saas/api-client";
 import { Button, Card, ErrorState, Select } from "@saas/ui";
 import { useEffect, useState } from "react";
 import {
+  localize,
   localizeProductState,
   type SupportedLocale,
 } from "../../../../organization-localization";
@@ -12,10 +13,6 @@ import {
 type Membership = components["schemas"]["MembershipDto"];
 type MembershipRole = Membership["role"];
 type MembershipUpdate = components["schemas"]["UpdateMembershipDto"];
-
-function text(locale: SupportedLocale, english: string, portuguese: string) {
-  return locale === "pt-BR" ? portuguese : english;
-}
 
 async function fetchMembershipPage(
   apiUrl: string,
@@ -53,7 +50,7 @@ export function OrganizationMemberships({
   organizationId: string;
 }) {
   const t = (english: string, portuguese: string) =>
-    text(locale, english, portuguese);
+    localize(locale, english, portuguese);
   const ownerRoleOptions = [
     { label: t("Owner", "Proprietário"), value: "owner" },
     { label: t("Admin", "Administrador"), value: "admin" },
@@ -77,7 +74,7 @@ export function OrganizationMemberships({
         const token = await getToken();
         if (!token)
           throw new Error(
-            text(
+            localize(
               locale,
               "Your session is unavailable. Sign in again.",
               "Sua sessão está indisponível. Entre novamente.",
@@ -87,7 +84,7 @@ export function OrganizationMemberships({
           apiUrl,
           organizationId,
           token,
-          text(
+          localize(
             locale,
             "Memberships could not be loaded.",
             "Não foi possível carregar os vínculos.",
@@ -102,7 +99,7 @@ export function OrganizationMemberships({
           setProblem(
             error instanceof Error
               ? error.message
-              : text(
+              : localize(
                   locale,
                   "Memberships could not be loaded.",
                   "Não foi possível carregar os vínculos.",

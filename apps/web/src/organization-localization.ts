@@ -38,14 +38,42 @@ export function localizeProductState(value: string, locale: SupportedLocale) {
   return locale === "pt-BR" ? (portugueseProductStates[value] ?? value) : value;
 }
 
+const portugueseCapabilities: Record<string, string> = {
+  billing: "Cobrança",
+  "organization-memberships": "Vínculos da organização",
+  "organization-settings": "Configurações da organização",
+};
+
+export function localizeCapability(
+  id: string,
+  fallbackName: string,
+  locale: SupportedLocale,
+) {
+  return locale === "pt-BR"
+    ? (portugueseCapabilities[id] ?? fallbackName)
+    : fallbackName;
+}
+
 export function formatMoney(
   money: { amountMinor: string; currency: string },
   locale: SupportedLocale,
 ) {
-  return new Intl.NumberFormat(locale, {
+  const currencyFormatter = new Intl.NumberFormat(locale, {
     currency: money.currency,
     style: "currency",
-  }).format(Number(money.amountMinor) / 100);
+  });
+  const fractionDigits =
+    currencyFormatter.resolvedOptions().maximumFractionDigits ?? 0;
+  const negative = money.amountMinor.startsWith("-");
+  const digits = (
+    negative ? money.amountMinor.slice(1) : money.amountMinor
+  ).padStart(fractionDigits + 1, "0");
+  const major = fractionDigits
+    ? `${negative ? "-" : ""}${digits.slice(0, -fractionDigits)}.${digits.slice(-fractionDigits)}`
+    : `${negative ? "-" : ""}${digits}`;
+
+  // ECMA-402 accepts exact decimal strings; TypeScript's lib type is narrower.
+  return currencyFormatter.format(major as unknown as number);
 }
 
 export function formatCivilDate(date: string, locale: SupportedLocale) {

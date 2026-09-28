@@ -62,6 +62,17 @@ export async function ensureFirstOrganization(page: Page) {
   }
 
   await page.waitForURL(/\/organizations\/[a-z0-9-]+$/);
+
+  const settings = page.locator("#settings");
+  const locale = settings.getByLabel(/Locale|Idioma/);
+  await expect(locale).toBeVisible();
+  if ((await locale.inputValue()) !== "en-US") {
+    await locale.selectOption("en-US");
+    await settings
+      .getByRole("button", { name: /Save settings|Salvar configurações/ })
+      .click();
+    await expect(page.locator("#overview")).toHaveAttribute("lang", "en-US");
+  }
 }
 
 async function ensureSecondOrganization() {
