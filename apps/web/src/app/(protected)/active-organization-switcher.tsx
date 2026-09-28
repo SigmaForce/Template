@@ -102,14 +102,14 @@ export function ActiveOrganizationSwitcher({
 
   if (!isLoaded || userMemberships.isLoading) {
     return (
-      <span className="text-sm text-muted">
+      <span className="text-sm text-muted" lang={locale}>
         {t("Loading Organizations…", "Carregando organizações…")}
       </span>
     );
   }
 
   return (
-    <div className="grid min-w-48 gap-1">
+    <div className="grid min-w-48 gap-1" lang={locale}>
       <Select
         disabled={switching || options.length === 0}
         label={t("Active Organization", "Organização ativa")}

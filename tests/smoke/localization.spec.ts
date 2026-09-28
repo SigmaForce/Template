@@ -58,9 +58,13 @@ authenticatedTest(
       await expect(
         page.getByRole("heading", { name: "Bom dia, Alex." }),
       ).toBeVisible();
+      const organizationSwitcher = page.getByRole("combobox", {
+        name: "Organização ativa",
+      });
+      await expect(organizationSwitcher).toBeVisible();
       await expect(
-        page.getByRole("combobox", { name: "Organização ativa" }),
-      ).toBeVisible();
+        organizationSwitcher.locator("xpath=ancestor::*[@lang][1]"),
+      ).toHaveAttribute("lang", "pt-BR");
       await expect(page.getByTestId("contract-example-price")).toContainText(
         /R\$\s*49,00/,
       );
